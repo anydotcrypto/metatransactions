@@ -1,0 +1,31 @@
+{
+  "scripts": {
+    "build-test": "npm run build && npm run test",
+    "build-execute": "npm run build && npm run execute",
+    "build-just": "waffle waffle.json",
+    "build": "waffle waffle.json && npm run build-types",
+    "build-types": "typechain --target ethers --outDir ./build ./build/**/*.json",
+    "execute": "ts-node src/ts/deployment.ts",
+    "test": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit"
+  },
+  "devDependencies": {
+    "@pisa-research/test-utils": "^0.1.28",
+    "@any-sender/client": "^0.2.0-beta.0",
+    "@openzeppelin/contracts": "3.0.0-beta.0",
+    "@chainlink/contracts": "0.0.3",
+    "@types/chai": "^4.2.7",
+    "@types/mocha": "^5.2.7",
+    "chai": "^4.2.0",
+    "ethereum-doppelganger": "0.0.7",
+    "ethereum-waffle": "2.3.0-istanbul.0",
+    "ethers": "^4.0.43",
+    "install": "^0.13.0",
+    "mocha": "^7.0.0",
+    "npm": "^6.13.6",
+    "ts-node": "^8.6.2",
+    "typechain": "^1.0.3",
+    "typechain-target-ethers": "^1.0.3",
+    "typescript": "^3.7.5"
+  },
+  "dependencies": {}
+}

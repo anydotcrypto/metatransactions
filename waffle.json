@@ -1,0 +1,12 @@
+{
+  "compiler": "dockerized-solc",
+  "docker-tag": "0.6.2",
+  "sourcesPath": "./src/contracts",
+  "compilerOptions": {
+    "evmVersion": "istanbul",
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    }
+  }
+}
