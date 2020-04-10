@@ -26,24 +26,25 @@ Of course, this solution cannot help existing users who sign Ethereum transactio
 
 We have a single forward function in the relay and contract hub:
 
-```    function forward(
-        address _target,
-        uint _value, // only used for accounts
-        bytes memory _callData,
-        bytes memory _replayProtection,
-        address _replayProtectionAuthority,
-        bytes memory _signature) public {
+```    
+function forward(
+   address _target,
+   uint _value, // only used for accounts
+   bytes memory _callData,
+   bytes memory _replayProtection,
+   address _replayProtectionAuthority,
+   bytes memory _signature) public {
 
-        // Assumes that ContractHub is ReplayProtection. 
-        bytes memory encodedCallData = abi.encode(_target, _value, _callData);
+   // Assumes that ContractHub is ReplayProtection. 
+   bytes memory encodedCallData = abi.encode(_target, _value, _callData);
 
-        // // Reverts if fails.
-        address signer = verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature);
+   // Reverts if fails.
+   address signer = verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature);
 
-        // Check if the user wants to send command from their contract account or signer address
-        (bool success,) = _target.call(abi.encodePacked(_callData, signer));
-        require(success, "Forwarding call failed.");
-    }
+   // Check if the user wants to send command from their contract account or signer address
+   (bool success,) = _target.call(abi.encodePacked(_callData, signer));
+   require(success, "Forwarding call failed.");
+}
 ```
 
 The data can be split into three catorgies:
@@ -82,37 +83,37 @@ The benefit of multinonce and bitflip is that we can supprot concurrent & out of
 
 In the code:
 ```
-    function verify(bytes memory _callData,
-        bytes memory _replayProtection,
-        address _replayProtectionAuthority,
-        bytes memory _signature) internal returns(address){
+function verify(bytes memory _callData,
+   bytes memory _replayProtection,
+   address _replayProtectionAuthority,
+   bytes memory _signature) internal returns(address){
 
-        // Extract signer's address.
-        address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
+   // Extract signer's address.
+   address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
 
-        // Check the user's replay protection.
-        if(_replayProtectionAuthority == address(0x0000000000000000000000000000000000000000)) {
-            // Assumes authority returns true or false. It may also revert.
-            require(nonce(signer, _replayProtection), "Multinonce replay protection failed");
-        } else if (_replayProtectionAuthority == address(0x0000000000000000000000000000000000000001)) {
-            require(bitflip(signer, _replayProtection), "Bitflip replay protection failed");
-        } else {
-            require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
-        }
+   // Check the user's replay protection.
+   if(_replayProtectionAuthority == address(0x0000000000000000000000000000000000000000)) {
+      // Assumes authority returns true or false. It may also revert.
+      require(nonce(signer, _replayProtection), "Multinonce replay protection failed");
+   } else if (_replayProtectionAuthority == address(0x0000000000000000000000000000000000000001)) {
+      require(bitflip(signer, _replayProtection), "Bitflip replay protection failed");
+   } else {
+      require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
+   }
 
-        return signer;
-    }
+   return signer;
+}
 ```
 
 As we can see, there is the concept of a Replay Protection Authority. This lets the user decide which replay protection mechanism they want to use. Both replace-by-nonce and multi-nonce can be identified by address(0), whereas bitflip by address(1). Otherwise, the relay hub will rely on an external replay protection authority that adheres to the interface. 
 
 Again, the benefit is that out-of-the-box we can supprot out-of-order transactions and in the future experiment with new replay protection emchanisms as they evolve. 
 
-### Authentication and verifying the signature .
+### Authentication and verifying the signature
 
 The signature verification code: 
 ```
-        address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
+address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
 ```
 
 We mentioned previously how to compute \_callData to verify the signature. To encode the \_replaceProtection for multi-nonce or bitflip:
@@ -127,16 +128,16 @@ To compute the signature in etherjs:
 
 ``` 
 const encodedData = defaultAbiCoder.encode(
-    ["bytes", "bytes", "address", "address", "uint"],
-    [
+   ["bytes", "bytes", "address", "address", "uint"],
+   [
       encodedCallData,
       encodedReplayProtection,
       replayProtectionAuthority,
       hubContract,
       0,
-    ]);
+   ]);
     
- const signature = await signer.signMessage(arrayify(keccak256(encodedData)));
+const signature = await signer.signMessage(arrayify(keccak256(encodedData)));
 
 ```
  
