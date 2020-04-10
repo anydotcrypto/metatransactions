@@ -1,4 +1,4 @@
-# A minimal relay hub to handle replay protection. Motivated by EIP-2585.
+# A Minimal Relay Hub (motivated by EIP-2585).
  
 The fundamental problem that we are trying to solve is that an Ethereum transaction intertwines the identiies of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is not straight forward for Alice to pay the gas fee on behalf of Bob who wants to execute a command in a smart contract. 
 
