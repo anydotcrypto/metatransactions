@@ -82,6 +82,16 @@ export class HubReplayProtection {
   }
 
   /**
+   * Fetch encoded replay protection from the authority
+   * @param signer Signer
+   */
+  public async getEncodedReplayProtection(signer: Wallet) {
+    return await this.replayProtectionAuthority.getEncodedReplayProtection(
+      signer.address,
+      this.hubContract
+    );
+  }
+  /**
    * Easy method for signing a meta-transaction. Takes care of replay protection.
    * Note it is using replace-by-nonce, and not multinonce as the "index" is always 0.
    * @param relayHubAddress Relay or Contract Hub address
@@ -90,7 +100,7 @@ export class HubReplayProtection {
    * @param value Value to send
    * @param msgSenderCall Encoded calldata
    */
-  public async getEncodedMetaTransaction(
+  public async signMetaTransaction(
     signer: Wallet,
     target: string,
     value: BigNumber,
@@ -107,29 +117,6 @@ export class HubReplayProtection {
       encodedReplayProtection,
       this.replayProtectionAuthority.getAddress()
     );
-
-    return { encodedReplayProtection, encodedData };
-  }
-
-  /**
-   * Easy method for signing a meta-transaction. Takes care of replay protection.
-   * Note it is using replace-by-nonce, and not multinonce as the "index" is always 0.
-   * @param relayHubAddress Relay or Contract Hub address
-   * @param signer Signer's wallet
-   * @param target Target contract address
-   * @param value Value to send
-   * @param msgSenderCall Encoded calldata
-   */
-  public async signMetaTransaction(
-    signer: Wallet,
-    target: string,
-    value: BigNumber,
-    callData: string
-  ) {
-    const {
-      encodedReplayProtection,
-      encodedData
-    } = await this.getEncodedMetaTransaction(signer, target, value, callData);
 
     const signature = await signer.signMessage(
       arrayify(keccak256(encodedData))

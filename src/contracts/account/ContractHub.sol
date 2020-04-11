@@ -20,7 +20,6 @@ contract ContractAccount is ReplayProtection {
         owner = _owner;
     }
 
-
     /**
      * Each signer has a contract account (signers address => contract address).
      * We check the signer has authorised the target contract and function call. Then, we pass it to the
@@ -74,7 +73,6 @@ contract ContractAccount is ReplayProtection {
         emit ContractDeployed(deployed);
     }
 
-
     /**
      * @dev Returns the address where a contract will be stored if deployed via {deploy}. Any change in the
      * `bytecodeHash` or `salt` will result in a new destination address.
@@ -86,7 +84,6 @@ contract ContractAccount is ReplayProtection {
         return address(bytes20(_data << 96));
     }
 
-    
     /**
      * Receives ETH
      */
