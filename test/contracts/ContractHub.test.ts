@@ -15,7 +15,10 @@ import {
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { HubReplayProtection, ForwardParams } from "./hub-utils";
+import {
+  HubReplayProtection,
+  ForwardParams
+} from "../../src/ts/hub-replayprotection";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -130,7 +133,10 @@ describe("ContractHubContract", () => {
 
       const contractAccountFactory = new ContractAccountFactory(owner);
       const contractAccount = contractAccountFactory.attach(contractAddress);
-      const hubReplayProtection = new HubReplayProtection(contractAccount);
+      const hubReplayProtection = HubReplayProtection.multinonce(
+        contractAccount,
+        1
+      );
 
       const params = await hubReplayProtection.signMetaTransaction(
         owner,
@@ -176,7 +182,10 @@ describe("ContractHubContract", () => {
         contractAccountAddr
       );
 
-      const hubReplayProtection = new HubReplayProtection(contractAccount);
+      const hubReplayProtection = HubReplayProtection.multinonce(
+        contractAccount,
+        1
+      );
 
       const initCode = msgSenderFactory.getDeployTransaction(
         contractHub.address
@@ -243,7 +252,10 @@ describe("ContractHubContract", () => {
         contractAccountAddr
       );
 
-      const hubReplayProtection = new HubReplayProtection(contractAccount);
+      const hubReplayProtection = HubReplayProtection.multinonce(
+        contractAccount,
+        1
+      );
 
       // Doesn't like bytecode. Meh.
       const initCode = msgSenderFactory.bytecode;

@@ -13,7 +13,7 @@ import {
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { HubReplayProtection } from "./hub-utils";
+import { HubReplayProtection } from "../../src/ts/hub-replayprotection";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -64,7 +64,7 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
       const params = await hubReplayProtection.signMetaTransaction(
         owner,
         msgSenderCon.address,
@@ -98,7 +98,7 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
 
       // Send off first transaction!
       let params = await hubReplayProtection.signMetaTransaction(
@@ -167,12 +167,11 @@ describe("RelayHubContract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const hubReplayProtection = new HubReplayProtection(relayHub);
-      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        replayProtectionAuthority,
-        relayHub.address
+        replayProtectionAuthority
       );
 
       const signature = await owner.signMessage(
@@ -215,13 +214,12 @@ describe("RelayHubContract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
 
-      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
+      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000000",
-        relayHub.address
+        "0x0000000000000000000000000000000000000000"
       );
 
       const signature = await owner.signMessage(
@@ -257,7 +255,7 @@ describe("RelayHubContract", () => {
         []
       );
 
-      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
 
       // Send off first transaction!
       let params = await hubReplayProtection.signMetaTransaction(
@@ -290,7 +288,7 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
       const params = await hubReplayProtection.signMetaTransaction(
@@ -341,12 +339,11 @@ describe("RelayHubContract", () => {
         [msgSenderCon.address, new BigNumber("0"), msgSenderCall]
       );
 
-      const hubReplayProtection = new HubReplayProtection(relayHub);
-      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        relayHub.address,
-        relayHub.address
+        bitFlipNonceStore.address
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
@@ -393,12 +390,11 @@ describe("RelayHubContract", () => {
         [msgSenderCon.address, new BigNumber("0"), msgSenderCall]
       );
 
-      const hubReplayProtection = new HubReplayProtection(relayHub);
-      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
+      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        relayHub.address,
-        relayHub.address
+        bitFlipNonceStore.address
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
