@@ -4,184 +4,265 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { keccak256, arrayify, defaultAbiCoder, BigNumber } from "ethers/utils";
 import Doppelganger from "ethereum-doppelganger";
 import { fnIt } from "@pisa-research/test-utils";
-import { IReplayProtectionJson, ContractHubFactory, BitFlipNonceStoreFactory, MsgSenderExampleFactory, ContractHub, ContractAccountFactory } from "../../src";
+import {
+  IReplayProtectionJson,
+  ContractHubFactory,
+  BitFlipNonceStoreFactory,
+  MsgSenderExampleFactory,
+  ContractHub,
+  ContractAccountFactory,
+  ContractAccount
+} from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { signMetaTransaction, updateHub, signMetaDeployment } from "./hub-utils";
+import { HubReplayProtection, ForwardParams } from "./hub-utils";
+
 const expect = chai.expect;
 chai.use(solidity);
 
-let dummyAccount: ContractHub;
-type contractHubFunctions = typeof dummyAccount.functions;
+let hubClass: ContractHub;
+let accountClass: ContractAccount;
 
-// const emptyAddress = "0x635B4764D1939DfAcD3a8014726159abC277BecC";
-
-export interface ForwardParams {
-    contractHub: string;
-    target: string;
-    value: string;
-    data: string;
-    replayProtection: string;
-    replayProtectionAuthority: string;
-    chainId: number;
-}
+type contractHubFunctions = typeof hubClass.functions;
+type accountFunctions = typeof accountClass.functions;
 
 export const constructDigest = (params: ForwardParams) => {
-    return arrayify(
-        keccak256(
-            defaultAbiCoder.encode(
-                ["address", "address", "uint", "bytes", "bytes", "address", "uint"],
-                [params.contractHub, params.target, params.value, params.data, params.replayProtection, params.replayProtectionAuthority, params.chainId]
-            )
-        )
-    );
+  return arrayify(
+    keccak256(
+      defaultAbiCoder.encode(
+        ["address", "address", "uint", "bytes", "bytes", "address", "uint"],
+        [
+          params.hub,
+          params.target,
+          params.value,
+          params.data,
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          params.chainId
+        ]
+      )
+    )
+  );
 };
 
-async function createContractHub(provider: Provider, [admin, owner, sender]: Wallet[]) {
-    const contractHubFactory = new ContractHubFactory(admin);
-    const contractHubCreationTx = contractHubFactory.getDeployTransaction();
+async function createContractHub(
+  provider: Provider,
+  [admin, owner, sender]: Wallet[]
+) {
+  const contractHubFactory = new ContractHubFactory(admin);
+  const contractHubCreationTx = contractHubFactory.getDeployTransaction();
 
-    const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
-    await nonceStoreMock.deploy(admin);
-    await nonceStoreMock.update.returns(true);
-    await nonceStoreMock.updateFor.returns(true);
+  const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
+  await nonceStoreMock.deploy(admin);
+  await nonceStoreMock.update.returns(true);
+  await nonceStoreMock.updateFor.returns(true);
 
-    const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
-    const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
+  const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
+  const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
 
-    const contractHubCreation = await admin.sendTransaction(contractHubCreationTx);
-    const result = await contractHubCreation.wait(1);
+  const contractHubCreation = await admin.sendTransaction(
+    contractHubCreationTx
+  );
+  const result = await contractHubCreation.wait(1);
 
-    const msgSenderFactory = new MsgSenderExampleFactory(admin);
-    const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
-    const contractHub = contractHubFactory.attach(result.contractAddress!);
-    updateHub(contractHub);
-    return { provider, contractHub, admin, owner, sender, msgSenderCon, nonceStoreMock, bitFlipNonceStore };
+  const msgSenderFactory = new MsgSenderExampleFactory(admin);
+  const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
+  const contractHub = contractHubFactory.attach(result.contractAddress!);
+
+  return {
+    provider,
+    contractHub,
+    admin,
+    owner,
+    sender,
+    msgSenderCon,
+    nonceStoreMock,
+    bitFlipNonceStore
+  };
 }
 
 describe("ContractHubContract", () => {
-    fnIt<contractHubFunctions>(
-        (a) => a.createContractAccount,
-        "create contract account with deterministic address",
-        async () => {
-            const { contractHub, sender } = await loadFixture(createContractHub);
+  fnIt<contractHubFunctions>(
+    a => a.createContractAccount,
+    "create contract account with deterministic address",
+    async () => {
+      const { contractHub, sender } = await loadFixture(createContractHub);
 
-            await contractHub.connect(sender).createContractAccount(sender.address);
-            const contractAddress = await contractHub.connect(sender).accounts(sender.address);
+      await contractHub.connect(sender).createContractAccount(sender.address);
+      const contractAddress = await contractHub
+        .connect(sender)
+        .accounts(sender.address);
 
-            expect(contractAddress).to.eq("0xAcC70E67808E3AAEFa90077F3d92f80c90A7988E");
-        }
-    );
+      expect(contractAddress).to.eq(
+        "0xAcC70E67808E3AAEFa90077F3d92f80c90A7988E"
+      );
+    }
+  );
 
-    fnIt<contractHubFunctions>(
-        (a) => a.createContractAccount,
-        "cannot re-create the same contract twice",
-        async () => {
-            const { contractHub, sender } = await loadFixture(createContractHub);
+  fnIt<contractHubFunctions>(
+    a => a.createContractAccount,
+    "cannot re-create the same contract twice",
+    async () => {
+      const { contractHub, sender } = await loadFixture(createContractHub);
 
-            await contractHub.connect(sender).createContractAccount(sender.address);
+      await contractHub.connect(sender).createContractAccount(sender.address);
 
-            const tx = contractHub.connect(sender).createContractAccount(sender.address);
-            await expect(tx).to.be.reverted;
-        }
-    );
+      const tx = contractHub
+        .connect(sender)
+        .createContractAccount(sender.address);
+      await expect(tx).to.be.reverted;
+    }
+  );
 
-    fnIt<contractHubFunctions>(
-        (a) => a.forward,
-        "for contractAccount emits expected address",
-        async () => {
-            const { contractHub, owner, sender, msgSenderCon, nonceStoreMock } = await loadFixture(createContractHub);
-            const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+  fnIt<accountFunctions>(
+    a => a.forward,
+    "for contractAccount emits expected address",
+    async () => {
+      const { contractHub, owner, sender, msgSenderCon } = await loadFixture(
+        createContractHub
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-            await contractHub.connect(sender).createContractAccount(owner.address);
-            const contractAddress = await contractHub.connect(sender).accounts(owner.address);
+      await contractHub.connect(sender).createContractAccount(owner.address);
+      const contractAddress = await contractHub
+        .connect(sender)
+        .accounts(owner.address);
 
-            const params = await signMetaTransaction(owner, msgSenderCon.address, new BigNumber("0"), msgSenderCall);
+      const contractAccountFactory = new ContractAccountFactory(owner);
+      const contractAccount = contractAccountFactory.attach(contractAddress);
+      const hubReplayProtection = new HubReplayProtection(contractAccount);
 
-            const tx = contractHub
-                .connect(sender)
-                .forward(params.target, params.value, params.data, params.replayProtection, params.replayProtectionAuthority, params.signature);
+      const params = await hubReplayProtection.signMetaTransaction(
+        owner,
+        msgSenderCon.address,
+        new BigNumber("0"),
+        msgSenderCall
+      );
 
-            await expect(tx).to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name).withArgs(contractAddress);
-        }
-    );
+      const tx = contractAccount
+        .connect(sender)
+        .forward(
+          params.target,
+          params.value,
+          params.data,
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          params.signature
+        );
 
-    fnIt<contractHubFunctions>(
-        (a) => a.forward,
-        "tries to target an existing contract account and fails",
-        async () => {
-            const { contractHub, owner, sender, msgSenderCon } = await loadFixture(createContractHub);
+      await expect(tx)
+        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+        .withArgs(contractAddress);
+    }
+  );
 
-            const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+  fnIt<accountFunctions>(
+    a => a.deployContract,
+    "deploys a contract via the contractHub",
+    async () => {
+      const { contractHub, owner, sender } = await loadFixture(
+        createContractHub
+      );
 
-            // In this test, we'll call the contract account (loop in) and then callout to msgSenderCall
-            await contractHub.connect(sender).createContractAccount(owner.address);
-            const contractAddress = await contractHub.connect(sender).accounts(owner.address);
-            const contractAccountFactory = new ContractAccountFactory(sender);
-            const contractAccountCon = contractAccountFactory.attach(contractAddress);
-            const contractAccountCall = contractAccountCon.interface.functions.acceptCommand.encode([msgSenderCon.address, 0, msgSenderCall]);
+      const msgSenderFactory = new MsgSenderExampleFactory(owner);
+      await contractHub.connect(sender).createContractAccount(owner.address);
 
-            const params = await signMetaTransaction(owner, contractHub.address, new BigNumber("0"), contractAccountCall);
+      const contractAccountAddr = await contractHub
+        .connect(sender)
+        .accounts(owner.address);
 
-            const tx = contractHub
-                .connect(sender)
-                .forward(params.target, params.value, params.data, params.replayProtection, params.replayProtectionAuthority, params.signature);
+      const contractAccountFactory = new ContractAccountFactory(sender);
+      const contractAccount = contractAccountFactory.attach(
+        contractAccountAddr
+      );
 
-            await expect(tx).to.be.revertedWith("Forwarding call failed.");
-        }
-    );
+      const hubReplayProtection = new HubReplayProtection(contractAccount);
 
-    fnIt<contractHubFunctions>(
-        (a) => a.deployContract,
-        "deploys a contract via the contractHub",
-        async () => {
-            const { contractHub, owner, sender } = await loadFixture(createContractHub);
+      const initCode = msgSenderFactory.getDeployTransaction(
+        contractHub.address
+      ).data! as string;
 
-            const msgSenderFactory = new MsgSenderExampleFactory(owner);
+      // Deploy the contract using CREATE2
+      const params = await hubReplayProtection.signMetaDeployment(
+        owner,
+        initCode
+      );
+      await contractAccount
+        .connect(sender)
+        .deployContract(
+          params.data,
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          params.signature
+        );
 
-            await contractHub.connect(sender).createContractAccount(owner.address);
+      // Compute deterministic address
+      const hByteCode = arrayify(keccak256(initCode));
+      const encodeToSalt = defaultAbiCoder.encode(
+        ["address", "bytes"],
+        [owner.address, params.replayProtection]
+      );
+      const salt = arrayify(keccak256(encodeToSalt));
 
-            const initCode = msgSenderFactory.getDeployTransaction(contractHub.address).data! as string;
+      // Fetch the contract on-chain instance
+      const msgSenderExampleAddress = await contractAccount
+        .connect(sender)
+        .computeAddress(salt, hByteCode);
+      const msgSenderExampleCon = msgSenderFactory.attach(
+        msgSenderExampleAddress
+      );
 
-            // Deploy the contract using CREATE2
-            const params = await signMetaDeployment(owner, initCode);
-            await contractHub.connect(sender).deployContract(params.data, params.replayProtection, params.replayProtectionAuthority, params.signature);
+      // Try executing a function - it should exist and work
+      const tx = msgSenderExampleCon.connect(sender).test();
+      await expect(tx)
+        .to.emit(
+          msgSenderExampleCon,
+          msgSenderExampleCon.interface.events.WhoIsSender.name
+        )
+        .withArgs(sender.address);
+    }
+  );
 
-            // Compute deterministic address
-            const hByteCode = arrayify(keccak256(initCode));
-            const encodeToSalt = defaultAbiCoder.encode(["address", "bytes"], [owner.address, params.replayProtection]);
-            const salt = arrayify(keccak256(encodeToSalt));
+  fnIt<accountFunctions>(
+    a => a.deployContract,
+    "deploy missing real init code and fails",
+    async () => {
+      const { contractHub, owner, sender } = await loadFixture(
+        createContractHub
+      );
 
-            // Fetch the contract on-chain instance
-            const msgSenderExampleAddress = await contractHub.connect(sender).computeAddress(salt, hByteCode);
-            const msgSenderExampleCon = msgSenderFactory.attach(msgSenderExampleAddress);
+      const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
-            // Try executing a function - it should exist and work
-            const tx = msgSenderExampleCon.connect(sender).test();
-            await expect(tx).to.emit(msgSenderExampleCon, msgSenderExampleCon.interface.events.WhoIsSender.name).withArgs(sender.address);
-        }
-    );
+      await contractHub.connect(sender).createContractAccount(owner.address);
+      const contractAccountAddr = await contractHub
+        .connect(sender)
+        .accounts(owner.address);
 
-    fnIt<contractHubFunctions>(
-        (a) => a.deployContract,
-        "deploy missing real init code and fails",
-        async () => {
-            const { contractHub, owner, sender } = await loadFixture(createContractHub);
+      const contractAccountFactory = new ContractAccountFactory(sender);
+      const contractAccount = contractAccountFactory.attach(
+        contractAccountAddr
+      );
 
-            const msgSenderFactory = new MsgSenderExampleFactory(owner);
+      const hubReplayProtection = new HubReplayProtection(contractAccount);
 
-            await contractHub.connect(sender).createContractAccount(owner.address);
+      // Doesn't like bytecode. Meh.
+      const initCode = msgSenderFactory.bytecode;
 
-            // Doesn't like bytecode. Meh.
-            const initCode = msgSenderFactory.bytecode;
+      // Deploy the contract using CREATE2
+      const params = await hubReplayProtection.signMetaDeployment(
+        owner,
+        initCode
+      );
+      const deployed = contractAccount
+        .connect(sender)
+        .deployContract(
+          params.data,
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          params.signature
+        );
 
-            // Deploy the contract using CREATE2
-            const params = await signMetaDeployment(owner, initCode);
-            const deployed = contractHub
-                .connect(sender)
-                .deployContract(params.data, params.replayProtection, params.replayProtectionAuthority, params.signature);
-
-            await expect(deployed).to.revertedWith("Create2: Failed on deploy");
-        }
-    );
+      await expect(deployed).to.revertedWith("Create2: Failed on deploy");
+    }
+  );
 });

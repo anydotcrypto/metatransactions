@@ -13,19 +13,13 @@ import {
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import {
-  signMetaTransaction,
-  getEncodedMetaTransactionToSign,
-  updateHub
-} from "./hub-utils";
+import { HubReplayProtection } from "./hub-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
 
 let dummyAccount: RelayHub;
 type relayHubFunctions = typeof dummyAccount.functions;
-
-// const emptyAddress = "0x635B4764D1939DfAcD3a8014726159abC277BecC";
 
 async function createRelayHub(
   provider: Provider,
@@ -48,7 +42,6 @@ async function createRelayHub(
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
   const relayHub = relayHubFactory.attach(result.contractAddress!);
-  updateHub(relayHub);
   return {
     provider,
     relayHub,
@@ -71,7 +64,8 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const params = await signMetaTransaction(
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const params = await hubReplayProtection.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -104,8 +98,10 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+
       // Send off first transaction!
-      let params = await signMetaTransaction(
+      let params = await hubReplayProtection.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -128,7 +124,7 @@ describe("RelayHubContract", () => {
         .withArgs(owner.address);
 
       // Send off second transaction!
-      params = await signMetaTransaction(
+      params = await hubReplayProtection.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -156,13 +152,9 @@ describe("RelayHubContract", () => {
     a => a.forward,
     "receives bad replay protection authority address and fails",
     async () => {
-      const {
-        relayHub,
-        owner,
-        sender,
-        msgSenderCon,
-        nonceStoreMock
-      } = await loadFixture(createRelayHub);
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
       const value = new BigNumber("0");
       const encodedReplayProtection = "0x";
@@ -175,7 +167,8 @@ describe("RelayHubContract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const encodedData = getEncodedMetaTransactionToSign(
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         replayProtectionAuthority,
@@ -222,7 +215,9 @@ describe("RelayHubContract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const encodedData = getEncodedMetaTransactionToSign(
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+
+      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         "0x0000000000000000000000000000000000000000",
@@ -262,8 +257,10 @@ describe("RelayHubContract", () => {
         []
       );
 
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+
       // Send off first transaction!
-      let params = await signMetaTransaction(
+      let params = await hubReplayProtection.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -293,8 +290,10 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+
       // Replay protection is always reset due to fixture. So it should be [0.0].
-      const params = await signMetaTransaction(
+      const params = await hubReplayProtection.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -342,7 +341,8 @@ describe("RelayHubContract", () => {
         [msgSenderCon.address, new BigNumber("0"), msgSenderCall]
       );
 
-      const encodedData = getEncodedMetaTransactionToSign(
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         relayHub.address,
@@ -393,7 +393,8 @@ describe("RelayHubContract", () => {
         [msgSenderCon.address, new BigNumber("0"), msgSenderCall]
       );
 
-      const encodedData = getEncodedMetaTransactionToSign(
+      const hubReplayProtection = new HubReplayProtection(relayHub);
+      const encodedData = hubReplayProtection.getEncodedMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         relayHub.address,

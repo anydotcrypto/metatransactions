@@ -29,7 +29,6 @@ contract RelayHub is ReplayProtection {
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        // Assumes that ContractHub is ReplayProtection. 
         bytes memory encodedCallData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
