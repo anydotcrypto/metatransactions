@@ -19,128 +19,102 @@ Our goal is to provide a minimal forwarder that simply handles replay protection
 - Better-than-Ethereum Replay Protection: Experiment with more exciting repay protection to support concurrent and out-of-order transactions. 
 
 Of course, this solution cannot help existing users who sign Ethereum transactions to authenticate via msg.sender for existing contracts. Going forward, it can help users who are willing to switch their identity to a contract account (msg.sender) or if contracts adopt the \_msgSender() standard. 
-
-## High-level overview of architecture [TO COMPLETE]
-
-## Forwarding calls 
-
-We have a single forward function in the relay and contract hub:
-
-```    
-function forward(
-   address _target,
-   uint _value, // only used for accounts
-   bytes memory _callData,
-   bytes memory _replayProtection,
-   address _replayProtectionAuthority,
-   bytes memory _signature) public {
-
-   // Assumes that ContractHub is ReplayProtection. 
-   bytes memory encodedCallData = abi.encode(_target, _value, _callData);
-
-   // Reverts if fails.
-   address signer = verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature);
-
-   // Check if the user wants to send command from their contract account or signer address
-   (bool success,) = _target.call(abi.encodePacked(_callData, signer));
-   require(success, "Forwarding call failed.");
-}
-```
-
-The data can be split into three catorgies:
-
-- Target contract: User wants to invoke the calldata for the target address, and possibly send V coins. 
-- Replay protection: Encoded replay protection and an address of a replay protection authority. 
-- Authentication and signature: Signature that covers the target contract, replay protectiom, chainID and the hub's address. 
-
-### Target contract
-
-Preparing the data for the target contract is straight forward. In etherjs, once we have the Contract, it is simply:
-
-```      
-const msgSenderFactory = new MsgSenderExampleFactory(admin); // Fetch the factory 
-const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!); // Deploy or attach the contract 
-const msgSenderCall = msgSenderCon.interface.functions.test.encode([]); // Fetch the function name via the interface. Arguments are provided in the []. 
-
-// Encode the calldata for the forwarder 
-const encodedCallData = defaultAbiCoder.encode(["address", "uint", "bytes"],[msgSenderCon.address, value, msgSenderCall]
-      );
-```
-Of course, encodedCallData is included in user's signature. 
-
-
-### Replay protection 
-
-We have three built-in replay protections: 
-
-- Replace-by-nonce: Nonce must strictly increment by one (similar to Ethereum)
-- Multi-nonce: The first nonce (nonce1) defines the queue and second nonce (nonce2) defines the position in the queue. 
-- Bitflip: Given a bitmap, simply flip a bit and send it in. 
-
-More in-depth information can be found about the [replay protection here](https://github.com/PISAresearch/metamask-comp). 
-
-The benefit of multinonce and bitflip is that we can supprot concurrent & out of order transactions. As well, multi-nonce can be re-purposed to provide replace-by-nonce by simply keeping nonce1 == 0.
-
-In the code:
-```
-function verify(bytes memory _callData,
-   bytes memory _replayProtection,
-   address _replayProtectionAuthority,
-   bytes memory _signature) internal returns(address){
-
-   // Extract signer's address.
-   address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
-
-   // Check the user's replay protection.
-   if(_replayProtectionAuthority == address(0x0000000000000000000000000000000000000000)) {
-      // Assumes authority returns true or false. It may also revert.
-      require(nonce(signer, _replayProtection), "Multinonce replay protection failed");
-   } else if (_replayProtectionAuthority == address(0x0000000000000000000000000000000000000001)) {
-      require(bitflip(signer, _replayProtection), "Bitflip replay protection failed");
-   } else {
-      require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
-   }
-
-   return signer;
-}
-```
-
-As we can see, there is the concept of a Replay Protection Authority. This lets the user decide which replay protection mechanism they want to use. Both replace-by-nonce and multi-nonce can be identified by address(0), whereas bitflip by address(1). Otherwise, the relay hub will rely on an external replay protection authority that adheres to the interface. 
-
-Again, the benefit is that out-of-the-box we can supprot out-of-order transactions and in the future experiment with new replay protection emchanisms as they evolve. 
-
-### Authentication and verifying the signature
-
-The signature verification code: 
-```
-address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
-```
-
-We mentioned previously how to compute \_callData to verify the signature. To encode the \_replaceProtection for multi-nonce or bitflip:
-
-
-```
-const _replayProtection = defaultAbiCoder.encode(["uint", "uint"], [nonce1, nonce2]);
-```
-The \_replayProtectionAuthority can be address(0), address(1) or an external contract address. The ChainID for mainnet is 1. 
-
-To compute the signature in etherjs:
-
-``` 
-const encodedData = defaultAbiCoder.encode(
-   ["bytes", "bytes", "address", "address", "uint"],
-   [
-      encodedCallData,
-      encodedReplayProtection,
-      replayProtectionAuthority,
-      hubContract,
-      0,
-   ]);
-    
-const signature = await signer.signMessage(arrayify(keccak256(encodedData)));
-
-```
  
+ 
+## Replay Protection Hub
+
+We have created a single class, RelayProtectionHub, that takes care of signing meta-transactions for the RelayHub / Contract Account. 
+
+It supports by default:
+- Replace by nonce (single queue)
+- Multinonce (multiple queues)
+- Bitflip 
+
+### How to set up 
+
+We will cover how to set up the RelayHub as setting up a ContractHub is very similar.
+
+To create your own relay hub: 
+```
+  const relayHubFactory = new RelayHubFactory(admin);
+  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
+  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
+  const receipt = await relayHubCreation.wait(1);
+```
+
+To connect to an existing relay hub: 
+```
+  const relayHubAddress = "0x0......";
+  const relayHubFactory = new RelayHubFactory(admin);
+  const relayHub = relayHubFactory.attach(relayHubAddress);
+```
+
+To set up the replay protection hub:
+
+```
+// Single queue 
+const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+
+// Multi queue 
+const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 10);
+
+// Bitflip
+const hubReplayProtection = HubReplayProtection.bitFlip(relayHub);
+
+```
+
+In the future, the RelayHub for Ropsten and Mainnet will be hard-coded into this library. As a developer, you will simply need to pick the appropriate replay protection. 
+
+
+### How to sign a meta-transaction 
+
+A meta-transaction has the following parameters:
+
+- Signer: The Wallet of the signer
+- Target address: The address of the target contract
+- Value: Quantity of ether to transfer (only useful for contract accounts)
+- Calldata: Encoded function to call and the appropriate data
+
+To sign a meta-transaction:
+
+```
+const callData = targetContract.interface.functions.test.encode([]);
+
+const params = await hubReplayProtection.signMetaTransaction(
+  signer,
+  targetContract.address,
+  new BigNumber("0"),
+  callData
+);
+```
+
+A list of parameters is returned which can be used to send the transaction: 
+
+```
+interface ForwardParams {
+  hub: string; // Relay hub (or contract account) address 
+  signer: string; // Signer's address
+  target: string; // Target contract address 
+  value: string; // Value to send 
+  data: string; // Calldata for target
+  replayProtection: string; // Encoded replay protection 
+  replayProtectionAuthority: string; // Address of replay protection authority 
+  chainId: number; // ChainID
+  signature: string; // Signer's signature
+}
+```
+
+To send off the meta-transaction, the relayer just needs to execute forward: 
+
+```
+const tx = relayHub.connect(sender).forward(params.target, params.value, params.data, params.replayProtection, params.replayProtectionAuthority, params.signer, params.signature);
+```
+
+While the application is alive, the last replay protection used for the signer will be remembered. If the application restarts, it will fetch the last used values from the hub contract. 
+
+Of course, be careful that there is a race condition if there is a restart while some meta-transactions are still in-flight. A future release may inspect the pending pool for the relevant data, but for 99% of cases it is not necessary. 
+
+
 ## How to build and test
  
 We need to install the NPM packages:
