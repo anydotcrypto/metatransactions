@@ -1,4 +1,11 @@
 {
+  "name": "@anydotcrypto/metatransactions",
+  "version": "0.0.1",
+  "description": "A minimal approach for meta-transaction support.",
+  "main": "build/index.js",
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build-test": "npm run build && npm run test",
     "build-execute": "npm run build && npm run execute",
@@ -29,5 +36,7 @@
     "typechain-target-ethers": "^1.0.3",
     "typescript": "^3.7.5"
   },
-  "dependencies": {}
+  "dependencies": {
+    "np": "^6.2.1"
+  }
 }
