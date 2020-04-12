@@ -4,6 +4,7 @@ import { Contract } from "ethers";
 import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotection";
 import { BitFlip } from "./bitflip";
+import { ContractHub } from "../../build/ContractHub";
 
 export interface ForwardParams {
   hub: string;
@@ -22,6 +23,7 @@ export interface ForwardParams {
  * replay protection.
  */
 export class HubReplayProtection {
+  private chainId: BigNumber;
   /**
    * Multi-nonce replay protection
    * @param hubContract RelayHub or ContractAccount
@@ -106,7 +108,6 @@ export class HubReplayProtection {
   /**
    * Easy method for signing a meta-transaction. Takes care of replay protection.
    * Note it is using replace-by-nonce, and not multinonce as the "index" is always 0.
-   * @param relayHubAddress Relay or Contract Hub address
    * @param signer Signer's wallet
    * @param target Target contract address
    * @param value Value to send
@@ -118,6 +119,11 @@ export class HubReplayProtection {
     value: BigNumber,
     callData: string
   ) {
+    // Fetch chain ID
+    if (!this.chainId) {
+      this.chainId = await this.hubContract.connect(signer).getChainID();
+    }
+
     // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
       signer.address
@@ -132,15 +138,18 @@ export class HubReplayProtection {
     const signature = await signer.signMessage(
       arrayify(keccak256(encodedData))
     );
+
+    let hubAddress = this.hubContract.address;
+
     const params: ForwardParams = {
-      hub: this.hubContract.address,
+      hub: hubAddress,
       signer: signer.address,
       target: target,
       value: value.toString(),
       data: callData,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: 0,
+      chainId: this.chainId.toNumber(),
       signature: signature
     };
 
@@ -157,6 +166,10 @@ export class HubReplayProtection {
    * @param msgSenderCall Encoded calldata
    */
   public async signMetaDeployment(signer: Wallet, initCode: string) {
+    // Fetch chain ID
+    if (!this.chainId) {
+      this.chainId = await this.hubContract.connect(signer).getChainID();
+    }
     // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
       signer.address
@@ -180,7 +193,7 @@ export class HubReplayProtection {
       data: initCode,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: 0,
+      chainId: this.chainId.toNumber(),
       signature: signature
     };
 
