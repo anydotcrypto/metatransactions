@@ -19,6 +19,7 @@ contract RelayHub is ReplayProtection {
      * @param _callData Function name plus arguments
      * @param _replayProtection Replay protection (e.g. multinonce)
      * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * @param _signer Signer's address
      * @param _signature Signature from signer
      */
     function forward(
@@ -27,15 +28,17 @@ contract RelayHub is ReplayProtection {
         bytes memory _callData,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
+        address _signer,
         bytes memory _signature) public {
 
         bytes memory encodedCallData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
-        address signer = verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature);
+        require(_signer == verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature),
+        "Signer did not sign this meta-transaction.");
 
         // Check if the user wants to send command from their contract account or signer address
-        (bool success,) = _target.call(abi.encodePacked(_callData, signer));
+        (bool success,) = _target.call(abi.encodePacked(_callData, _signer));
         require(success, "Forwarding call failed.");
     }
 

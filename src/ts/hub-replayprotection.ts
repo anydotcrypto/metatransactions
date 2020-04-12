@@ -3,6 +3,7 @@ import { Wallet } from "ethers/wallet";
 import { Contract } from "ethers";
 import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotection";
+import { BitFlip } from "./bitflip";
 
 export interface ForwardParams {
   hub: string;
@@ -31,6 +32,15 @@ export class HubReplayProtection {
       hubContract,
       new MultiNonce(hubContract, concurrency)
     );
+  }
+
+  /**
+   * Multi-nonce replay protection
+   * @param hubContract RelayHub or ContractAccount
+   * @param concurrency Up to N concurrent transactions at a time
+   */
+  public static bitFlip(hubContract: Contract) {
+    return new HubReplayProtection(hubContract, new BitFlip(hubContract));
   }
 
   /**
@@ -90,8 +100,7 @@ export class HubReplayProtection {
    */
   public async getEncodedReplayProtection(signer: Wallet) {
     return await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address,
-      this.hubContract
+      signer.address
     );
   }
   /**
@@ -111,8 +120,7 @@ export class HubReplayProtection {
   ) {
     // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address,
-      this.hubContract
+      signer.address
     );
     const encodedCallData = this.getEncodedCallData(target, value, callData);
     const encodedData = this.encodeMetaTransactionToSign(
@@ -151,9 +159,9 @@ export class HubReplayProtection {
   public async signMetaDeployment(signer: Wallet, initCode: string) {
     // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address,
-      this.hubContract
+      signer.address
     );
+
     const encodedData = this.encodeMetaTransactionToSign(
       initCode,
       encodedReplayProtection,

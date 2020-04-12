@@ -80,6 +80,7 @@ describe("RelayHubContract", () => {
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
+          params.signer,
           params.signature
         );
 
@@ -116,6 +117,7 @@ describe("RelayHubContract", () => {
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
+          params.signer,
           params.signature
         );
 
@@ -139,6 +141,7 @@ describe("RelayHubContract", () => {
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
+          params.signer,
           params.signature
         );
 
@@ -186,6 +189,7 @@ describe("RelayHubContract", () => {
           encodedCallData,
           encodedReplayProtection,
           replayProtectionAuthority,
+          owner.address,
           signature
         );
 
@@ -234,6 +238,7 @@ describe("RelayHubContract", () => {
           encodedCallData,
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
+          owner.address,
           signature
         );
 
@@ -273,6 +278,7 @@ describe("RelayHubContract", () => {
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
+          params.signer,
           params.signature
         );
       await expect(tx).to.be.revertedWith("Forwarding call failed.");
@@ -306,12 +312,12 @@ describe("RelayHubContract", () => {
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
+          params.signer,
           "0x0000000000000000000000000000000000000000"
         );
 
-      await expect(tx).to.emit(
-        msgSenderCon,
-        msgSenderCon.interface.events.WhoIsSender.name
+      await expect(tx).to.revertedWith(
+        "Signer did not sign this meta-transaction."
       );
     }
   );
@@ -357,6 +363,7 @@ describe("RelayHubContract", () => {
           msgSenderCall,
           encodedReplayProtection,
           bitFlipNonceStore.address,
+          owner.address,
           signature
         );
 
@@ -408,6 +415,7 @@ describe("RelayHubContract", () => {
           msgSenderCall,
           encodedReplayProtection,
           bitFlipNonceStore.address,
+          owner.address,
           signature
         );
 
@@ -424,10 +432,69 @@ describe("RelayHubContract", () => {
           msgSenderCall,
           encodedReplayProtection,
           bitFlipNonceStore.address,
+          owner.address,
           signature
         );
 
       await expect(tx2).to.be.revertedWith("Nonce already used.");
+    }
+  );
+
+  fnIt<relayHubFunctions>(
+    a => a.forward,
+    "for msgSender emits expected signer address twice with inbuilt bitflip protection",
+    async () => {
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+
+      const hubReplayProtection = HubReplayProtection.bitFlip(relayHub);
+      const params1 = await hubReplayProtection.signMetaTransaction(
+        owner,
+        msgSenderCon.address,
+        new BigNumber("0"),
+        msgSenderCall
+      );
+
+      const tx1 = relayHub
+        .connect(sender)
+        .forward(
+          params1.target,
+          params1.value,
+          params1.data,
+          params1.replayProtection,
+          params1.replayProtectionAuthority,
+          params1.signer,
+          params1.signature
+        );
+
+      await expect(tx1)
+        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+        .withArgs(owner.address);
+
+      const params2 = await hubReplayProtection.signMetaTransaction(
+        owner,
+        msgSenderCon.address,
+        new BigNumber("0"),
+        msgSenderCall
+      );
+
+      const tx2 = relayHub
+        .connect(sender)
+        .forward(
+          params2.target,
+          params2.value,
+          params2.data,
+          params2.replayProtection,
+          params2.replayProtectionAuthority,
+          params2.signer,
+          params2.signature
+        );
+
+      await expect(tx2)
+        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+        .withArgs(owner.address);
     }
   );
 });
