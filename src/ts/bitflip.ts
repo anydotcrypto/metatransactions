@@ -1,14 +1,14 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Contract } from "ethers";
-import { Nonces, ReplayProtectionAuthority } from "./replayprotection";
+import { ReplayProtectionAuthority } from "./replayprotection";
 import { wait } from "@pisa-research/test-utils";
+import BN from "bn.js";
 
 export class BitFlip extends ReplayProtectionAuthority {
-  indexTracker: Map<string, BigNumber>; // Keep track of bitmap index
-  bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
-  lastHubAddress: string;
+  private indexTracker: Map<string, BigNumber>; // Keep track of bitmap index
+  private bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
 
-  constructor() {
+  constructor(private readonly hubContract: Contract) {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.bitmapTracker = new Map<string, BigNumber>();
@@ -20,63 +20,68 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param hubContract RelayHub or ContractAccount
    * @param searchFrom Starting bitmap index
    */
-  private async searchBitmaps(signerAddress: string, hubContract: Contract) {
+  private async searchBitmaps(signerAddress: string) {
     let foundEmptyBit = false;
+    let index = this.indexTracker.get(signerAddress);
+    let bitmap = this.bitmapTracker.get(signerAddress);
     let bitToFlip = new BigNumber("0");
 
-    // Get the first index
-    let searchFrom = this.indexTracker.get(signerAddress);
-    if (!searchFrom) {
-      searchFrom = new BigNumber("0");
+    // Lets confirm they are defined
+    if (!index || !bitmap) {
+      index = new BigNumber("6174");
+      bitmap = await this.accessHubNonceStore(
+        signerAddress,
+        index,
+        this.hubContract
+      );
     }
-
-    // Search through bitmaps stored on-chain
-    // To find one with an empty bit.
-    // This might take awhile for popular wallets.
-    // Weneed to consider an API that lets the developer
-    // pre-set the "searchFrom".
     while (!foundEmptyBit) {
       try {
-        const bitmap = await this.accessHubNonceStore(
-          signerAddress,
-          searchFrom,
-          hubContract
-        );
-
-        // Find index of empty bit
+        // Try to find an empty bit
         bitToFlip = this.findEmptyBit(bitmap);
 
-        // Did we find out? -1 implies not found.
+        // Did we find one?
         if (bitToFlip.eq(new BigNumber("-1"))) {
-          searchFrom = searchFrom.add(1);
+          // No, let's try the next bitmap
+          index = index.add(1);
+          bitmap = await this.accessHubNonceStore(
+            signerAddress,
+            index,
+            this.hubContract
+          );
         } else {
+          // We found an empty bit
           foundEmptyBit = true;
 
-          // Record new index
-          this.indexTracker.set(signerAddress, searchFrom);
-
-          // Lets flip it internally and keep track of it.
+          // Keep track of index and new flipped bitmap
+          this.indexTracker.set(signerAddress, index);
           const flipped = this.flipBit(bitmap, bitToFlip);
           this.bitmapTracker.set(signerAddress, flipped);
         }
       } catch (e) {
-        // Possibly an infura rate-limiting error, hold back and try again.
-        await wait(1000);
+        // Likely an error from infura, lets hold back and try again.
+        await wait(500);
       }
     }
 
-    return { index: searchFrom, bitToFlip };
+    return { index, bitToFlip };
   }
   /**
    * A simple function that returns the index of the first 0 bit in the bitmap.
    * @param bitmap Bitmap to find an empty bit.
    */
-  private findEmptyBit(bitmap: BigNumber) {
+  public findEmptyBit(bitmap: BigNumber) {
+    const emptyBitmap = new BigNumber("0");
     for (let i = 0; i < 256; i++) {
-      const flipped = this.flipBit(bitmap, new BigNumber(i));
+      const flipped = this.flipBit(emptyBitmap, new BigNumber(i));
 
-      // TODO: This might blow up if bitmap is full. Need to think of how to do it without .toNumber()
-      if ((bitmap.toNumber() & flipped.toNumber()) != flipped.toNumber()) {
+      // Convert BigNumber to BN
+      const bitmapBN = new BN(bitmap.toString());
+      const flippedBN = new BN(flipped.toString());
+
+      // bitmap & flipped = flipped'
+      // If flipped' is 0, then neither bitmap or flipped shared a flipped bit.
+      if (bitmapBN.and(flippedBN).eq(new BN("0"))) {
         return new BigNumber(i);
       }
     }
@@ -88,48 +93,8 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param bits 256 bits
    * @param toFlip index to flip (0,...,255)
    */
-  private flipBit(bits: BigNumber, bitToFlip: BigNumber): BigNumber {
+  public flipBit(bits: BigNumber, bitToFlip: BigNumber): BigNumber {
     return new BigNumber(bits).add(new BigNumber(2).pow(bitToFlip));
-  }
-
-  /**
-   * Fetch latest nonce we can use for the replay protection. It is either taken
-   * from the contract directoy or what we have kept in memory.
-   * We assume that a transaction is immediately broadcasted if this function is called.
-   * @param signer Signer's address
-   * @param contractAddress Relay contract's address
-   * @param index Concurrency index for reply protection
-   */
-  private async getBitToFlip(
-    signerAddress: string,
-    hubContract: Contract
-  ): Promise<Nonces> {
-    // Try using a recently fetched bitmap.
-    if (
-      this.indexTracker.has(signerAddress) &&
-      this.bitmapTracker.has(signerAddress)
-    ) {
-      const recordedIndex = this.indexTracker.get(signerAddress)!;
-      const recordedBitmap = this.bitmapTracker.get(signerAddress)!;
-      const bitToFlip = this.findEmptyBit(recordedBitmap);
-
-      // Did we find an empty bit?
-      if (!bitToFlip.eq(new BigNumber("-1"))) {
-        // Lets flip it internally and keep track of it.
-        const flipped = this.flipBit(recordedBitmap, bitToFlip);
-        this.bitmapTracker.set(signerAddress, flipped);
-
-        return { index: recordedIndex, latestNonce: bitToFlip };
-      }
-    }
-    // Find the next empty bit.
-    // Note; searchBitmaps auto-updates the indexTracker, so we don't have too.
-    const { index, bitToFlip } = await this.searchBitmaps(
-      signerAddress,
-      hubContract
-    );
-
-    return { index, latestNonce: bitToFlip };
   }
 
   /**
@@ -139,15 +104,9 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    * @param hubContract RelayHub or ContractAccount
    */
-  public async getEncodedReplayProtection(
-    signerAddress: string,
-    hubContract: Contract
-  ) {
-    const nonces: Nonces = await this.getBitToFlip(signerAddress, hubContract);
-    return defaultAbiCoder.encode(
-      ["uint", "uint"],
-      [nonces.index, nonces.latestNonce]
-    );
+  public async getEncodedReplayProtection(signerAddress: string) {
+    const { index, bitToFlip } = await this.searchBitmaps(signerAddress);
+    return defaultAbiCoder.encode(["uint", "uint"], [index, bitToFlip]);
   }
 
   /**

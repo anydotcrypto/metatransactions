@@ -27,7 +27,10 @@ export class HubReplayProtection {
    * @param concurrency Up to N concurrent transactions at a time
    */
   public static multinonce(hubContract: Contract, concurrency: number) {
-    return new HubReplayProtection(hubContract, new MultiNonce(concurrency));
+    return new HubReplayProtection(
+      hubContract,
+      new MultiNonce(hubContract, concurrency)
+    );
   }
 
   /**

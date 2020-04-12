@@ -96,7 +96,7 @@ contract ReplayProtection {
 
         // It is unlikely that anyone will need to send 6174 concurrent transactions per block,
         // plus 6174 is a cool af number.
-        require(nonce1 > 6174, "Nonce1 must be at least 6174 to separate multinonce and bitflip");
+        require(nonce1 >= 6174, "Nonce1 must be at least 6174 to separate multinonce and bitflip");
 
         // Combine with msg.sender to get unique indexes per caller
         bytes32 senderIndex = keccak256(abi.encodePacked(_signer, nonce1));

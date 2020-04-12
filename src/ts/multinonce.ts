@@ -5,9 +5,11 @@ import { Nonces, ReplayProtectionAuthority } from "./replayprotection";
 export class MultiNonce extends ReplayProtectionAuthority {
   indexTracker: Map<string, BigNumber>;
   nonceTracker: Map<string, BigNumber>;
-  lastHubAddress: string;
 
-  constructor(private readonly concurrency: number) {
+  constructor(
+    private readonly hubContract: Contract,
+    private readonly concurrency: number
+  ) {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.nonceTracker = new Map<string, BigNumber>();
@@ -21,10 +23,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
    * @param contractAddress Relay contract's address
    * @param index Concurrency index for reply protection
    */
-  private async getLatestMultiNonce(
-    signerAddress: string,
-    hubContract: Contract
-  ): Promise<Nonces> {
+  private async getLatestMultiNonce(signerAddress: string): Promise<Nonces> {
     // By default, we cycle through each queue.
     // So we maximise concurrency, not ordered transactions.
     // Easy way to achieve order is simply to set concurrency == 1.
@@ -55,7 +54,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
       const latestNonce: BigNumber = await this.accessHubNonceStore(
         signerAddress,
         index,
-        hubContract
+        this.hubContract
       );
 
       // Increment it our store, so we know to serve it.
@@ -71,14 +70,8 @@ export class MultiNonce extends ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    * @param hubContract RelayHub or ContractAccount
    */
-  public async getEncodedReplayProtection(
-    signerAddress: string,
-    hubContract: Contract
-  ) {
-    const nonces: Nonces = await this.getLatestMultiNonce(
-      signerAddress,
-      hubContract
-    );
+  public async getEncodedReplayProtection(signerAddress: string) {
+    const nonces: Nonces = await this.getLatestMultiNonce(signerAddress);
     return defaultAbiCoder.encode(
       ["uint", "uint"],
       [nonces.index, nonces.latestNonce]
