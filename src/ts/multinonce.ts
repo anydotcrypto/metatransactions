@@ -1,6 +1,6 @@
 import { defaultAbiCoder, BigNumber, keccak256 } from "ethers/utils";
 import { Contract } from "ethers";
-import { Nonces, ReplayProtectionAuthority } from "./replayprotection";
+import { ReplayProtectionAuthority } from "./replayprotection";
 
 export class MultiNonce extends ReplayProtectionAuthority {
   indexTracker: Map<string, BigNumber>;
