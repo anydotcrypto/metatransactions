@@ -1,8 +1,9 @@
 {
   "name": "@anydotcrypto/metatransactions",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "A minimal approach for meta-transaction support.",
   "main": "build/index.js",
+  "types": "build/index.d.ts",
   "files": [
     "build"
   ],
@@ -13,13 +14,14 @@
     "build": "waffle waffle.json && npm run build-types",
     "build-types": "typechain --target ethers --outDir ./build ./build/**/*.json",
     "execute": "ts-node src/ts/deployment.ts",
-    "test": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit"
+    "test": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
+    "prepublish": "tsc"
   },
   "devDependencies": {
     "@any-sender/client": "^0.2.0-beta.0",
     "@chainlink/contracts": "0.0.3",
     "@openzeppelin/contracts": "3.0.0-beta.0",
-    "@pisa-research/test-utils": "^0.1.28",
+    "@pisa-research/test-utils": "^0.1.36",
     "@types/bn.js": "^4.11.6",
     "@types/chai": "^4.2.7",
     "@types/chai-as-promised": "^7.1.2",
@@ -32,13 +34,12 @@
     "ethers": "^4.0.43",
     "install": "^0.13.0",
     "mocha": "^7.0.0",
-    "npm": "^6.13.6",
-    "ts-node": "^8.6.2",
+    "np": "^6.2.1",
+    "npm": "^6.14.4",
+    "ts-node": "^8.8.2",
     "typechain": "^1.0.3",
-    "typechain-target-ethers": "^1.0.3",
+    "typechain-target-ethers": "^1.0.4",
     "typescript": "^3.7.5"
   },
-  "dependencies": {
-    "np": "^6.2.1"
-  }
+  "dependencies": {}
 }
