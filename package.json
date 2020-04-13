@@ -1,6 +1,6 @@
 {
   "name": "@anydotcrypto/metatransactions",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A minimal approach for meta-transaction support.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
