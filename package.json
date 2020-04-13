@@ -2,8 +2,12 @@
   "name": "@anydotcrypto/metatransactions",
   "version": "0.0.3-0",
   "description": "A minimal approach for meta-transaction support.",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dit/index.d.ts",
+  "directories": {
+    "lib": "dist",
+    "test": "test"
+  },
   "files": [
     "dist"
   ],
@@ -12,7 +16,7 @@
     "build-execute": "npm run build && npm run execute",
     "build-just": "waffle waffle.json",
     "build": "waffle waffle.json && npm run build-types",
-    "build-types": "typechain --target ethers --outDir ./build ./build/**/*.json",
+    "build-types": "typechain --target ethers --outDir ./build ./build/**/*.json && tsc -p tsconfig.json && cp -r ./build/* ./dist/build && cp -r ./src/contracts ./dist/src/contracts",
     "execute": "ts-node src/ts/deployment.ts",
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run runtest -- --timeout='30000'",
