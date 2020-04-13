@@ -4,6 +4,12 @@ import { ReplayProtectionAuthority } from "./replayprotection";
 import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
 
+/**
+ * We re-purpose the on-chai nonce (uint) as a bitmap
+ * and simply flip bits in the map. It only supports
+ * concurrent transactions (e.g. processing 1000 withdrawals, order
+ * does not matter).
+ */
 export class BitFlip extends ReplayProtectionAuthority {
   private indexTracker: Map<string, BigNumber>; // Keep track of bitmap index
   private bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
@@ -17,7 +23,7 @@ export class BitFlip extends ReplayProtectionAuthority {
   /**
    * Search through all bitmaps stored in the contract until we find an empty bit.
    * @param signerAddress Signer's address
-   * @param hubContract RelayHub or ContractAccount
+   * @param hubContract RelayHub or ProxyAccount
    * @param searchFrom Starting bitmap index
    */
   private async searchBitmaps(signerAddress: string) {
@@ -28,8 +34,8 @@ export class BitFlip extends ReplayProtectionAuthority {
 
     // Lets confirm they are defined
     if (!index || !bitmap) {
-      index = new BigNumber("6174");
-      bitmap = await this.accessHubNonceStore(
+      index = new BigNumber("6174"); // Magic number to separate MultiNonce and BitFlip
+      bitmap = await this.accessNonceStore(
         signerAddress,
         index,
         this.hubContract
@@ -44,7 +50,7 @@ export class BitFlip extends ReplayProtectionAuthority {
         if (bitToFlip.eq(new BigNumber("-1"))) {
           // No, let's try the next bitmap
           index = index.add(1);
-          bitmap = await this.accessHubNonceStore(
+          bitmap = await this.accessNonceStore(
             signerAddress,
             index,
             this.hubContract
@@ -102,7 +108,7 @@ export class BitFlip extends ReplayProtectionAuthority {
    * Note: If the contract address changes, we will refresh the nonce tracker
    * and freshly request new nonces from the network.
    * @param signerAddress Signer's address
-   * @param hubContract RelayHub or ContractAccount
+   * @param hubContract RelayHub or Proxy Account
    */
   public async getEncodedReplayProtection(signerAddress: string) {
     const { index, bitToFlip } = await this.searchBitmaps(signerAddress);

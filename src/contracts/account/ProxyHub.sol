@@ -7,10 +7,10 @@ import "./ReplayProtection.sol";
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ContractAccount is ReplayProtection {
+contract ProxyAccount is ReplayProtection {
 
     address owner;
-    event ContractDeployed(address addr);
+    event ProxyContractDeployed(address addr);
 
     /**
      * Due to create clone, we need to use an init() method.
@@ -21,9 +21,9 @@ contract ContractAccount is ReplayProtection {
     }
 
     /**
-     * Each signer has a contract account (signers address => contract address).
+     * Each signer has a proxy account (signers address => contract address).
      * We check the signer has authorised the target contract and function call. Then, we pass it to the
-     * signer's contract account to perform the final execution (to help us bypass msg.sender problem).
+     * signer's proxy account to perform the final execution (to help us bypass msg.sender problem).
      * @param _target Target contract
      * @param _value Quantity of eth in account contract to send to target
      * @param _callData Function name plus arguments
@@ -39,14 +39,14 @@ contract ContractAccount is ReplayProtection {
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        // Assumes that ContractHub is ReplayProtection. 
+        // Assumes that ProxyHub is ReplayProtection. 
         bytes memory encodedData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature));
 
-        // No need to check _target account since it will jump into the signer's contract account first.
-        // e.g. we can never perform a .call() from ContractHub directly.
+        // No need to check _target account since it will jump into the signer's proxy account first.
+        // e.g. we can never perform a .call() from ProxyHub directly.
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));
         require(success, "Forwarding call failed.");
     }
@@ -70,7 +70,7 @@ contract ContractAccount is ReplayProtection {
         // We can just abuse the replay protection as the salt :)
         address deployed = Create2.deploy(keccak256(abi.encode(owner, _replayProtection)), _initCode);
 
-        emit ContractDeployed(deployed);
+        emit ProxyContractDeployed(deployed);
     }
 
     /**
@@ -96,7 +96,7 @@ contract ContractAccount is ReplayProtection {
  * Verifies the signer's signature and replay protection before forwarding calldata to the target.
  * Delegates nonce verification to another contract.
  */
-contract ContractHub is ReplayProtection {
+contract ProxyHub is ReplayProtection {
 
     // TOOD:We can remove map once we can deterministically compute
     // address and verify that it exists on-chain.
@@ -107,8 +107,8 @@ contract ContractHub is ReplayProtection {
      * Creates base Account for contracts
      */
     constructor() public {
-        baseAccount = address(new ContractAccount());
-        ContractAccount(baseAccount).init(address(this));
+        baseAccount = address(new ProxyAccount());
+        ProxyAccount(baseAccount).init(address(this));
     }
 
     /**
@@ -116,13 +116,13 @@ contract ContractHub is ReplayProtection {
      * There is only "one type" of account - does not really matter if signer authorised it.
      * @param _signer User's signing key
      */
-    function createContractAccount(address _signer) public {
+    function createProxyAccount(address _signer) public {
         require(accounts[_signer] == address(0), "Cannot install more than one account per signer");
         bytes32 salt = keccak256(abi.encodePacked(_signer));
         address payable clone = createClone(salt);
         accounts[_signer] = clone;
         // Initialize it with signer's address
-        ContractAccount(clone).init(_signer);
+        ProxyAccount(clone).init(_signer);
     }
 
     /**

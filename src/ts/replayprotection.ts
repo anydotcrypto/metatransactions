@@ -24,7 +24,8 @@ export abstract class ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    */
   abstract async getEncodedReplayProtection(
-    signerAddress: string
+    signerAddress: string,
+    hubContract: Contract
   ): Promise<string>;
 
   /**
@@ -35,7 +36,7 @@ export abstract class ReplayProtectionAuthority {
    * @param index Index in Nonce Store
    * @param hubContract Hub Contract
    */
-  protected async accessHubNonceStore(
+  protected async accessNonceStore(
     signerAddress: string,
     index: BigNumber,
     hubContract: Contract

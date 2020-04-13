@@ -4,7 +4,7 @@ import { Contract } from "ethers";
 import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotection";
 import { BitFlip } from "./bitflip";
-import { ContractHub } from "../../build/ContractHub";
+import { ProxyAccountFactory } from "../../build/ProxyAccountFactory";
 
 export interface ForwardParams {
   hub: string;
@@ -24,9 +24,10 @@ export interface ForwardParams {
  */
 export class HubReplayProtection {
   private chainId: BigNumber;
+
   /**
    * Multi-nonce replay protection
-   * @param hubContract RelayHub or ContractAccount
+   * @param hubContract RelayHub, ProxyHub or ProxyAccount
    * @param concurrency Up to N concurrent transactions at a time
    */
   public static multinonce(hubContract: Contract, concurrency: number) {
@@ -38,7 +39,7 @@ export class HubReplayProtection {
 
   /**
    * Multi-nonce replay protection
-   * @param hubContract RelayHub or ContractAccount
+   * @param hubContract RelayHub, ProxyHub or ProxyAccount
    * @param concurrency Up to N concurrent transactions at a time
    */
   public static bitFlip(hubContract: Contract) {
@@ -47,7 +48,7 @@ export class HubReplayProtection {
 
   /**
    * Initialize replay protection with replay-by-nonce
-   * @param hubContract RelayHub or ContractAccount
+   * @param hubContract RelayHub, ProxyHub or ProxyAccount
    */
   constructor(
     private readonly hubContract: Contract,
@@ -80,7 +81,8 @@ export class HubReplayProtection {
   public encodeMetaTransactionToSign(
     encodedCallData: string,
     encodedReplayProtection: string,
-    replayProtectionAuthority: string
+    replayProtectionAuthority: string,
+    proxyContract: Contract
   ): string {
     // We expect encoded call data to include target contract address, the value, and the callData.
     // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
@@ -90,7 +92,7 @@ export class HubReplayProtection {
         encodedCallData,
         encodedReplayProtection,
         replayProtectionAuthority,
-        this.hubContract.address,
+        proxyContract.address,
         0
       ]
     );
@@ -100,14 +102,47 @@ export class HubReplayProtection {
    * Fetch encoded replay protection from the authority
    * @param signer Signer
    */
-  public async getEncodedReplayProtection(signer: Wallet) {
+  public async getEncodedReplayProtection(
+    signer: Wallet,
+    hubContract: Contract
+  ) {
     return await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address
+      signer.address,
+      hubContract
     );
   }
+
   /**
-   * Easy method for signing a meta-transaction. Takes care of replay protection.
-   * Note it is using replace-by-nonce, and not multinonce as the "index" is always 0.
+   * If it is a ContractHub, we will fetch the signer's contract account address.
+   * Otherwise, return address as normal (Relay Hub or Contract Account)
+   * @param signer Signer's wallet
+   */
+  public async getHub(signer: Wallet) {
+    // Fetch chain ID
+    if (!this.chainId) {
+      this.chainId = await this.hubContract.connect(signer).getChainID();
+    }
+
+    // Are we handling a contract hub?
+    if (this.hubContract.accounts) {
+      // Let's fetch the relevant proxy contract
+      const proxyAccountAddr = await this.hubContract.accounts(signer.address);
+
+      // Confirm the proxy account exists.
+      if (proxyAccountAddr === "0x0000000000000000000000000000000000000000") {
+        throw new Error("Contract account does not exist.");
+      }
+
+      const proxyAccountFactory = new ProxyAccountFactory(signer);
+      const hub = proxyAccountFactory.attach(proxyAccountAddr);
+
+      return hub;
+    }
+
+    return this.hubContract;
+  }
+  /**
+   * Easy method for signing a meta-transaction. Takes care of replay protection.]
    * @param signer Signer's wallet
    * @param target Target contract address
    * @param value Value to send
@@ -119,30 +154,27 @@ export class HubReplayProtection {
     value: BigNumber,
     callData: string
   ) {
-    // Fetch chain ID
-    if (!this.chainId) {
-      this.chainId = await this.hubContract.connect(signer).getChainID();
-    }
+    const hub = await this.getHub(signer);
 
     // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address
+      signer.address,
+      hub
     );
     const encodedCallData = this.getEncodedCallData(target, value, callData);
     const encodedData = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress()
+      this.replayProtectionAuthority.getAddress(),
+      hub
     );
 
     const signature = await signer.signMessage(
       arrayify(keccak256(encodedData))
     );
 
-    let hubAddress = this.hubContract.address;
-
     const params: ForwardParams = {
-      hub: hubAddress,
+      hub: hub.address,
       signer: signer.address,
       target: target,
       value: value.toString(),
@@ -166,19 +198,19 @@ export class HubReplayProtection {
    * @param msgSenderCall Encoded calldata
    */
   public async signMetaDeployment(signer: Wallet, initCode: string) {
-    // Fetch chain ID
-    if (!this.chainId) {
-      this.chainId = await this.hubContract.connect(signer).getChainID();
-    }
+    const hub = await this.getHub(signer);
+
     // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address
+      signer.address,
+      hub
     );
 
     const encodedData = this.encodeMetaTransactionToSign(
       initCode,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress()
+      this.replayProtectionAuthority.getAddress(),
+      hub
     );
 
     const signature = await signer.signMessage(
@@ -186,7 +218,7 @@ export class HubReplayProtection {
     );
 
     const params: ForwardParams = {
-      hub: this.hubContract.address,
+      hub: hub.address,
       signer: signer.address,
       target: "0x0000000000000000000000000000000000000000",
       value: "0",
@@ -198,5 +230,97 @@ export class HubReplayProtection {
     };
 
     return params;
+  }
+
+  /**
+   * Returns the encoded calldata. This lets a relayer
+   * to .call() into the RelayHub before .call() into the Target contract.
+   * @param params Forward parameters
+   */
+  public async encodeForwardParams(relayer: Wallet, params: ForwardParams) {
+    let hub = this.hubContract;
+
+    // Fetch the relevant contract account
+    // instanceof doesn't work becaue js is poo
+    if (this.hubContract.accounts) {
+      const proxyAccountAddr = await this.hubContract.accounts(params.signer);
+      const factory = new ProxyAccountFactory(relayer);
+      hub = factory.attach(proxyAccountAddr);
+    }
+
+    if (hub.init) {
+      // Must be a contract account
+      const callData = hub.interface.functions.forward.encode([
+        params.target,
+        params.value,
+        params.data,
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signature
+      ]);
+
+      return callData;
+    }
+
+    // Send via the relay hub
+    const callData = hub.interface.functions.forward.encode([
+      params.target,
+      params.value,
+      params.data,
+      params.replayProtection,
+      params.replayProtectionAuthority,
+      params.signer,
+      params.signature
+    ]);
+
+    return callData;
+  }
+  /**
+   * Easy method for a relayer to forward a pre-approved meta-transaction
+   * Takes care of working out if it is a ContractHub, ContractAccount or RelayHub.
+   * @param relayer Relayer's wallet
+   * @param params Forwarding parameters (signed meta-transaction)
+   */
+  public async forward(relayer: Wallet, params: ForwardParams) {
+    let hub = this.hubContract;
+
+    // Fetch the relevant contract account
+    // instanceof doesn't work becaue js is poo
+    if (this.hubContract.accounts) {
+      const proxyAccountAddr = await this.hubContract.accounts(params.signer);
+      const factory = new ProxyAccountFactory(relayer);
+      hub = factory.attach(proxyAccountAddr);
+    }
+
+    if (hub.init) {
+      // Must be a contract account
+      const tx = await hub
+        .connect(relayer)
+        .forward(
+          params.target,
+          params.value,
+          params.data,
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          params.signature
+        );
+
+      return await tx;
+    }
+
+    // Send via the relay hub
+    let tx = this.hubContract
+      .connect(relayer)
+      .forward(
+        params.target,
+        params.value,
+        params.data,
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signer,
+        params.signature
+      );
+
+    return await tx;
   }
 }

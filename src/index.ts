@@ -3,11 +3,11 @@ import BitFlipNonceStoreJson from "../build/BitFlipNonceStore.json";
 export { BitFlipNonceStoreJson };
 export { BitFlipNonceStoreFactory } from "../build/BitFlipNonceStoreFactory";
 
-export { ContractAccount } from "../build/ContractAccount";
-export { ContractAccountFactory } from "../build/ContractAccountFactory";
+export { ProxyAccount } from "../build/ProxyAccount";
+export { ProxyAccountFactory } from "../build/ProxyAccountFactory";
 
-export { ContractHub } from "../build/ContractHub";
-export { ContractHubFactory } from "../build/ContractHubFactory";
+export { ProxyHub } from "../build/ProxyHub";
+export { ProxyHubFactory } from "../build/ProxyHubFactory";
 
 export { RelayHub } from "../build/RelayHub";
 export { RelayHubFactory } from "../build/RelayHubFactory";

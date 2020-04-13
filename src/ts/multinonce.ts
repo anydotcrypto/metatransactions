@@ -41,7 +41,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
     // Have we used this nonce before?
     if (!nonce) {
       // No, let's grab it from the contract.
-      nonce = await this.accessHubNonceStore(
+      nonce = await this.accessNonceStore(
         signerAddress,
         index!,
         this.hubContract

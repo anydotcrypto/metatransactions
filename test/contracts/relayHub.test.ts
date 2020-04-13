@@ -174,7 +174,8 @@ describe("RelayHubContract", () => {
       const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        replayProtectionAuthority
+        replayProtectionAuthority,
+        relayHub
       );
 
       const signature = await owner.signMessage(
@@ -223,7 +224,8 @@ describe("RelayHubContract", () => {
       const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000000"
+        "0x0000000000000000000000000000000000000000",
+        relayHub
       );
 
       const signature = await owner.signMessage(
@@ -349,7 +351,8 @@ describe("RelayHubContract", () => {
       const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        bitFlipNonceStore.address
+        bitFlipNonceStore.address,
+        relayHub
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
@@ -401,7 +404,8 @@ describe("RelayHubContract", () => {
       const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        bitFlipNonceStore.address
+        bitFlipNonceStore.address,
+        relayHub
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
