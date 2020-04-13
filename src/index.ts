@@ -1,20 +1,20 @@
-export { BitFlipNonceStore } from "../build/BitFlipNonceStore";
-import BitFlipNonceStoreJson from "../build/BitFlipNonceStore.json";
+export { BitFlipNonceStore } from "./typedContracts/BitFlipNonceStore";
+import BitFlipNonceStoreJson from "./typedContracts/BitFlipNonceStore.json";
 export { BitFlipNonceStoreJson };
-export { BitFlipNonceStoreFactory } from "../build/BitFlipNonceStoreFactory";
+export { BitFlipNonceStoreFactory } from "./typedContracts/BitFlipNonceStoreFactory";
 
-export { ProxyAccount } from "../build/ProxyAccount";
-export { ProxyAccountFactory } from "../build/ProxyAccountFactory";
+export { ProxyAccount } from "./typedContracts/ProxyAccount";
+export { ProxyAccountFactory } from "./typedContracts/ProxyAccountFactory";
 
-export { ProxyHub } from "../build/ProxyHub";
-export { ProxyHubFactory } from "../build/ProxyHubFactory";
+export { ProxyHub } from "./typedContracts/ProxyHub";
+export { ProxyHubFactory } from "./typedContracts/ProxyHubFactory";
 
-export { RelayHub } from "../build/RelayHub";
-export { RelayHubFactory } from "../build/RelayHubFactory";
+export { RelayHub } from "./typedContracts/RelayHub";
+export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 
-export { ReplayProtection } from "../build/ReplayProtection";
-export { ReplayProtectionFactory } from "../build/ReplayProtectionFactory";
+export { ReplayProtection } from "./typedContracts//ReplayProtection";
+export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
-import IReplayProtectionJson from "../build/IReplayProtectionAuthority.json";
+import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };
-export { MsgSenderExampleFactory } from "../build/MsgSenderExampleFactory";
+export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";

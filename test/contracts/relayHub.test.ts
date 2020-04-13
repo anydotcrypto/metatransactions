@@ -27,6 +27,9 @@ async function createRelayHub(
 ) {
   const relayHubFactory = new RelayHubFactory(admin);
   const relayHubCreationTx = relayHubFactory.getDeployTransaction();
+  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
+  const result = await relayHubCreation.wait(1);
+  const relayHub = relayHubFactory.attach(result.contractAddress!);
 
   const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
   await nonceStoreMock.deploy(admin);
@@ -36,12 +39,8 @@ async function createRelayHub(
   const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
   const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
 
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const result = await relayHubCreation.wait(1);
-
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
-  const relayHub = relayHubFactory.attach(result.contractAddress!);
   return {
     provider,
     relayHub,

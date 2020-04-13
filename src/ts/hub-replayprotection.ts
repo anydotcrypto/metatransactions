@@ -4,7 +4,7 @@ import { Contract } from "ethers";
 import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotection";
 import { BitFlip } from "./bitflip";
-import { ProxyAccountFactory } from "../../build/ProxyAccountFactory";
+import { ProxyAccountFactory } from "../typedContracts/ProxyAccountFactory";
 
 export interface ForwardParams {
   hub: string;

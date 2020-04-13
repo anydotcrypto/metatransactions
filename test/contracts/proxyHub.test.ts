@@ -18,8 +18,7 @@ import {
   MsgSenderExampleFactory,
   ProxyHub,
   ProxyAccountFactory,
-  ProxyAccount,
-  ReplayProtection
+  ProxyAccount
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";

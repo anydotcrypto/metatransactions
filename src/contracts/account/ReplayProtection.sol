@@ -10,7 +10,7 @@ contract ReplayProtection {
     /**
      * Get Ethereum Chain ID
      * */
-    function getChainID() public view returns(uint) {
+    function getChainID() public pure returns(uint) {
         // Fetch chainId
         uint256 chainId;
         assembly {chainId := chainid() }

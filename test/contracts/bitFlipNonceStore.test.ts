@@ -6,13 +6,13 @@ import {
   hexZeroPad,
   solidityPack,
   keccak256,
-  solidityKeccak256,
+  solidityKeccak256
 } from "ethers/utils";
 import { fnIt } from "@pisa-research/test-utils";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { BitFlipNonceStoreFactory } from "../../build/BitFlipNonceStoreFactory";
-import { BitFlipNonceStore } from "../../build/BitFlipNonceStore";
+import { BitFlipNonceStoreFactory } from "../../dist";
+import { BitFlipNonceStore } from "../../dist";
 
 const expect = chai.expect;
 chai.use(solidity);

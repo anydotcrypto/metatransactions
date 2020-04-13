@@ -15,7 +15,7 @@ contract MsgSenderExample is MsgSender {
         emit WhoIsSender(sender);
     }
 
-    function willRevert() public {
+    function willRevert() public pure {
         require(1 == 2, "Will always revert");
     }
 
