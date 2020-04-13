@@ -15,6 +15,10 @@ export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 export { ReplayProtection } from "./typedContracts//ReplayProtection";
 export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
+export { MultiNonce } from "./ts/multinonce";
+export { BitFlip } from "./ts/bitflip";
+export { HubReplayProtection } from "./ts/hub-replayprotection";
+
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
