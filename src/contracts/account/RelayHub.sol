@@ -1,6 +1,7 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/utils/Create2.sol";
 import "./ReplayProtection.sol";
 
 /**
@@ -9,6 +10,8 @@ import "./ReplayProtection.sol";
  * Delegates nonce verification to another contract.
  */
 contract RelayHub is ReplayProtection {
+
+     event Deployed(address signer, address addr);
 
      /**
      * Each signer has a contract account (signers address => contract address).
@@ -41,5 +44,31 @@ contract RelayHub is ReplayProtection {
         (bool success,) = _target.call(abi.encodePacked(_callData, _signer));
         require(success, "Forwarding call failed.");
     }
+
+
+    /**
+     * User deploys a contract in a deterministic manner.
+     * It re-uses the replay protection to authorise deployment as part of the salt.
+     * @param _initCode Initialisation code for contract
+     * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * @param _signature Signature from signer
+     */
+    function deployContract(
+        bytes memory _initCode,
+        bytes memory _replayProtection,
+        address _replayProtectionAuthority,
+        address _signer,
+        bytes memory _signature) public {
+
+        // Confirm the user wants to deploy the smart contract
+        require(_signer == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature),
+        "Signer must aurhotise deploying contract");
+
+        // We can just abuse the replay protection as the salt :)
+        address deployed = Create2.deploy(keccak256(abi.encode(_signer, _replayProtection)), _initCode);
+
+        emit Deployed(_signer, deployed);
+    }
+
 
 }

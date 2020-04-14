@@ -10,7 +10,7 @@ import "./ReplayProtection.sol";
 contract ProxyAccount is ReplayProtection {
 
     address owner;
-    event ProxyContractDeployed(address addr);
+    event Deployed(address owner, address addr);
 
     /**
      * Due to create clone, we need to use an init() method.
@@ -70,7 +70,7 @@ contract ProxyAccount is ReplayProtection {
         // We can just abuse the replay protection as the salt :)
         address deployed = Create2.deploy(keccak256(abi.encode(owner, _replayProtection)), _initCode);
 
-        emit ProxyContractDeployed(deployed);
+        emit Deployed(owner, deployed);
     }
 
     /**

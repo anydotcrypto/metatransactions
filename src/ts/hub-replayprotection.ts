@@ -5,7 +5,7 @@ import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotection";
 import { BitFlip } from "./bitflip";
 import { ProxyAccountFactory } from "../typedContracts/ProxyAccountFactory";
-import { RelayHubFactory, ProxyHubFactory } from "../../dist";
+import { RelayHubFactory, ProxyHubFactory } from "..";
 
 export interface ForwardParams {
   hub: string;
