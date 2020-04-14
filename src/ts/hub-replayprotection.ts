@@ -26,6 +26,17 @@ export interface ForwardParams {
 export class HubReplayProtection {
   private chainId: BigNumber;
 
+  public static getHubAddress(name: string) {
+    switch (name) {
+      case "ropsten-relay":
+        return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798";
+      case "ropsten-proxy":
+        return "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9";
+      default:
+        throw new Error("Please specify which network and hub to set up");
+    }
+  }
+
   /**
    * Multi-nonce replay protection with preset global hub
    * @param networkHub Available options: "ropsten-relay", "ropsten-proxy"
@@ -40,13 +51,13 @@ export class HubReplayProtection {
       case "ropsten-relay":
         const relayHubFactory = new RelayHubFactory(user);
         const relayHub = relayHubFactory.attach(
-          "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798"
+          HubReplayProtection.getHubAddress(networkHub)
         );
         return HubReplayProtection.multinonce(relayHub, concurrency);
       case "ropsten-proxy":
         const proxyHubFactory = new ProxyHubFactory(user);
         const proxyHub = proxyHubFactory.attach(
-          "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9"
+          HubReplayProtection.getHubAddress(networkHub)
         );
         return HubReplayProtection.multinonce(proxyHub, concurrency);
 
@@ -65,13 +76,13 @@ export class HubReplayProtection {
       case "ropsten-relay":
         const relayHubFactory = new RelayHubFactory(user);
         const relayHub = relayHubFactory.attach(
-          "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798"
+          HubReplayProtection.getHubAddress(networkHub)
         );
         return HubReplayProtection.bitFlip(relayHub);
       case "ropsten-proxy":
         const proxyHubFactory = new ProxyHubFactory(user);
         const proxyHub = proxyHubFactory.attach(
-          "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9"
+          HubReplayProtection.getHubAddress(networkHub)
         );
         return HubReplayProtection.bitFlip(proxyHub);
       default:
