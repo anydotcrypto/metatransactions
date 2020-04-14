@@ -5,6 +5,7 @@ import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotection";
 import { BitFlip } from "./bitflip";
 import { ProxyAccountFactory } from "../typedContracts/ProxyAccountFactory";
+import { RelayHubFactory, ProxyHubFactory } from "../../dist";
 
 export interface ForwardParams {
   hub: string;
@@ -24,6 +25,59 @@ export interface ForwardParams {
  */
 export class HubReplayProtection {
   private chainId: BigNumber;
+
+  /**
+   * Multi-nonce replay protection with preset global hub
+   * @param networkHub Available options: "ropsten-relay", "ropsten-proxy"
+   * @param concurrency Up to N concurrent transactions at a time
+   */
+  public static multinoncePreset(
+    user: Wallet,
+    networkHub: string,
+    concurrency: number
+  ) {
+    switch (networkHub) {
+      case "ropsten-relay":
+        const relayHubFactory = new RelayHubFactory(user);
+        const relayHub = relayHubFactory.attach(
+          "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798"
+        );
+        return HubReplayProtection.multinonce(relayHub, concurrency);
+      case "ropsten-proxy":
+        const proxyHubFactory = new ProxyHubFactory(user);
+        const proxyHub = proxyHubFactory.attach(
+          "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9"
+        );
+        return HubReplayProtection.multinonce(proxyHub, concurrency);
+
+      default:
+        throw new Error("Please specify which network and hub to set up");
+    }
+  }
+
+  /**
+   * Multi-nonce replay protection
+   * @param hubContract RelayHub, ProxyHub or ProxyAccount
+   * @param concurrency Up to N concurrent transactions at a time
+   */
+  public static bitFlipPreset(user: Wallet, networkHub: string) {
+    switch (networkHub) {
+      case "ropsten-relay":
+        const relayHubFactory = new RelayHubFactory(user);
+        const relayHub = relayHubFactory.attach(
+          "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798"
+        );
+        return HubReplayProtection.bitFlip(relayHub);
+      case "ropsten-proxy":
+        const proxyHubFactory = new ProxyHubFactory(user);
+        const proxyHub = proxyHubFactory.attach(
+          "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9"
+        );
+        return HubReplayProtection.bitFlip(proxyHub);
+      default:
+        throw new Error("Please specify which network and hub to set up");
+    }
+  }
 
   /**
    * Multi-nonce replay protection
@@ -93,7 +147,7 @@ export class HubReplayProtection {
         encodedReplayProtection,
         replayProtectionAuthority,
         proxyContract.address,
-        0
+        0,
       ]
     );
   }
@@ -182,7 +236,7 @@ export class HubReplayProtection {
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainId.toNumber(),
-      signature: signature
+      signature: signature,
     };
 
     return params;
@@ -226,7 +280,7 @@ export class HubReplayProtection {
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainId.toNumber(),
-      signature: signature
+      signature: signature,
     };
 
     return params;
@@ -237,14 +291,14 @@ export class HubReplayProtection {
    * to .call() into the RelayHub before .call() into the Target contract.
    * @param params Forward parameters
    */
-  public async encodeForwardParams(relayer: Wallet, params: ForwardParams) {
+  public async encodeForwardParams(user: Wallet, params: ForwardParams) {
     let hub = this.hubContract;
 
     // Fetch the relevant contract account
     // instanceof doesn't work becaue js is poo
     if (this.hubContract.accounts) {
       const proxyAccountAddr = await this.hubContract.accounts(params.signer);
-      const factory = new ProxyAccountFactory(relayer);
+      const factory = new ProxyAccountFactory(user);
       hub = factory.attach(proxyAccountAddr);
     }
 
@@ -256,7 +310,7 @@ export class HubReplayProtection {
         params.data,
         params.replayProtection,
         params.replayProtectionAuthority,
-        params.signature
+        params.signature,
       ]);
 
       return callData;
@@ -270,7 +324,7 @@ export class HubReplayProtection {
       params.replayProtection,
       params.replayProtectionAuthority,
       params.signer,
-      params.signature
+      params.signature,
     ]);
 
     return callData;
