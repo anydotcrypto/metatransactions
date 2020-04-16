@@ -52,18 +52,31 @@ export class HubReplayProtection {
     concurrency: number
   ) {
     switch (networkHub) {
+      case "mainnet-relay":
+        const relayHubFactoryM = new RelayHubFactory(user);
+        const relayHubM = relayHubFactoryM.attach(
+          HubReplayProtection.getHubAddress(networkHub)
+        );
+        return HubReplayProtection.multinonce(relayHubM, concurrency);
+      case "mainnet-proxy":
+        const proxyHubFactoryM = new ProxyHubFactory(user);
+        const proxyHubM = proxyHubFactoryM.attach(
+          HubReplayProtection.getHubAddress(networkHub)
+        );
+        return HubReplayProtection.multinonce(proxyHubM, concurrency);
+
       case "ropsten-relay":
-        const relayHubFactory = new RelayHubFactory(user);
-        const relayHub = relayHubFactory.attach(
+        const relayHubFactoryR = new RelayHubFactory(user);
+        const relayHubR = relayHubFactoryR.attach(
           HubReplayProtection.getHubAddress(networkHub)
         );
-        return HubReplayProtection.multinonce(relayHub, concurrency);
+        return HubReplayProtection.multinonce(relayHubR, concurrency);
       case "ropsten-proxy":
-        const proxyHubFactory = new ProxyHubFactory(user);
-        const proxyHub = proxyHubFactory.attach(
+        const proxyHubFactoryR = new ProxyHubFactory(user);
+        const proxyHubR = proxyHubFactoryR.attach(
           HubReplayProtection.getHubAddress(networkHub)
         );
-        return HubReplayProtection.multinonce(proxyHub, concurrency);
+        return HubReplayProtection.multinonce(proxyHubR, concurrency);
 
       default:
         throw new Error("Please specify which network and hub to set up");
