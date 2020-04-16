@@ -28,6 +28,10 @@ export class HubReplayProtection {
 
   public static getHubAddress(name: string) {
     switch (name) {
+      case "mainnet-relay":
+        return "0x70107abB312db18bD9AdDec39CE711374B09EBC1";
+      case "mainnet-proxy":
+        return "0x0b116DF91Aae33d85840165c5487462E0E821242";
       case "ropsten-relay":
         return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798";
       case "ropsten-proxy":
