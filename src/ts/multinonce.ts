@@ -65,7 +65,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
    */
   public async getEncodedReplayProtection(signerAddress: string) {
     try {
-      this.lock.acquire();
+      await this.lock.acquire();
       const { index, nonce } = await this.getLatestMultiNonce(signerAddress);
       return defaultAbiCoder.encode(["uint", "uint"], [index, nonce]);
     } finally {
