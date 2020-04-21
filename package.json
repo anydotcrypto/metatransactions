@@ -23,6 +23,7 @@
     "prepublish": "rm -r ./dist && rm -r ./build && npm run build"
   },
   "devDependencies": {
+    "@pisa-research/utils": "^0.1.39",
     "@types/chai": "^4.2.7",
     "@types/chai-as-promised": "^7.1.2",
     "@types/mocha": "^5.2.7",

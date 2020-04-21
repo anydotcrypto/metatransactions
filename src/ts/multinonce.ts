@@ -1,10 +1,12 @@
 import { defaultAbiCoder, BigNumber, keccak256 } from "ethers/utils";
 import { Contract } from "ethers";
 import { ReplayProtectionAuthority } from "./replayprotection";
+import { Lock } from "@pisa-research/utils";
 
 export class MultiNonce extends ReplayProtectionAuthority {
   indexTracker: Map<string, BigNumber>;
   nonceTracker: Map<string, BigNumber>;
+  lock: Lock;
 
   constructor(
     private readonly hubContract: Contract,
@@ -13,6 +15,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.nonceTracker = new Map<string, BigNumber>();
+    this.lock = new Lock();
   }
 
   /**
@@ -61,8 +64,13 @@ export class MultiNonce extends ReplayProtectionAuthority {
    * @param hubContract RelayHub or ContractAccount
    */
   public async getEncodedReplayProtection(signerAddress: string) {
-    const { index, nonce } = await this.getLatestMultiNonce(signerAddress);
-    return defaultAbiCoder.encode(["uint", "uint"], [index, nonce]);
+    try {
+      this.lock.acquire();
+      const { index, nonce } = await this.getLatestMultiNonce(signerAddress);
+      return defaultAbiCoder.encode(["uint", "uint"], [index, nonce]);
+    } finally {
+      this.lock.release();
+    }
   }
 
   /**

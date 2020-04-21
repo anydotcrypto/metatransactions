@@ -1,6 +1,7 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Contract } from "ethers";
 import { ReplayProtectionAuthority } from "./replayprotection";
+import { Lock } from "@pisa-research/utils";
 import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
 
@@ -13,11 +14,13 @@ import BN from "bn.js";
 export class BitFlip extends ReplayProtectionAuthority {
   private indexTracker: Map<string, BigNumber>; // Keep track of bitmap index
   private bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
+  lock: Lock;
 
   constructor(private readonly hubContract: Contract) {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.bitmapTracker = new Map<string, BigNumber>();
+    this.lock = new Lock();
   }
 
   /**
@@ -111,8 +114,13 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param hubContract RelayHub or Proxy Account
    */
   public async getEncodedReplayProtection(signerAddress: string) {
-    const { index, bitToFlip } = await this.searchBitmaps(signerAddress);
-    return defaultAbiCoder.encode(["uint", "uint"], [index, bitToFlip]);
+    try {
+      this.lock.acquire();
+      const { index, bitToFlip } = await this.searchBitmaps(signerAddress);
+      return defaultAbiCoder.encode(["uint", "uint"], [index, bitToFlip]);
+    } finally {
+      this.lock.release();
+    }
   }
 
   /**
