@@ -46,7 +46,7 @@ We cover the pros/cons for the ProxyHub and RelayHub here. If you are not sure w
 The first is multinonce: 
 
 ``` 
-const userWallet: Wallet = ....; 
+const userWallet = ....; 
 const networkHub = "mainnet-proxyhub";
 const concurrency = 10;
 const metaTxHandler = MetaTxHandler.multinoncePreset(userWallet, networkHub, concurrency); 
@@ -60,18 +60,20 @@ The second use bitflip:
 ```
 const userWallet: Wallet = ....;
 const networkHub = "mainnet-proxyhub";
-MetaTxHandler.bitflipPreset(userWallet, networkHub);
+const metaTxHandler = MetaTxHandler.bitflipPreset(userWallet, networkHub);
 ```
 
 This sets up the meta-transaction handler to use the bitflip replay protection. The benefit of bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so if you need that functionality then use multinonce. 
 
-5. Authorising a meta-transaction 
+5. Authorising a meta-transaction when using the ProxyHub
 
 ```
 const targetContract = .....;
 const userWallet = ....;
-const value = new BigNumber("0"); // Ignored if the RelayHub is used. 
+const value = new BigNumber("0"); 
 const callData = targetContract.interface.functions.test.encode([]);
+
+// 
 
 // Sign the meta transaction - handles replay protection under the hood.
 const params = await metaTxHandler.signMetaTransaction(
@@ -83,13 +85,43 @@ const params = await metaTxHandler.signMetaTransaction(
 
 // Broadcast metatransaction 
 const relayerWallet ....; // 
-const tx = metaTxHandler.forward(relayerWallet, params); // Packs metatx into an Ethereum transaction and broadcasts it
+
+// If this is the user's first meta-transaction, then we need to deploy their proxy contract in advance. 
+await metaTxHandler.createProxyAccount(relayerWallet, userWallet.address); 
+
+// Pack the meta-transaction into an Ethereum transaction and broadcast it. 
+const tx = metaTxHandler.forward(relayerWallet, params);
 const txReceipt = await tx.wait(1); // Wait for 1 block confirmation 
 ```
 
 As we can see in the above, we simply need to get the calldata for the target contract (e.g. the function name and its arguments). We can then use the ```MetaTxHandler``` to return a signed meta-transaction and the library will take care of all replay protection under the hood. You can simply wrap it in an Ethereum transaction and broadcast it to the network, or send it to your relayer's API.  
 
-All done! Good work! 
+All done! Good work! Just for reference, here is a fully solution:
+
+```
+const userWallet = Wallet.createRandom();
+
+const targetContract = new EchoContractFactory(userWallet).attach("0xa404d1219ed6fe3cf2496534de2af3ca17114b06");
+const value = new BigNumber("0"); // Ignored if the RelayHub is used. 
+const callData = targetContract.interface.functions.test.encode([]);
+
+// Set up the meta-transaction handler
+const metaTxHandler = MetaTxHandler.bitflipPreset(userWallet, "mainnet-proxyhub");
+
+// Sign the meta transaction - handles replay protection under the hood.
+const params = await metaTxHandler.signMetaTransaction(
+        userWallet,
+        targetContract.address,
+        value,
+        callData
+      );
+
+// Broadcast meta-transaction 
+const relayerWallet = Wallet.fromMnemonic(""); 
+const tx = metaTxHandler.forward(relayerWallet, params); // Packs metatx into an Ethereum transaction and broadcasts it
+const txReceipt = await tx.wait(1); // Wait for 1 block confirmation 
+
+```
 
 ## ProxyHub vs RelayHub
 
