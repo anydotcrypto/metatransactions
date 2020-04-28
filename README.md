@@ -65,15 +65,15 @@ const metaTxHandler = MetaTxHandler.bitflipPreset(userWallet, networkHub);
 
 This sets up the meta-transaction handler to use the bitflip replay protection. The benefit of bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so if you need that functionality then use multinonce. 
 
-5. Authorising a meta-transaction when using the ProxyHub
+5. Authorising a meta-transaction using the ProxyHub 
+
+
 
 ```
 const targetContract = .....;
 const userWallet = ....;
 const value = new BigNumber("0"); 
 const callData = targetContract.interface.functions.test.encode([]);
-
-// 
 
 // Sign the meta transaction - handles replay protection under the hood.
 const params = await metaTxHandler.signMetaTransaction(
@@ -86,17 +86,33 @@ const params = await metaTxHandler.signMetaTransaction(
 // Broadcast metatransaction 
 const relayerWallet ....; // 
 
-// If this is the user's first meta-transaction, then we need to deploy their proxy contract in advance. 
-await metaTxHandler.createProxyAccount(relayerWallet, userWallet.address); 
-
 // Pack the meta-transaction into an Ethereum transaction and broadcast it. 
 const tx = metaTxHandler.forward(relayerWallet, params);
 const txReceipt = await tx.wait(1); // Wait for 1 block confirmation 
 ```
 
-As we can see in the above, we simply need to get the calldata for the target contract (e.g. the function name and its arguments). We can then use the ```MetaTxHandler``` to return a signed meta-transaction and the library will take care of all replay protection under the hood. You can simply wrap it in an Ethereum transaction and broadcast it to the network, or send it to your relayer's API.  
+As we can see in the above, we simply need to get the calldata for the target contract (e.g. the function name and its arguments). We can then use the ```MetaTxHandler``` to return a signed meta-transaction and the library will take care of all replay protection under the hood. 
 
-All done! Good work! Just for reference, here is a fully solution:
+
+6. Relayer sends the meta-transaction to Ethereum 
+
+```
+// Broadcast metatransaction 
+const relayerWallet ....; // 
+
+// Deploy a proxy account for the user if it does not already exist
+const tx = await metaTxHandler.createProxyAccount(relayerWallet, userWallet.address); 
+
+// Pack the meta-transaction into an Ethereum transaction and broadcast it. 
+const tx = metaTxHandler.forward(relayerWallet, params);
+const txReceipt = await tx.wait(1); // Wait for 1 block confirmation
+```
+
+The meta-transaction is simply wrapped in an Ethereum transaction and broadcast to the network. Essentially, this is what happens when the meta-transaction is sent to the relayer's API. 
+
+### All done! Good work! 
+
+Just for reference, here is a fully solution:
 
 ```
 const userWallet = Wallet.createRandom();
