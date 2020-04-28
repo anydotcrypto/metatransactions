@@ -1,122 +1,149 @@
-# A Minimal Relay Hub (motivated by EIP-2585).
+# A Minimal Meta-Transaction Library
 
-The fundamental problem we are solving is that an Ethereum transaction intertwines the identity of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is not straight forward for Alice to pay the gas fee on bealf of Bob who wants to execute a command in a smart contract.
+Ethereum transaction's intertwine the identity of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is not straight forward for Alice to pay the gas fee on behalf of Bob who wants to execute a command in a smart contract. Until it is fixed at the platform level, then Alice and Bob must adopt a meta-transaction standard in order to support this functionality (e.g. transaction infrastructure as a service in a non-custodial manner). 
 
-Generally, the motivating reason to solve this problem is to allow a third party (Alice) to offer transaction infrastructure as a service to others (bob) in a non-custodial manner. This is useful for wallet providers who can offer a better user-experience for customers while maintaining their self-custody and for most new projects who can plug-in an infura-like transaction API instead of re-building the infrastructure themselves.
+There are two approaches: 
 
-So far, there are two prominent methods to solve the problem:
+- **Proxy contracts** All transactions for the user are sent via a proxy contract and it is compatible with all existing smart contracts. 
+- **\_msgSender()** All transactions are sent via a global RelayHub.sol contract and the target contract must support the standard which requires it to replace msg.sender with \_msgSender(). It is only compatible with contracts that have upgraded to use the standard. 
 
-- Contract accounts: Each user has a smart contract that forwards commands
-- \_msgSender: Modify existing smart contracts to support accepting externally signed messages.
+We have put together this meta-transaction library to support both approaches and there are several benefits:
+- **Ease of adoption.** New smart contracts do not need to handle replay protection (e.g. the permit() standard). 
+- **Global RelayHub.** The \_msgSender() standard requires a hard-coded relayhub contract. This is a minimal RelayHub.sol that simply deals with checking replay protection before calling the target contract. 
+- **Single standard & library.** There are several ways to construct and sign meta-transactions, so we hope this repository can become a single standard that any project can adopt. 
 
-The problem, like all problems in Ethereum, is that there are several standard ways to implement it (roll-your-own proxy or roll-your-own permit). More often than not, existing solutions intertwine with the application and it is hard to generalise it.
+The end-goal of this library is to make it easier for developers and users to tap into third party APIs that focus on getting transactions in the blockchain. 
 
-But if we boil down the problem, what really needs to be solved is just replay protection for the meta-transaction. e.g. Is this the latest signed message by the user? And of course, has this signed message been seen before?
+## Getting started 
 
-Our goal is to provide a minimal forwarder that simply handles replay protection for the signer before forwarding the contract call:
+We assume you have already set up your environment and you simply need to plug-in our library. 
 
-- Dual-solution: Support both contract accounts and \_msgSender()
-- Client library: Provide a single client library for authorising a meta-transaction
-- Better-than-Ethereum Replay Protection: Experiment with more exciting repay protection to support concurrent and out-of-order transactions.
-
-Of course, this solution cannot help existing users who sign Ethereum transactions to authenticate via msg.sender for existing contracts. Going forward, it can help users who are willing to switch their identity to a contract account (msg.sender) or if contracts adopt the \_msgSender() standard.
-
-## Replay Protection Hub
-
-We have created a single class, RelayProtectionHub, that takes care of signing meta-transactions for the RelayHub / Contract Account.
-
-It supports by default:
-
-- Replace by nonce (single queue)
-- Multinonce (multiple queues)
-- Bitflip
-
-### How to set up
-
-We will cover how to set up the RelayHub as setting up a ContractHub is very similar.
-
-To create your own relay hub:
+1. You need to install the NPM pacakge: 
 
 ```
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const receipt = await relayHubCreation.wait(1);
+npm i @anydotcrypto/metatransactions --save-dev
 ```
 
-To connect to an existing relay hub:
+2. You need to import the package into your file: 
 
 ```
-  const relayHubAddress = "0x0......";
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHub = relayHubFactory.attach(relayHubAddress);
+import { MetaTxHandler } from "@anydotcrypto/metatransactions/dist";
 ```
 
-To set up the replay protection hub:
+3. You need to decide which msg.sender solution to use and we have four options:
 
 ```
-// Single queue
-const ReplayProtection = ReplayProtection.multinonce(relayHub, 1);
-
-// Multi queue
-const ReplayProtection = ReplayProtection.multinonce(relayHub, 10);
-
-// Bitflip
-const ReplayProtection = ReplayProtection.bitFlip(relayHub);
-
+ropsten-proxyhub
+mainnet-proxyhub
+ropsten-relayhub
+mainnet-relayhub
 ```
 
-In the future, the RelayHub for Ropsten and Mainnet will be hard-coded into this library. As a developer, you will simply need to pick the appropriate replay protection.
+We cover the pros/cons for the ProxyHub and RelayHub here. If you are not sure which one to use, then we recommend ```mainnet-proxyhub``` as it works for all existing contracts. e.g. the meta-transaction is sent via a minimal proxy contract. 
 
-### How to sign a meta-transaction
+4. You need to decide which replay protection to use and there are two options. 
 
-A meta-transaction has the following parameters:
+The first is multinonce: 
 
-- Signer: The Wallet of the signer
-- Target address: The address of the target contract
-- Value: Quantity of ether to transfer (only useful for contract accounts)
-- Calldata: Encoded function to call and the appropriate data
+``` 
+const userWallet = ....; 
+const networkHub = "mainnet-proxyhub";
+const concurrency = 10;
+const metaTxHandler = MetaTxHandler.multinoncePreset(userWallet, networkHub, concurrency); 
+```
 
-To sign a meta-transaction:
+This sets up the meta-transaction handler to use multinonce replay protection with a default number of queues as 10. The benefit of multinonce is that it will let you perform up to ```concurrency``` out-of-order transactions at any one time. Essentially, there are ten nonce queues and it will rotate queues for every new transaction. If you want all transactions to always be processed by the blockchain in order, then just set ```concurrency=1```.
+
+
+The second use bitflip:
 
 ```
+const userWallet: Wallet = ....;
+const networkHub = "mainnet-proxyhub";
+const metaTxHandler = MetaTxHandler.bitflipPreset(userWallet, networkHub);
+```
+
+This sets up the meta-transaction handler to use the bitflip replay protection. The benefit of bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so if you need that functionality then use multinonce. 
+
+5. Authorising a meta-transaction using the ProxyHub 
+
+
+
+```
+const targetContract = .....;
+const userWallet = ....;
+const value = new BigNumber("0"); 
 const callData = targetContract.interface.functions.test.encode([]);
 
-const params = await ReplayProtection.signMetaTransaction(
-  signer,
-  targetContract.address,
-  new BigNumber("0"),
-  callData
-);
+// Sign the meta transaction - handles replay protection under the hood.
+const params = await metaTxHandler.signMetaTransaction(
+        userWallet,
+        targetContract.address,
+        value,
+        callData
+      );
+
+// Broadcast metatransaction 
+const relayerWallet ....; // 
+
+// Pack the meta-transaction into an Ethereum transaction and broadcast it. 
+const tx = metaTxHandler.forward(relayerWallet, params);
+const txReceipt = await tx.wait(1); // Wait for 1 block confirmation 
 ```
 
-A list of parameters is returned which can be used to send the transaction:
+As we can see in the above, we simply need to get the calldata for the target contract (e.g. the function name and its arguments). We can then use the ```MetaTxHandler``` to return a signed meta-transaction and the library will take care of all replay protection under the hood. 
+
+
+6. Relayer sends the meta-transaction to Ethereum 
 
 ```
-interface ForwardParams {
-  hub: string; // Relay hub (or contract account) address
-  signer: string; // Signer's address
-  target: string; // Target contract address
-  value: string; // Value to send
-  data: string; // Calldata for target
-  replayProtection: string; // Encoded replay protection
-  replayProtectionAuthority: string; // Address of replay protection authority
-  chainId: number; // ChainID
-  signature: string; // Signer's signature
-}
+// Broadcast metatransaction 
+const relayerWallet ....; // 
+
+// Deploy a proxy account for the user if it does not already exist
+const tx = await metaTxHandler.createProxyAccount(relayerWallet, userWallet.address); 
+
+// Pack the meta-transaction into an Ethereum transaction and broadcast it. 
+const tx = metaTxHandler.forward(relayerWallet, params);
+const txReceipt = await tx.wait(1); // Wait for 1 block confirmation
 ```
 
-To send off the meta-transaction, the relayer just needs to execute forward:
+The meta-transaction is simply wrapped in an Ethereum transaction and broadcast to the network. Essentially, this is what happens when the meta-transaction is sent to the relayer's API. 
+
+### All done! Good work! 
+
+Just for reference, here is a fully solution:
 
 ```
-const tx = relayHub.connect(sender).forward(params.target, params.value, params.data, params.replayProtection, params.replayProtectionAuthority, params.signer, params.signature);
+const userWallet = Wallet.createRandom();
+
+const targetContract = new EchoContractFactory(userWallet).attach("0xa404d1219ed6fe3cf2496534de2af3ca17114b06");
+const value = new BigNumber("0"); // Ignored if the RelayHub is used. 
+const callData = targetContract.interface.functions.test.encode([]);
+
+// Set up the meta-transaction handler
+const metaTxHandler = MetaTxHandler.bitflipPreset(userWallet, "mainnet-proxyhub");
+
+// Sign the meta transaction - handles replay protection under the hood.
+const params = await metaTxHandler.signMetaTransaction(
+        userWallet,
+        targetContract.address,
+        value,
+        callData
+      );
+
+// Broadcast meta-transaction 
+const relayerWallet = Wallet.fromMnemonic(""); 
+const tx = metaTxHandler.forward(relayerWallet, params); // Packs metatx into an Ethereum transaction and broadcasts it
+const txReceipt = await tx.wait(1); // Wait for 1 block confirmation 
+
 ```
 
-While the application is alive, the last replay protection used for the signer will be remembered. If the application restarts, it will fetch the last used values from the hub contract.
+## ProxyHub vs RelayHub
 
-Of course, be careful that there is a race condition if there is a restart while some meta-transactions are still in-flight. A future release may inspect the pending pool for the relevant data, but for 99% of cases it is not necessary.
+TODO: Talk about the pros and cons of each approach. 
 
-## How to build and test
+## How to build and test the library locally
 
 We need to install the NPM packages:
 
@@ -129,3 +156,5 @@ Then we can simply build and test:
 ```
 npm run build && npm run test
 ```
+
+Thanks for checking out this code repository. It was first motivated by EIP-2585 and the RelayHub standard by the GSN. 
