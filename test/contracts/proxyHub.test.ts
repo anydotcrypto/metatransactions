@@ -23,7 +23,14 @@ import {
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { ForwardParams, MetaTxHandler } from "../../src/ts/metatxhandler";
+import {
+  ForwardParams,
+  MetaTxHandler,
+  ChainID,
+  ContractType,
+} from "../../src/ts/metatxhandler";
+import { RelayerAPI } from "../../src/ts/relayer";
+import { Contract } from "ethers";
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -98,6 +105,15 @@ describe("ProxyHubProxy", () => {
         .connect(sender)
         .accounts(sender.address);
 
+      const baseAddress = await proxyHub.baseAccount();
+
+      const builtAddress = MetaTxHandler.buildCreate2Address(
+        proxyHub.address,
+        sender.address,
+        baseAddress
+      );
+
+      expect(proxyAddress.toLowerCase()).to.eq(builtAddress);
       expect(proxyAddress).to.eq("0xAcC70E67808E3AAEFa90077F3d92f80c90A7988E");
     }
   );
@@ -131,7 +147,12 @@ describe("ProxyHubProxy", () => {
 
       const proxyAccountFactory = new ProxyAccountFactory(owner);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
-      const metaTxHandler = MetaTxHandler.multinonce(proxyAccount, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(
+        ChainID.MAINNET,
+        ContractType.PROXYACCOUNT,
+        proxyAddress,
+        1
+      );
 
       const params = await metaTxHandler.signMetaTransaction(
         owner,
@@ -166,7 +187,12 @@ describe("ProxyHubProxy", () => {
       );
 
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = MetaTxHandler.multinonce(proxyHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(
+        ChainID.MAINNET,
+        ContractType.PROXYHUB,
+        proxyHub.address,
+        1
+      );
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
       const params = await metaTxHandler.signMetaTransaction(
@@ -176,7 +202,8 @@ describe("ProxyHubProxy", () => {
         msgSenderCall
       );
 
-      const tx = metaTxHandler.forward(sender, params);
+      const relayerAPI = new RelayerAPI(proxyHub, ContractType.PROXYHUB);
+      const tx = relayerAPI.forward(sender, params);
 
       await expect(tx).to.emit(
         msgSenderCon,
@@ -193,15 +220,24 @@ describe("ProxyHubProxy", () => {
         createProxyHub
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = MetaTxHandler.multinonce(proxyHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(
+        ChainID.MAINNET,
+        ContractType.PROXYHUB,
+        proxyHub.address,
+        1
+      );
+
+      const params = await metaTxHandler.signMetaTransaction(
+        owner,
+        msgSenderCon.address,
+        new BigNumber("0"),
+        msgSenderCall
+      );
+
+      const relayerAPI = new RelayerAPI(proxyHub, ContractType.PROXYHUB);
 
       return expect(
-        metaTxHandler.signMetaTransaction(
-          owner,
-          msgSenderCon.address,
-          new BigNumber("0"),
-          msgSenderCall
-        )
+        relayerAPI.forward(sender, params)
       ).to.eventually.be.rejectedWith("Proxy account does not exist.");
     }
   );
@@ -214,7 +250,12 @@ describe("ProxyHubProxy", () => {
         createProxyHub
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = MetaTxHandler.multinonce(proxyHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(
+        ChainID.MAINNET,
+        ContractType.PROXYHUB,
+        proxyHub.address,
+        1
+      );
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
       const proxyAddress = await proxyHub.accounts(owner.address);
@@ -225,7 +266,8 @@ describe("ProxyHubProxy", () => {
         msgSenderCall
       );
 
-      const callData = await metaTxHandler.getForwardCallData(sender, params);
+      const relayerAPI = new RelayerAPI(proxyHub, ContractType.PROXYHUB);
+      const callData = await relayerAPI.getForwardCallData(sender, params);
 
       const tx = sender.sendTransaction({
         to: proxyAddress,
@@ -255,7 +297,12 @@ describe("ProxyHubProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const metaTxHandler = MetaTxHandler.multinonce(proxyAccount, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(
+        ChainID.MAINNET,
+        ContractType.PROXYACCOUNT,
+        proxyAccount.address,
+        1
+      );
 
       const initCode = msgSenderFactory.getDeployTransaction(proxyHub.address)
         .data! as string;
@@ -314,7 +361,12 @@ describe("ProxyHubProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const metaTxHandler = MetaTxHandler.multinonce(proxyAccount, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(
+        ChainID.MAINNET,
+        ContractType.PROXYACCOUNT,
+        proxyAccount.address,
+        1
+      );
 
       // Doesn't like bytecode. Meh.
       const initCode = msgSenderFactory.bytecode;

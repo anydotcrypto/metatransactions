@@ -1,11 +1,16 @@
-import { keccak256, arrayify, defaultAbiCoder, BigNumber } from "ethers/utils";
+import {
+  keccak256,
+  arrayify,
+  defaultAbiCoder,
+  BigNumber,
+  solidityKeccak256,
+} from "ethers/utils";
 import { Wallet } from "ethers/wallet";
 import { Contract } from "ethers";
 import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { BitFlip } from "./bitflip";
-import { ProxyAccountFactory } from "../typedContracts/ProxyAccountFactory";
-import { RelayHubFactory, ProxyHubFactory } from "..";
+import { ProxyHubFactory } from "..";
 
 export interface ForwardParams {
   hub: string;
@@ -19,10 +24,25 @@ export interface ForwardParams {
   signature: string;
 }
 
-enum ContractType {
+export interface DeploymentParams {
+  hub: string;
+  signer: string;
+  data: string;
+  replayProtection: string;
+  replayProtectionAuthority: string;
+  chainId: number;
+  signature: string;
+}
+
+export enum ContractType {
   RELAYHUB,
   PROXYACCOUNT,
   PROXYHUB,
+}
+
+export enum ChainID {
+  MAINNET = 0,
+  ROPSTEN = 1,
 }
 
 /**
@@ -30,73 +50,70 @@ enum ContractType {
  * replay protection.
  */
 export class MetaTxHandler {
-  private chainId: BigNumber;
-
-  public static getHubAddress(name: string) {
-    switch (name) {
-      case "mainnet-relay":
+  public static getHubAddress(chainid: ChainID, contractType: ContractType) {
+    if (chainid === ChainID.MAINNET) {
+      if (contractType === ContractType.RELAYHUB) {
         return "0x70107abB312db18bD9AdDec39CE711374B09EBC1";
-      case "mainnet-proxy":
+      }
+
+      if (contractType === ContractType.PROXYHUB) {
         return "0x0b116DF91Aae33d85840165c5487462E0E821242";
-      case "ropsten-relay":
-        return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798";
-      case "ropsten-proxy":
-        return "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9";
-      default:
-        throw new Error("Please specify which network and hub to set up");
+      }
     }
+
+    if (chainid === ChainID.ROPSTEN) {
+      if (contractType === ContractType.RELAYHUB) {
+        return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798";
+      }
+
+      if (contractType === ContractType.PROXYHUB) {
+        return "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9";
+      }
+    }
+    throw new Error("Please specify a valid ChainID and ContractType");
   }
 
   /**
    * Multi-nonce replay protection with preset global hub
-   * @param user Required for fetching the relay hub via the factory.
-   * @param networkHub Available options: "mainnet-relay", "mainnet-proxy", "ropsten-relay", "ropsten-proxy"
+   * @param chainID: ChainID (mainnet or ropsten)
+   * @param contractType: RelayHub or ProxyHub
    * @param concurrency Up to N concurrent and out-of-order transactions at a time
    * @throws If the network hub option is not available.
    * @returns A MetaTxHandler with multi-nonce replay protection.
    */
   public static multinoncePreset(
-    user: Wallet,
-    networkHub: string,
+    chainID: ChainID,
+    contractType: ContractType,
     concurrency: number
   ) {
-    const addr = MetaTxHandler.getHubAddress(networkHub);
+    // Throws if networkHub is not recognised
+    const addr = MetaTxHandler.getHubAddress(chainID, contractType);
 
-    if (networkHub.includes("relay")) {
-      const relayHubFactory = new RelayHubFactory(user);
-      const relayHub = relayHubFactory.attach(addr);
-      return MetaTxHandler.multinonce(relayHub, concurrency);
+    if (contractType === ContractType.RELAYHUB) {
+      return MetaTxHandler.multinonce(chainID, contractType, addr, concurrency);
     }
 
-    if (networkHub.includes("proxy")) {
-      const proxyHubFactory = new ProxyHubFactory(user);
-      const proxyHub = proxyHubFactory.attach(addr);
-      return MetaTxHandler.multinonce(proxyHub, concurrency);
+    if (contractType === ContractType.PROXYHUB) {
+      return MetaTxHandler.multinonce(chainID, contractType, addr, concurrency);
     }
-
-    throw new Error("Please specify which network and hub to set up");
   }
 
   /**
    * Bitflip replay protection
-   * @param user Required for fetching the relay hub via the factory.
-   * @param contract RelayHub, ProxyHub or ProxyAccount
+   * @param chainID: ChainID (mainnet or ropsten)
+   * @param contractType: RelayHub or ProxyHub
    * @throws If the network hub option is not available.
    * @returns A MetaTxHandler with bitflip replay protection.
    */
-  public static bitFlipPreset(user: Wallet, networkHub: string) {
-    const addr = MetaTxHandler.getHubAddress(networkHub);
+  public static bitFlipPreset(chainID: ChainID, contractType: ContractType) {
+    const addr = MetaTxHandler.getHubAddress(chainID, contractType);
 
-    if (networkHub.includes("relay")) {
-      const relayHubFactory = new RelayHubFactory(user);
-      const relayHub = relayHubFactory.attach(addr);
-      return MetaTxHandler.bitFlip(relayHub);
+    if (contractType === ContractType.RELAYHUB) {
+      return MetaTxHandler.bitFlip(chainID, contractType, addr);
     }
 
-    if (networkHub.includes("proxy")) {
-      const proxyHubFactory = new ProxyHubFactory(user);
-      const proxyHub = proxyHubFactory.attach(addr);
-      return MetaTxHandler.bitFlip(proxyHub);
+    if (contractType === ContractType.PROXYHUB) {
+      return MetaTxHandler.bitFlip(chainID, contractType, addr);
     }
 
     throw new Error("Please specify which network and hub to set up");
@@ -107,8 +124,18 @@ export class MetaTxHandler {
    * @param contract RelayHub, ProxyHub or ProxyAccount
    * @param concurrency Up to N concurrent transactions at a time
    */
-  public static multinonce(contract: Contract, concurrency: number) {
-    return new MetaTxHandler(contract, new MultiNonce(contract, concurrency));
+  public static multinonce(
+    chainID: ChainID,
+    contractType: ContractType,
+    contract: string,
+    concurrency: number
+  ) {
+    return new MetaTxHandler(
+      chainID,
+      contractType,
+      contract,
+      new MultiNonce(contract, concurrency)
+    );
   }
 
   /**
@@ -116,8 +143,17 @@ export class MetaTxHandler {
    * @param contract RelayHub, ProxyHub or ProxyAccount
    * @param concurrency Up to N concurrent transactions at a time
    */
-  public static bitFlip(contract: Contract) {
-    return new MetaTxHandler(contract, new BitFlip(contract));
+  public static bitFlip(
+    chainID: ChainID,
+    contractType: ContractType,
+    contract: string
+  ) {
+    return new MetaTxHandler(
+      chainID,
+      contractType,
+      contract,
+      new BitFlip(contract)
+    );
   }
 
   /**
@@ -126,7 +162,9 @@ export class MetaTxHandler {
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
   constructor(
-    private readonly contract: Contract,
+    private readonly chainID: ChainID,
+    private readonly contractType: ContractType,
+    private readonly contract: string,
     private readonly replayProtectionAuthority: ReplayProtectionAuthority
   ) {}
 
@@ -140,12 +178,10 @@ export class MetaTxHandler {
     target: string,
     value: BigNumber,
     callData: string,
-    contract: Contract
+    contractType: ContractType
   ) {
-    const type = this.contractType(contract);
-
     // Relay Hub does not have a "value" field for forward.
-    if (type === ContractType.RELAYHUB) {
+    if (ContractType.RELAYHUB === contractType) {
       return defaultAbiCoder.encode(["address", "bytes"], [target, callData]);
     }
 
@@ -172,8 +208,7 @@ export class MetaTxHandler {
     encodedCallData: string,
     encodedReplayProtection: string,
     replayProtectionAuthority: string,
-    contract: Contract,
-    chainId: BigNumber
+    contract: string
   ): string {
     // We expect encoded call data to include target contract address, the value, and the callData.
     return defaultAbiCoder.encode(
@@ -182,51 +217,42 @@ export class MetaTxHandler {
         encodedCallData,
         encodedReplayProtection,
         replayProtectionAuthority,
-        contract.address,
-        chainId,
+        contract,
+        this.chainID,
       ]
     );
   }
 
   /**
-   * If it is a ProxyHub, we will fetch the signer's contract account address.
-   * Otherwise, return address as normal (RelayHub or ProxyAccount)
-   * @param signer Signer's wallet
+   * Deploys a proxy contract for the user
+   * @param wallet Wallet to sign Ethereum Transaction
+   * @param userAddress User's Ethereum Account
    */
-  public async getProxyAccountContract(
-    signer: Wallet,
-    ownerOfProxyAccountAddr: string
-  ) {
-    const type = this.contractType(this.contract);
+  public async createProxyContract(wallet: Wallet, userAddress: string) {
+    // Only the ProxyHub can create proxy accounts. e.g. it maintains a registry.
+    if (this.contractType === ContractType.PROXYHUB) {
+      const proxyHub = new ProxyHubFactory(wallet).attach(this.contract);
+      const deployed = await proxyHub.connect(wallet).accounts(userAddress);
 
-    if (type === ContractType.PROXYHUB) {
-      // Let's fetch the relevant proxy contract
-      // All proxy accounts are listed - according to the owner's signing address.
-      const proxyAccountAddr = await this.contract.accounts(
-        ownerOfProxyAccountAddr
-      );
+      // Does the user have a proxy contract?
+      if (deployed === "0x0000000000000000000000000000000000000000") {
+        const tx = await proxyHub
+          .connect(wallet)
+          .createProxyAccount(userAddress);
 
-      // Confirm the proxy account exists.
-      if (proxyAccountAddr === "0x0000000000000000000000000000000000000000") {
-        throw new Error("Proxy account does not exist.");
+        return tx;
       }
-
-      const proxyAccountFactory = new ProxyAccountFactory(signer);
-      const hub = proxyAccountFactory.attach(proxyAccountAddr);
-
-      return hub;
+    } else {
+      throw new Error("ProxyHub must be installed to create a ProxyContract");
     }
-
-    throw new Error(
-      "ProxyAccounts can only be fetched if a ProxyHub contract is installed for this MetaTxHandler"
-    );
   }
+
   /**
    * Easy method for signing a meta-transaction. Takes care of replay protection.]
    * @param signer Signer's wallet
    * @param target Target contract address
    * @param value Value to send
-   * @param msgSenderCall Encoded calldata
+   * @param callData Encoded calldata
    */
   public async signMetaTransaction(
     signer: Wallet,
@@ -234,51 +260,51 @@ export class MetaTxHandler {
     value: BigNumber,
     callData: string
   ) {
-    const type = this.contractType(this.contract);
-    let hub = this.contract;
+    let contractAddr = this.contract;
 
-    if (type === ContractType.PROXYHUB) {
-      hub = await this.getProxyAccountContract(signer, signer.address);
+    // Proxy Account has a deploy function function.
+    if (this.contractType === ContractType.PROXYHUB) {
+      const proxyHub = new ProxyHubFactory(signer).attach(this.contract);
+      const baseAddress = await proxyHub.baseAccount();
+
+      contractAddr = MetaTxHandler.buildCreate2Address(
+        proxyHub.address,
+        signer.address,
+        baseAddress
+      );
     }
-
-    // Fetch chain ID
-    if (!this.chainId) {
-      this.chainId = await hub.connect(signer).getChainID();
-    }
-
-    // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address,
-      hub
+      signer,
+      contractAddr
     );
 
     const encodedCallData = this.getEncodedCallData(
       target,
       value,
       callData,
-      hub
+      this.contractType
     );
-    const encodedData = this.encodeMetaTransactionToSign(
+
+    const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
       this.replayProtectionAuthority.getAddress(),
-      hub,
-      this.chainId
+      contractAddr
     );
 
     const signature = await signer.signMessage(
-      arrayify(keccak256(encodedData))
+      arrayify(keccak256(encodedMetaTx))
     );
 
     const params: ForwardParams = {
-      hub: hub.address,
+      hub: contractAddr,
       signer: signer.address,
       target: target,
       value: value.toString(),
       data: callData,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: this.chainId.toNumber(),
+      chainId: this.chainID,
       signature: signature,
     };
 
@@ -295,46 +321,44 @@ export class MetaTxHandler {
    * @param msgSenderCall Encoded calldata
    */
   public async signMetaDeployment(signer: Wallet, initCode: string) {
-    const hub = this.contract;
-    const type = this.contractType(this.contract);
+    // Get proxy account address
+    let contractAddr = this.contract;
 
     // Proxy Account has a deploy function function.
-    if (type === ContractType.PROXYHUB) {
-      return await this.getProxyAccountContract(signer, signer.address);
+    if (this.contractType === ContractType.PROXYHUB) {
+      const proxyHub = new ProxyHubFactory(signer).attach(this.contract);
+      const baseAddress = await proxyHub.baseAccount();
+
+      contractAddr = MetaTxHandler.buildCreate2Address(
+        proxyHub.address,
+        signer.address,
+        baseAddress
+      );
     }
 
-    // Fetch chain ID
-    if (!this.chainId) {
-      this.chainId = await this.getChainID(signer);
-    }
-
-    // Encode expected data
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer.address,
-      hub
+      signer,
+      contractAddr
     );
 
-    const encodedData = this.encodeMetaTransactionToSign(
+    const encodedMetaTx = this.encodeMetaTransactionToSign(
       initCode,
       encodedReplayProtection,
       this.replayProtectionAuthority.getAddress(),
-      hub,
-      this.chainId
+      contractAddr
     );
 
     const signature = await signer.signMessage(
-      arrayify(keccak256(encodedData))
+      arrayify(keccak256(encodedMetaTx))
     );
 
-    const params: ForwardParams = {
-      hub: hub.address,
+    const params: DeploymentParams = {
+      hub: contractAddr,
       signer: signer.address,
-      target: "0x0000000000000000000000000000000000000000",
-      value: "0",
       data: initCode,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: this.chainId.toNumber(),
+      chainId: this.chainID,
       signature: signature,
     };
 
@@ -342,81 +366,30 @@ export class MetaTxHandler {
   }
 
   /**
-   * Returns the encoded calldata for the relay contract. Used by the relayer
-   * to .call() into the RelayHub/ProxyAccount before .call() into the TargetContract.
-   * @param user User's wallet
-   * @param params Forward parameters
+   *
+   * @param creatorAddress Creator of the clone contract (ProxyHub)
+   * @param signersAddress Signer's address
+   * @param cloneAddress Contract to clone address
    */
-  public async getForwardCallData(relayer: Wallet, params: ForwardParams) {
-    let hub = this.contract;
-    const type = this.contractType(hub);
+  public static buildCreate2Address(
+    creatorAddress: string,
+    signersAddress: string,
+    cloneAddress: string
+  ) {
+    const saltHex = solidityKeccak256(["address"], [signersAddress]);
+    const byteCodeHash = solidityKeccak256(
+      ["bytes", "bytes20", "bytes"],
+      [
+        "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+        cloneAddress,
+        "0x5af43d82803e903d91602b57fd5bf3",
+      ]
+    );
 
-    if (type === ContractType.PROXYHUB) {
-      hub = await this.getProxyAccountContract(relayer, params.signer);
-
-      const callData = hub.interface.functions.forward.encode([
-        params.target,
-        params.value,
-        params.data,
-        params.replayProtection,
-        params.replayProtectionAuthority,
-        params.signature,
-      ]);
-
-      return callData;
-    }
-
-    // Send via the relay hub
-    const callData = hub.interface.functions.forward.encode([
-      params.target,
-      params.data,
-      params.replayProtection,
-      params.replayProtectionAuthority,
-      params.signer,
-      params.signature,
-    ]);
-
-    return callData;
-  }
-
-  /**
-   * Easy method for a relayer to forward a pre-approved meta-transaction
-   * Takes care of working out if it is a ContractHub, ContractAccount or RelayHub.
-   * @param relayer Relayer's wallet
-   * @param params Forwarding parameters (signed meta-transaction)
-   */
-  public async forward(relayer: Wallet, params: ForwardParams) {
-    const callData = this.getForwardCallData(relayer, params);
-
-    return relayer.sendTransaction({
-      to: params.hub, // Potentially a ProxyAccount
-      data: callData,
-    });
-  }
-
-  /**
-   * Unfortunately, instanceof does not work when compiled
-   * to javascript. In order to detect if the hub is a ProxyAccount,
-   * RelayHub or ProxyHub - we rely on checking the existance of a
-   * function.
-   * - init() is only available in a ProxyAccount
-   * - accounts() is only available in a ProxyHub
-   * If neither function is detected, we assume it is a RelayHub.
-   * @param hub Contract
-   */
-  private contractType(contract: Contract) {
-    if (contract.init) {
-      return ContractType.PROXYACCOUNT;
-    }
-
-    if (contract.accounts) {
-      return ContractType.PROXYHUB;
-    }
-
-    return ContractType.RELAYHUB;
-  }
-
-  private async getChainID(signer: Wallet) {
-    return await this.contract.connect(signer).getChainID();
+    return `0x${keccak256(
+      `0x${["ff", creatorAddress, saltHex, byteCodeHash]
+        .map((x) => x.replace(/0x/, ""))
+        .join("")}`
+    ).slice(-40)}`;
   }
 }

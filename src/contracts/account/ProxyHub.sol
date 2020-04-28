@@ -65,7 +65,7 @@ contract ProxyAccount is ReplayProtection {
         bytes memory _signature) public {
 
         // Confirm the user wants to deploy the smart contract
-        require(owner == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature));
+        require(owner == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature), "Owner of proxy account must authorise deploying contract");
 
         // We can just abuse the replay protection as the salt :)
         address deployed = Create2.deploy(keccak256(abi.encode(owner, _replayProtection)), _initCode);

@@ -1,5 +1,6 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
-import { Contract } from "ethers";
+import { Contract, Wallet } from "ethers";
+import { ReplayProtectionFactory } from "../typedContracts/ReplayProtectionFactory";
 
 export interface Nonces {
   index: BigNumber;
@@ -24,8 +25,8 @@ export abstract class ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    */
   abstract async getEncodedReplayProtection(
-    signerAddress: string,
-    contract: Contract
+    signer: Wallet,
+    contract: string
   ): Promise<string>;
 
   /**
@@ -37,16 +38,25 @@ export abstract class ReplayProtectionAuthority {
    * @param contract Hub Contract
    */
   protected async accessNonceStore(
-    signerAddress: string,
+    signer: Wallet,
     index: BigNumber,
-    contract: Contract
+    contract: string
   ): Promise<BigNumber> {
-    // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
-    // Onchain ID = H(signerAddress, index).
-    const onchainId = keccak256(
-      defaultAbiCoder.encode(["address", "uint"], [signerAddress, index])
-    );
+    try {
+      const replayProtection = new ReplayProtectionFactory(signer).attach(
+        contract
+      );
+      // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
+      // Onchain ID = H(signerAddress, index).
+      // Mostly benefits bitflip & multinonce.
+      const onchainId = keccak256(
+        defaultAbiCoder.encode(["address", "uint"], [signer.address, index])
+      );
 
-    return await contract.nonceStore(onchainId);
+      return await replayProtection.nonceStore(onchainId);
+    } catch (e) {
+      // Contract is not deployed. Very likely a new user, so return the default index 0.
+      return new BigNumber("0");
+    }
   }
 }

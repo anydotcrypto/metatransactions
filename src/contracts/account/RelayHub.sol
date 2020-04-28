@@ -60,7 +60,7 @@ contract RelayHub is ReplayProtection {
 
         // Confirm the user wants to deploy the smart contract
         require(_signer == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature),
-        "Signer must aurhotise deploying contract");
+        "Signer must authorise deploying contract");
 
         // We can just abuse the replay protection as the salt :)
         address deployed = Create2.deploy(keccak256(abi.encode(_signer, _replayProtection)), _initCode);
