@@ -10,7 +10,7 @@ There are two approaches:
 We have put together this meta-transaction library to support both approaches and there are several benefits:
 - **Ease of adoption.** New smart contracts do not need to handle replay protection (e.g. the permit() standard). 
 - **Global RelayHub.** The \_msgSender() standard requires a hard-coded relayhub contract. This is a minimal RelayHub.sol that simply deals with checking replay protection before calling the target contract. 
-- **One library.** There are several ways to construct and sign meta-transactions. We hope this respository will become a single standard that any project can adopt. 
+- **Single standard & library.** There are several ways to construct and sign meta-transactions, so we hope this repository can become a single standard that any project can adopt. 
 
 The end-goal of this library is to make it easier for developers and users to tap into third party APIs that focus on getting transactions in the blockchain. 
 
