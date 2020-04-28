@@ -39,7 +39,7 @@ ropsten-relayhub
 mainnet-relayhub
 ```
 
-We cover the pros/cons for the ProxyHub and RelayHub here. If you are not sure which one to use, then we recommend ```mainnet-proxyhub``` as it works for all existing contracts. e.g. every relay transactions are sent via a minimal proxy contract. 
+We cover the pros/cons for the ProxyHub and RelayHub here. If you are not sure which one to use, then we recommend ```mainnet-proxyhub``` as it works for all existing contracts. e.g. the meta-transaction is sent via a minimal proxy contract. 
 
 4. You need to decide which replay protection to use and there are two options. 
 
