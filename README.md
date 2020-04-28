@@ -41,9 +41,9 @@ mainnet-relayhub
 
 We cover the pros/cons for the ProxyHub and RelayHub here. If you are not sure which one to use, then we recommend ```mainnet-proxyhub``` as it works for all existing contracts. e.g. every relay transactions are sent via a minimal proxy contract. 
 
-4. You need to decide which replay protection to use and we have two options.
+4. You need to decide which replay protection to use and there are two options. 
 
-The first option is to use multinonce: 
+The first is multinonce: 
 
 ``` 
 const userWallet: Wallet = ....; 
@@ -55,7 +55,7 @@ const metaTxHandler = MetaTxHandler.multinoncePreset(userWallet, networkHub, con
 This sets up the meta-transaction handler to use multinonce replay protection with a default number of queues as 10. The benefit of multinonce is that it will let you perform up to ```concurrency``` out-of-order transactions at any one time. Essentially, there are ten nonce queues and it will rotate queues for every new transaction. If you want all transactions to always be processed by the blockchain in order, then just set ```concurrency=1```.
 
 
-The second option is to use bitflip:
+The second use bitflip:
 
 ```
 const userWallet: Wallet = ....;
