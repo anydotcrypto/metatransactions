@@ -4,16 +4,15 @@ Ethereum transaction's intertwine the identity of who paid for the transaction (
 
 There are two approaches: 
 
-- Proxy contracts _(compatible with all contracts)_. All transactions for the user are sent via a proxy contract.
-- \_msgSender() _(compatible with upgraded contracts)_. All transactions are sent via a global RelayHub.sol contract and the target contract must support the standard which requires it to replace msg.sender with \_msgSender().
+- **Proxy contracts** All transactions for the user are sent via a proxy contract and it is compatible with all existing smart contracts. 
+- **\_msgSender()** All transactions are sent via a global RelayHub.sol contract and the target contract must support the standard which requires it to replace msg.sender with \_msgSender(). It is only compatible with contracts that have upgraded to use the standard. 
 
 We have put together this meta-transaction library to support both approaches and there are several benefits:
-- New smart contracts do not need to handle replay protection (e.g. the permit() standard). 
-- A minimal RelayHub.sol can be installed in all contracts that support \_msgSender(). 
-- A single client-library for constructing and signing meta-transactions. 
+- **Ease of adoption.** New smart contracts do not need to handle replay protection (e.g. the permit() standard). 
+- **Global RelayHub.** The \_msgSender() standard requires a hard-coded relayhub contract. This is a minimal RelayHub.sol that simply deals with checking replay protection before calling the target contract. 
+- **One library.** There are several ways to construct and sign meta-transactions. We hope this respository will become a single standard that any project can adopt. 
 
-If adopted, we hope this library will make it easier for new developers to support relay services in their smart contracts and as a result for users to use third party relayers. Essentially, they can tap into third party APIs that focus on getting the transaction in the blockchain.  
-
+The end-goal of this library is to make it easier for developers and users to tap into third party APIs that focus on getting transactions in the blockchain. 
 
 ## Getting started 
 
