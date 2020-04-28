@@ -12,12 +12,12 @@ export { ProxyHubFactory } from "./typedContracts/ProxyHubFactory";
 export { RelayHub } from "./typedContracts/RelayHub";
 export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 
-export { ReplayProtection } from "./typedContracts//ReplayProtection";
+export { ReplayProtection } from "./typedContracts/ReplayProtection";
 export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
 export { MultiNonce } from "./ts/multinonce";
 export { BitFlip } from "./ts/bitflip";
-export { HubReplayProtection } from "./ts/hub-replayprotection";
+export { MetaTxHandler } from "./ts/metatxhandler";
 
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };

@@ -1,12 +1,13 @@
 import "mocha";
 import * as chai from "chai";
+import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
 import {
   keccak256,
   arrayify,
   defaultAbiCoder,
   BigNumber,
-  parseEther
+  parseEther,
 } from "ethers/utils";
 
 import Doppelganger from "ethereum-doppelganger";
@@ -18,18 +19,14 @@ import {
   MsgSenderExampleFactory,
   ProxyHub,
   ProxyAccountFactory,
-  ProxyAccount
+  ProxyAccount,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import {
-  HubReplayProtection,
-  ForwardParams
-} from "../../src/ts/hub-replayprotection";
+import { ForwardParams, MetaTxHandler } from "../../src/ts/metatxhandler";
 
 const expect = chai.expect;
-chai.use(solidity);
-
+chai.use(chaiAsPromised);
 let hubClass: ProxyHub;
 let accountClass: ProxyAccount;
 
@@ -48,7 +45,7 @@ export const constructDigest = (params: ForwardParams) => {
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
-          params.chainId
+          params.chainId,
         ]
       )
     )
@@ -85,13 +82,13 @@ async function createProxyHub(
     sender,
     msgSenderCon,
     nonceStoreMock,
-    bitFlipNonceStore
+    bitFlipNonceStore,
   };
 }
 
 describe("ProxyHubProxy", () => {
   fnIt<proxyHubFunctions>(
-    a => a.createProxyAccount,
+    (a) => a.createProxyAccount,
     "create proxy account with deterministic address",
     async () => {
       const { proxyHub, sender } = await loadFixture(createProxyHub);
@@ -106,7 +103,7 @@ describe("ProxyHubProxy", () => {
   );
 
   fnIt<proxyHubFunctions>(
-    a => a.createProxyAccount,
+    (a) => a.createProxyAccount,
     "cannot re-create the same proxy twice",
     async () => {
       const { proxyHub, sender } = await loadFixture(createProxyHub);
@@ -119,7 +116,7 @@ describe("ProxyHubProxy", () => {
   );
 
   fnIt<accountFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "for proxyAccount emits expected address",
     async () => {
       const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -134,12 +131,9 @@ describe("ProxyHubProxy", () => {
 
       const proxyAccountFactory = new ProxyAccountFactory(owner);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
-      const hubReplayProtection = HubReplayProtection.multinonce(
-        proxyAccount,
-        1
-      );
+      const metaTxHandler = MetaTxHandler.multinonce(proxyAccount, 1);
 
-      const params = await hubReplayProtection.signMetaTransaction(
+      const params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -164,7 +158,7 @@ describe("ProxyHubProxy", () => {
   );
 
   fnIt<accountFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "looks up proxy account address and forwards the call.",
     async () => {
       const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -172,17 +166,18 @@ describe("ProxyHubProxy", () => {
       );
 
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const hubReplayProtection = HubReplayProtection.multinonce(proxyHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(proxyHub, 1);
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const params = await hubReplayProtection.signMetaTransaction(
+      const params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
         msgSenderCall
       );
 
-      const tx = hubReplayProtection.forward(sender, params);
+      const tx = metaTxHandler.forward(sender, params);
+
       await expect(tx).to.emit(
         msgSenderCon,
         msgSenderCon.interface.events.WhoIsSender.name
@@ -190,58 +185,53 @@ describe("ProxyHubProxy", () => {
     }
   );
 
-  // fnIt<accountFunctions>(
-  //   a => a.forward,
-  //   "looks up proxy account address and tries to foward, but fails as proxy account doesn't exist",
-  //   async () => {
-  //     const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
-  //       createProxyHub
-  //     );
-  //     const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-  //     const hubReplayProtection = HubReplayProtection.multinonce(proxyHub, 1);
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "looks up proxy account address and tries to foward, but fails as proxy account doesn't exist",
+    async () => {
+      const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyHub
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const metaTxHandler = MetaTxHandler.multinonce(proxyHub, 1);
 
-  //     const params = await hubReplayProtection.signMetaTransaction(
-  //       owner,
-  //       msgSenderCon.address,
-  //       new BigNumber("0"),
-  //       msgSenderCall
-  //     );
-
-  //     return expect(
-  //       await hubReplayProtection.forward(sender, params)
-  //     ).should.be.rejectedWith(new Error("Proxy account does not exist."));
-  //   }
-  // );
+      return expect(
+        metaTxHandler.signMetaTransaction(
+          owner,
+          msgSenderCon.address,
+          new BigNumber("0"),
+          msgSenderCall
+        )
+      ).to.eventually.be.rejectedWith("Proxy account does not exist.");
+    }
+  );
 
   fnIt<accountFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "returns encoded forward calldata that we send in a transaction",
     async () => {
       const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
         createProxyHub
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const hubReplayProtection = HubReplayProtection.multinonce(proxyHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(proxyHub, 1);
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
       const proxyAddress = await proxyHub.accounts(owner.address);
-      const params = await hubReplayProtection.signMetaTransaction(
+      const params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
         msgSenderCall
       );
 
-      const callData = await hubReplayProtection.encodeForwardParams(
-        sender,
-        params
-      );
+      const callData = await metaTxHandler.getForwardCallData(sender, params);
 
       const tx = sender.sendTransaction({
         to: proxyAddress,
         gasLimit: 500000,
         gasPrice: parseEther("0.000001"),
-        data: callData
+        data: callData,
       });
 
       await expect(tx)
@@ -251,7 +241,7 @@ describe("ProxyHubProxy", () => {
   );
 
   fnIt<accountFunctions>(
-    a => a.deployContract,
+    (a) => a.deployContract,
     "deploys a contract via the proxyHub",
     async () => {
       const { proxyHub, owner, sender } = await loadFixture(createProxyHub);
@@ -265,19 +255,13 @@ describe("ProxyHubProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const hubReplayProtection = HubReplayProtection.multinonce(
-        proxyAccount,
-        1
-      );
+      const metaTxHandler = MetaTxHandler.multinonce(proxyAccount, 1);
 
       const initCode = msgSenderFactory.getDeployTransaction(proxyHub.address)
         .data! as string;
 
       // Deploy the proxy using CREATE2
-      const params = await hubReplayProtection.signMetaDeployment(
-        owner,
-        initCode
-      );
+      const params = await metaTxHandler.signMetaDeployment(owner, initCode);
       await proxyAccount
         .connect(sender)
         .deployContract(
@@ -315,7 +299,7 @@ describe("ProxyHubProxy", () => {
   );
 
   fnIt<accountFunctions>(
-    a => a.deployContract,
+    (a) => a.deployContract,
     "deploy missing real init code and fails",
     async () => {
       const { proxyHub, owner, sender } = await loadFixture(createProxyHub);
@@ -330,19 +314,13 @@ describe("ProxyHubProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const hubReplayProtection = HubReplayProtection.multinonce(
-        proxyAccount,
-        1
-      );
+      const metaTxHandler = MetaTxHandler.multinonce(proxyAccount, 1);
 
       // Doesn't like bytecode. Meh.
       const initCode = msgSenderFactory.bytecode;
 
       // Deploy the proxy using CREATE2
-      const params = await hubReplayProtection.signMetaDeployment(
-        owner,
-        initCode
-      );
+      const params = await metaTxHandler.signMetaDeployment(owner, initCode);
       const deployed = proxyAccount
         .connect(sender)
         .deployContract(

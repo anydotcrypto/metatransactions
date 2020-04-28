@@ -1,6 +1,6 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Contract } from "ethers";
-import { ReplayProtectionAuthority } from "./replayprotection";
+import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { Lock } from "@pisa-research/utils";
 import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
@@ -16,7 +16,7 @@ export class BitFlip extends ReplayProtectionAuthority {
   private bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
   lock: Lock;
 
-  constructor(private readonly hubContract: Contract) {
+  constructor(private readonly contract: Contract) {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.bitmapTracker = new Map<string, BigNumber>();
@@ -26,7 +26,7 @@ export class BitFlip extends ReplayProtectionAuthority {
   /**
    * Search through all bitmaps stored in the contract until we find an empty bit.
    * @param signerAddress Signer's address
-   * @param hubContract RelayHub or ProxyAccount
+   * @param contract RelayHub or ProxyAccount
    * @param searchFrom Starting bitmap index
    */
   private async searchBitmaps(signerAddress: string) {
@@ -37,14 +37,17 @@ export class BitFlip extends ReplayProtectionAuthority {
 
     // Lets confirm they are defined
     if (!index || !bitmap) {
-      index = new BigNumber("6174"); // Magic number to separate MultiNonce and BitFlip
-      bitmap = await this.accessNonceStore(
-        signerAddress,
-        index,
-        this.hubContract
-      );
+      const min = 6174; // Magic number to separate MultiNonce and BitFlip
+      const max = Number.MAX_SAFE_INTEGER;
+      // Would prefer something better than Math.random()
+      index = new BigNumber(Math.floor(Math.random() * (max - min + 1) + min));
+      bitmap = await this.accessNonceStore(signerAddress, index, this.contract);
     }
-    while (!foundEmptyBit) {
+
+    // Let's try to find an empty bit for 1000 indexes
+    // If it fails after that... something bad happened
+    // with the random number generator.
+    for (let i = 0; i < 1000; i) {
       try {
         // Try to find an empty bit
         bitToFlip = this.findEmptyBit(bitmap);
@@ -56,7 +59,7 @@ export class BitFlip extends ReplayProtectionAuthority {
           bitmap = await this.accessNonceStore(
             signerAddress,
             index,
-            this.hubContract
+            this.contract
           );
         } else {
           // We found an empty bit
@@ -66,6 +69,7 @@ export class BitFlip extends ReplayProtectionAuthority {
           this.indexTracker.set(signerAddress, index);
           const flipped = this.flipBit(bitmap, bitToFlip);
           this.bitmapTracker.set(signerAddress, flipped);
+          return { index, bitToFlip };
         }
       } catch (e) {
         // Likely an error from infura, lets hold back and try again.
@@ -73,7 +77,7 @@ export class BitFlip extends ReplayProtectionAuthority {
       }
     }
 
-    return { index, bitToFlip };
+    throw new Error("Failed to find an index with an empty bitmap");
   }
   /**
    * A simple function that returns the index of the first 0 bit in the bitmap.
@@ -111,7 +115,7 @@ export class BitFlip extends ReplayProtectionAuthority {
    * Note: If the contract address changes, we will refresh the nonce tracker
    * and freshly request new nonces from the network.
    * @param signerAddress Signer's address
-   * @param hubContract RelayHub or Proxy Account
+   * @param contract RelayHub or Proxy Account
    */
   public async getEncodedReplayProtection(signerAddress: string) {
     try {

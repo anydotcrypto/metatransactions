@@ -25,7 +25,7 @@ export abstract class ReplayProtectionAuthority {
    */
   abstract async getEncodedReplayProtection(
     signerAddress: string,
-    hubContract: Contract
+    contract: Contract
   ): Promise<string>;
 
   /**
@@ -34,12 +34,12 @@ export abstract class ReplayProtectionAuthority {
    * you want to fetch the latest and only valid nonce (50).
    * @param signerAddress Signer's address
    * @param index Index in Nonce Store
-   * @param hubContract Hub Contract
+   * @param contract Hub Contract
    */
   protected async accessNonceStore(
     signerAddress: string,
     index: BigNumber,
-    hubContract: Contract
+    contract: Contract
   ): Promise<BigNumber> {
     // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
     // Onchain ID = H(signerAddress, index).
@@ -47,6 +47,6 @@ export abstract class ReplayProtectionAuthority {
       defaultAbiCoder.encode(["address", "uint"], [signerAddress, index])
     );
 
-    return await hubContract.nonceStore(onchainId);
+    return await contract.nonceStore(onchainId);
   }
 }

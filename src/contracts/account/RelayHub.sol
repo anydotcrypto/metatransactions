@@ -18,7 +18,6 @@ contract RelayHub is ReplayProtection {
      * We check the signer has authorised the target contract and function call. Then, we pass it to the
      * signer's contract account to perform the final execution (to help us bypass msg.sender problem).
      * @param _target Target contract
-     * @param _value Quantity of eth in account contract to send to target
      * @param _callData Function name plus arguments
      * @param _replayProtection Replay protection (e.g. multinonce)
      * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
@@ -27,14 +26,13 @@ contract RelayHub is ReplayProtection {
      */
     function forward(
         address _target,
-        uint _value, // only used for accounts
         bytes memory _callData,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         address _signer,
         bytes memory _signature) public {
 
-        bytes memory encodedCallData = abi.encode(_target, _value, _callData);
+        bytes memory encodedCallData = abi.encode(_target, _callData);
 
         // // Reverts if fails.
         require(_signer == verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature),

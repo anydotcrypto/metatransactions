@@ -40,12 +40,13 @@
     "@openzeppelin/contracts": "3.0.0-beta.0",
     "@pisa-research/test-utils": "^0.1.36",
     "@types/bn.js": "^4.11.6",
+    "bn.js": "^5.1.1",
+    "ethers": "^4.0.43",
+    "npm": "^6.14.4",
+    "secure-random": "^1.1.2",
+    "ts-node": "^8.8.2",
     "typechain": "^1.0.3",
     "typechain-target-ethers": "^1.0.4",
-    "typescript": "^3.7.5",
-    "ethers": "^4.0.43",
-    "bn.js": "^5.1.1",
-    "npm": "^6.14.4",
-    "ts-node": "^8.8.2"
+    "typescript": "^3.7.5"
   }
 }

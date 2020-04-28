@@ -9,11 +9,11 @@ import {
   BitFlipNonceStoreFactory,
   MsgSenderExampleFactory,
   RelayHub,
-  IReplayProtectionJson
+  IReplayProtectionJson,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { HubReplayProtection } from "../../src/ts/hub-replayprotection";
+import { MetaTxHandler } from "../../src/ts/metatxhandler";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -49,13 +49,13 @@ async function createRelayHub(
     sender,
     msgSenderCon,
     nonceStoreMock,
-    bitFlipNonceStore
+    bitFlipNonceStore,
   };
 }
 
-describe("RelayHubContract", () => {
+describe("RelayHub Contract", () => {
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "for msgSender emits expected signer address",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -63,8 +63,8 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
-      const params = await hubReplayProtection.signMetaTransaction(
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
+      const params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -75,7 +75,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params.target,
-          params.value,
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
@@ -90,7 +89,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "sending two transactions should work with no replay protection conflicts",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -98,10 +97,10 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
 
       // Send off first transaction!
-      let params = await hubReplayProtection.signMetaTransaction(
+      let params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -112,7 +111,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params.target,
-          params.value,
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
@@ -125,7 +123,7 @@ describe("RelayHubContract", () => {
         .withArgs(owner.address);
 
       // Send off second transaction!
-      params = await hubReplayProtection.signMetaTransaction(
+      params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -136,7 +134,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params.target,
-          params.value,
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
@@ -151,7 +148,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "receives bad replay protection authority address and fails",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -169,12 +166,15 @@ describe("RelayHubContract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
-      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
+
+      // @ts-ignore:
+      const encodedData = metaTxHandler.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         replayProtectionAuthority,
-        relayHub
+        relayHub,
+        await relayHub.connect(owner).getChainID()
       );
 
       const signature = await owner.signMessage(
@@ -185,7 +185,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           msgSenderCon.address,
-          value,
           encodedCallData,
           encodedReplayProtection,
           replayProtectionAuthority,
@@ -199,7 +198,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "replay protection too far in future and fails",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -218,13 +217,14 @@ describe("RelayHubContract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
-
-      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
+      // @ts-ignore:
+      const encodedData = metaTxHandler.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         "0x0000000000000000000000000000000000000000",
-        relayHub
+        relayHub,
+        await relayHub.connect(owner).getChainID()
       );
 
       const signature = await owner.signMessage(
@@ -235,7 +235,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           msgSenderCon.address,
-          value,
           encodedCallData,
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
@@ -251,7 +250,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "target contract function reverts and we can detect it in the relay hub.",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -261,10 +260,10 @@ describe("RelayHubContract", () => {
         []
       );
 
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
 
       // Send off first transaction!
-      let params = await hubReplayProtection.signMetaTransaction(
+      let params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -275,7 +274,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params.target,
-          params.value,
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
@@ -287,7 +285,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "empty signature will emit a pseudo-random signer",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -295,10 +293,10 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
-      const params = await hubReplayProtection.signMetaTransaction(
+      const params = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -309,7 +307,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params.target,
-          params.value,
           params.data,
           params.replayProtection,
           params.replayProtectionAuthority,
@@ -324,7 +321,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "to use an external replay protection authority successfully",
     async () => {
       const {
@@ -332,7 +329,7 @@ describe("RelayHubContract", () => {
         owner,
         sender,
         msgSenderCon,
-        bitFlipNonceStore
+        bitFlipNonceStore,
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
@@ -342,16 +339,19 @@ describe("RelayHubContract", () => {
         [0, 123]
       );
       const encodedCallData = defaultAbiCoder.encode(
-        ["address", "uint", "bytes"],
-        [msgSenderCon.address, new BigNumber("0"), msgSenderCall]
+        ["address", "bytes"],
+        [msgSenderCon.address, msgSenderCall]
       );
 
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
-      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
+
+      // @ts-ignore:
+      const encodedData = metaTxHandler.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         bitFlipNonceStore.address,
-        relayHub
+        relayHub,
+        await relayHub.connect(owner).getChainID()
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
@@ -361,7 +361,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           msgSenderCon.address,
-          new BigNumber("0"),
           msgSenderCall,
           encodedReplayProtection,
           bitFlipNonceStore.address,
@@ -377,7 +376,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "to use an external replay protection authority is successfully, but its reuse fails due to replay protection.",
     async () => {
       const {
@@ -385,7 +384,7 @@ describe("RelayHubContract", () => {
         owner,
         sender,
         msgSenderCon,
-        bitFlipNonceStore
+        bitFlipNonceStore,
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
@@ -395,16 +394,19 @@ describe("RelayHubContract", () => {
         [0, 123]
       );
       const encodedCallData = defaultAbiCoder.encode(
-        ["address", "uint", "bytes"],
-        [msgSenderCon.address, new BigNumber("0"), msgSenderCall]
+        ["address", "bytes"],
+        [msgSenderCon.address, msgSenderCall]
       );
 
-      const hubReplayProtection = HubReplayProtection.multinonce(relayHub, 1);
-      const encodedData = hubReplayProtection.encodeMetaTransactionToSign(
+      const metaTxHandler = MetaTxHandler.multinonce(relayHub, 1);
+
+      // @ts-ignore:
+      const encodedData = metaTxHandler.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
         bitFlipNonceStore.address,
-        relayHub
+        relayHub,
+        await relayHub.connect(owner).getChainID()
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
@@ -414,7 +416,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           msgSenderCon.address,
-          new BigNumber("0"),
           msgSenderCall,
           encodedReplayProtection,
           bitFlipNonceStore.address,
@@ -431,7 +432,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           msgSenderCon.address,
-          new BigNumber("0"),
           msgSenderCall,
           encodedReplayProtection,
           bitFlipNonceStore.address,
@@ -444,7 +444,7 @@ describe("RelayHubContract", () => {
   );
 
   fnIt<relayHubFunctions>(
-    a => a.forward,
+    (a) => a.forward,
     "for msgSender emits expected signer address twice with inbuilt bitflip protection",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -452,8 +452,8 @@ describe("RelayHubContract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const hubReplayProtection = HubReplayProtection.bitFlip(relayHub);
-      const params1 = await hubReplayProtection.signMetaTransaction(
+      const metaTxHandler = MetaTxHandler.bitFlip(relayHub);
+      const params1 = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -464,7 +464,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params1.target,
-          params1.value,
           params1.data,
           params1.replayProtection,
           params1.replayProtectionAuthority,
@@ -476,7 +475,7 @@ describe("RelayHubContract", () => {
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
 
-      const params2 = await hubReplayProtection.signMetaTransaction(
+      const params2 = await metaTxHandler.signMetaTransaction(
         owner,
         msgSenderCon.address,
         new BigNumber("0"),
@@ -487,7 +486,6 @@ describe("RelayHubContract", () => {
         .connect(sender)
         .forward(
           params2.target,
-          params2.value,
           params2.data,
           params2.replayProtection,
           params2.replayProtectionAuthority,

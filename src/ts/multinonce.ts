@@ -1,6 +1,6 @@
 import { defaultAbiCoder, BigNumber, keccak256 } from "ethers/utils";
 import { Contract } from "ethers";
-import { ReplayProtectionAuthority } from "./replayprotection";
+import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { Lock } from "@pisa-research/utils";
 
 export class MultiNonce extends ReplayProtectionAuthority {
@@ -9,7 +9,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
   lock: Lock;
 
   constructor(
-    private readonly hubContract: Contract,
+    private readonly contract: Contract,
     private readonly concurrency: number
   ) {
     super();
@@ -44,11 +44,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
     // Have we used this nonce before?
     if (!nonce) {
       // No, let's grab it from the contract.
-      nonce = await this.accessNonceStore(
-        signerAddress,
-        index!,
-        this.hubContract
-      );
+      nonce = await this.accessNonceStore(signerAddress, index!, this.contract);
     }
 
     this.nonceTracker.set(nonceIndex, nonce.add(1)); // Increment for use next time
@@ -61,7 +57,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
    * Note: If the contract address changes, we will refresh the nonce tracker
    * and freshly request new nonces from the network.
    * @param signerAddress Signer's address
-   * @param hubContract RelayHub or ContractAccount
+   * @param contract RelayHub or ContractAccount
    */
   public async getEncodedReplayProtection(signerAddress: string) {
     try {
