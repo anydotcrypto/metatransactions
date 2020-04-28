@@ -366,7 +366,8 @@ export class MetaTxHandler {
   }
 
   /**
-   *
+   * Computes the proxy contract account.
+   * Thanks to _prestwich for his pseudocode, got it to work!
    * @param creatorAddress Creator of the clone contract (ProxyHub)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
