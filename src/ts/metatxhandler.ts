@@ -6,7 +6,6 @@ import {
   solidityKeccak256,
 } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { Contract } from "ethers";
 import { MultiNonce } from "./multinonce";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { BitFlip } from "./bitflip";
@@ -53,21 +52,21 @@ export class MetaTxHandler {
   public static getHubAddress(chainid: ChainID, contractType: ContractType) {
     if (chainid === ChainID.MAINNET) {
       if (contractType === ContractType.RELAYHUB) {
-        return "0x70107abB312db18bD9AdDec39CE711374B09EBC1";
+        return "0x70107abB312db18bD9AdDec39CE711374B09EBC1" as string;
       }
 
       if (contractType === ContractType.PROXYHUB) {
-        return "0x0b116DF91Aae33d85840165c5487462E0E821242";
+        return "0x0b116DF91Aae33d85840165c5487462E0E821242" as string;
       }
     }
 
     if (chainid === ChainID.ROPSTEN) {
       if (contractType === ContractType.RELAYHUB) {
-        return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798";
+        return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798" as string;
       }
 
       if (contractType === ContractType.PROXYHUB) {
-        return "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9";
+        return "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9" as string;
       }
     }
     throw new Error("Please specify a valid ChainID and ContractType");
@@ -81,7 +80,7 @@ export class MetaTxHandler {
    * @throws If the network hub option is not available.
    * @returns A MetaTxHandler with multi-nonce replay protection.
    */
-  public static multinoncePreset(
+  public static multinonce(
     chainID: ChainID,
     contractType: ContractType,
     concurrency: number
@@ -90,12 +89,27 @@ export class MetaTxHandler {
     const addr = MetaTxHandler.getHubAddress(chainID, contractType);
 
     if (contractType === ContractType.RELAYHUB) {
-      return MetaTxHandler.multinonce(chainID, contractType, addr, concurrency);
+      return MetaTxHandler.getMultinonce(
+        chainID,
+        contractType,
+        addr,
+        concurrency
+      );
     }
 
     if (contractType === ContractType.PROXYHUB) {
-      return MetaTxHandler.multinonce(chainID, contractType, addr, concurrency);
+      return MetaTxHandler.getMultinonce(
+        chainID,
+        contractType,
+        addr,
+        concurrency
+      );
     }
+
+    // We sould never reach this error. e.g. invalid ChainID/Network is caught in MetaTxHandler.getHubAddress()
+    throw new Error(
+      "Hub address exists, but there is no corresponding way to fetch a MetaTxHandler for it."
+    );
   }
 
   /**
@@ -105,15 +119,15 @@ export class MetaTxHandler {
    * @throws If the network hub option is not available.
    * @returns A MetaTxHandler with bitflip replay protection.
    */
-  public static bitFlipPreset(chainID: ChainID, contractType: ContractType) {
+  public static bitflip(chainID: ChainID, contractType: ContractType) {
     const addr = MetaTxHandler.getHubAddress(chainID, contractType);
 
     if (contractType === ContractType.RELAYHUB) {
-      return MetaTxHandler.bitFlip(chainID, contractType, addr);
+      return MetaTxHandler.getBitflip(chainID, contractType, addr);
     }
 
     if (contractType === ContractType.PROXYHUB) {
-      return MetaTxHandler.bitFlip(chainID, contractType, addr);
+      return MetaTxHandler.getBitflip(chainID, contractType, addr);
     }
 
     throw new Error("Please specify which network and hub to set up");
@@ -121,10 +135,12 @@ export class MetaTxHandler {
 
   /**
    * Multi-nonce replay protection
-   * @param contract RelayHub, ProxyHub or ProxyAccount
+   * @param chainID Mainnet or Ropsten
+   * @param contractType RelayHub or ProxyHub
+   * @param contract Address of contract
    * @param concurrency Up to N concurrent transactions at a time
    */
-  public static multinonce(
+  private static getMultinonce(
     chainID: ChainID,
     contractType: ContractType,
     contract: string,
@@ -139,11 +155,13 @@ export class MetaTxHandler {
   }
 
   /**
-   * Multi-nonce replay protection
-   * @param contract RelayHub, ProxyHub or ProxyAccount
+   * Get bitflip replay protection
+   * @param chainID Mainnet or Ropsten
+   * @param contractType RelayHub or ProxyHub
+   * @param contract RelayHub or ProxyHub
    * @param concurrency Up to N concurrent transactions at a time
    */
-  public static bitFlip(
+  private static getBitflip(
     chainID: ChainID,
     contractType: ContractType,
     contract: string
@@ -158,10 +176,12 @@ export class MetaTxHandler {
 
   /**
    * Sets up a MetaTxHandler with the desired ReplayProtection Authority.
-   * @param contract RelayHub, ProxyHub or ProxyAccount
+   * @param chainID Mainnet or Ropsten
+   * @param contractType RelayHub or ProxyHub
+   * @param contract Address of contract
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
-  constructor(
+  private constructor(
     private readonly chainID: ChainID,
     private readonly contractType: ContractType,
     private readonly contract: string,
@@ -173,6 +193,7 @@ export class MetaTxHandler {
    * @param target Target contract
    * @param value Denominated in wei
    * @param callData Encoded function call with data
+   * @param contractType Contract Type (ProxyHub or RelayHub)
    */
   private getEncodedCallData(
     target: string,
@@ -242,6 +263,8 @@ export class MetaTxHandler {
 
         return tx;
       }
+
+      throw new Error("ProxyAccount for " + userAddress + " already exists.");
     } else {
       throw new Error("ProxyHub must be installed to create a ProxyContract");
     }
@@ -261,6 +284,17 @@ export class MetaTxHandler {
     callData: string
   ) {
     let contractAddr = this.contract;
+
+    // The only difference in the forward() function for the proxy hub
+    // and the relay is the "value" field. The RelayHub does not have
+    // a "value" field. We ignore it during encodeCallData(), but to be safe
+    // lets make sure its 0.
+    if (
+      this.contractType === ContractType.RELAYHUB &&
+      value.gt(new BigNumber("0"))
+    ) {
+      throw new Error("Value must be 0 if RelayHub is installed");
+    }
 
     // Proxy Account has a deploy function function.
     if (this.contractType === ContractType.PROXYHUB) {
@@ -312,13 +346,10 @@ export class MetaTxHandler {
   }
 
   /**
-   * Easy method for signing a meta-transaction. Takes care of replay protection.
-   * Note it is using replace-by-nonce, and not multinonce as the "index" is always 0.
-   * @param relayHubAddress Relay or Contract Hub address
+   * Easy method for deploying a contract via meta-transaction.
+   * Takes care of replay protection.
    * @param signer Signer's wallet
-   * @param target Target contract address
-   * @param value Value to send
-   * @param msgSenderCall Encoded calldata
+   * @param initCode Bytecode for the smart contract
    */
   public async signMetaDeployment(signer: Wallet, initCode: string) {
     // Get proxy account address

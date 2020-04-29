@@ -1,5 +1,5 @@
 import { defaultAbiCoder, BigNumber, keccak256 } from "ethers/utils";
-import { Contract, Wallet } from "ethers";
+import { Wallet } from "ethers";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { Lock } from "@pisa-research/utils";
 

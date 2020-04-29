@@ -1,7 +1,9 @@
 import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { solidity, loadFixture } from "ethereum-waffle";
+import { loadFixture } from "ethereum-waffle";
+import { when, spy } from "ts-mockito";
+
 import {
   keccak256,
   arrayify,
@@ -30,7 +32,6 @@ import {
   ContractType,
 } from "../../src/ts/metatxhandler";
 import { RelayerAPI } from "../../src/ts/relayer";
-import { Contract } from "ethers";
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -81,6 +82,11 @@ async function createProxyHub(
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
   const proxyHub = proxyHubFactory.attach(result.contractAddress!);
 
+  const spiedMetaTxHandler = spy(MetaTxHandler);
+  when(
+    spiedMetaTxHandler.getHubAddress(ChainID.MAINNET, ContractType.PROXYHUB)
+  ).thenReturn(proxyHub.address);
+
   return {
     provider,
     proxyHub,
@@ -96,7 +102,7 @@ async function createProxyHub(
 describe("ProxyHubProxy", () => {
   fnIt<proxyHubFunctions>(
     (a) => a.createProxyAccount,
-    "create proxy account with deterministic address",
+    "create proxy account with deterministic address (and compute offchain deterministic address)",
     async () => {
       const { proxyHub, sender } = await loadFixture(createProxyHub);
 
@@ -106,14 +112,15 @@ describe("ProxyHubProxy", () => {
         .accounts(sender.address);
 
       const baseAddress = await proxyHub.baseAccount();
-
       const builtAddress = MetaTxHandler.buildCreate2Address(
         proxyHub.address,
         sender.address,
         baseAddress
       );
 
+      // Computed offchain
       expect(proxyAddress.toLowerCase()).to.eq(builtAddress);
+      // Expected deployed cotnract
       expect(proxyAddress).to.eq("0xAcC70E67808E3AAEFa90077F3d92f80c90A7988E");
     }
   );
@@ -149,8 +156,7 @@ describe("ProxyHubProxy", () => {
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
-        ContractType.PROXYACCOUNT,
-        proxyAddress,
+        ContractType.PROXYHUB,
         1
       );
 
@@ -190,7 +196,6 @@ describe("ProxyHubProxy", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.PROXYHUB,
-        proxyHub.address,
         1
       );
 
@@ -202,7 +207,7 @@ describe("ProxyHubProxy", () => {
         msgSenderCall
       );
 
-      const relayerAPI = new RelayerAPI(proxyHub, ContractType.PROXYHUB);
+      const relayerAPI = new RelayerAPI(proxyHub);
       const tx = relayerAPI.forward(sender, params);
 
       await expect(tx).to.emit(
@@ -223,7 +228,6 @@ describe("ProxyHubProxy", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.PROXYHUB,
-        proxyHub.address,
         1
       );
 
@@ -234,7 +238,7 @@ describe("ProxyHubProxy", () => {
         msgSenderCall
       );
 
-      const relayerAPI = new RelayerAPI(proxyHub, ContractType.PROXYHUB);
+      const relayerAPI = new RelayerAPI(proxyHub);
 
       return expect(
         relayerAPI.forward(sender, params)
@@ -253,7 +257,6 @@ describe("ProxyHubProxy", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.PROXYHUB,
-        proxyHub.address,
         1
       );
 
@@ -266,7 +269,7 @@ describe("ProxyHubProxy", () => {
         msgSenderCall
       );
 
-      const relayerAPI = new RelayerAPI(proxyHub, ContractType.PROXYHUB);
+      const relayerAPI = new RelayerAPI(proxyHub);
       const callData = await relayerAPI.getForwardCallData(sender, params);
 
       const tx = sender.sendTransaction({
@@ -299,8 +302,7 @@ describe("ProxyHubProxy", () => {
 
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
-        ContractType.PROXYACCOUNT,
-        proxyAccount.address,
+        ContractType.PROXYHUB,
         1
       );
 
@@ -363,8 +365,7 @@ describe("ProxyHubProxy", () => {
 
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
-        ContractType.PROXYACCOUNT,
-        proxyAccount.address,
+        ContractType.PROXYHUB,
         1
       );
 

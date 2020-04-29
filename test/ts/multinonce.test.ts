@@ -2,10 +2,10 @@ import "mocha";
 import * as chai from "chai";
 
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
-import { mock, when, anything, spy, instance } from "ts-mockito";
+import { BigNumber, defaultAbiCoder } from "ethers/utils";
+import { when, anything, spy } from "ts-mockito";
 
-import { RelayHubFactory, RelayHub } from "../../src";
+import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { MultiNonce } from "../../src/ts/multinonce";

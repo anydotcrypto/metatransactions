@@ -3,6 +3,8 @@ import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
 import Doppelganger from "ethereum-doppelganger";
+import { mock, when, anything, spy, instance } from "ts-mockito";
+
 import { fnIt } from "@pisa-research/test-utils";
 import {
   RelayHubFactory,
@@ -45,6 +47,12 @@ async function createRelayHub(
 
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
+
+  const spiedMetaTxHandler = spy(MetaTxHandler);
+  when(
+    spiedMetaTxHandler.getHubAddress(ChainID.MAINNET, ContractType.RELAYHUB)
+  ).thenReturn(relayHub.address);
+
   return {
     provider,
     relayHub,
@@ -70,7 +78,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
       const params = await metaTxHandler.signMetaTransaction(
@@ -109,7 +116,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
 
@@ -183,7 +189,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
 
@@ -238,7 +243,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
       // @ts-ignore:
@@ -285,7 +289,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
 
@@ -323,7 +326,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
 
@@ -378,7 +380,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
 
@@ -437,7 +438,6 @@ describe("RelayHub Contract", () => {
       const metaTxHandler = MetaTxHandler.multinonce(
         ChainID.MAINNET,
         ContractType.RELAYHUB,
-        relayHub.address,
         1
       );
 
@@ -492,10 +492,9 @@ describe("RelayHub Contract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const metaTxHandler = MetaTxHandler.bitFlip(
+      const metaTxHandler = MetaTxHandler.bitflip(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        relayHub.address
+        ContractType.RELAYHUB
       );
       const params1 = await metaTxHandler.signMetaTransaction(
         owner,

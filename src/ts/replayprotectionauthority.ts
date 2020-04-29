@@ -1,5 +1,5 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
-import { Contract, Wallet } from "ethers";
+import { Wallet } from "ethers";
 import { ReplayProtectionFactory } from "../typedContracts/ReplayProtectionFactory";
 
 export interface Nonces {

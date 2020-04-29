@@ -3,10 +3,7 @@ import { ForwardParams, ContractType } from "./metatxhandler";
 import { ProxyAccountFactory } from "..";
 
 export class RelayerAPI {
-  constructor(
-    private readonly contract: Contract,
-    private readonly contractType: ContractType
-  ) {}
+  constructor(private readonly contract: Contract) {}
   /**
    * Returns the encoded calldata for the relay contract. Used by the relayer
    * to .call() into the RelayHub/ProxyAccount before .call() into the TargetContract.
@@ -14,7 +11,10 @@ export class RelayerAPI {
    * @param params Forward parameters
    */
   public async getForwardCallData(relayer: Wallet, params: ForwardParams) {
-    if (this.contractType === ContractType.PROXYHUB) {
+    const type = this.getContractType(this.contract);
+
+    if (type === ContractType.PROXYHUB) {
+      // Reverts if the ProxyAccount does not exist.
       const proxyAccount = await this.getProxyAccountContract(
         relayer,
         params.signer
@@ -71,7 +71,8 @@ export class RelayerAPI {
     signer: Wallet,
     ownerOfProxyAccountAddr: string
   ): Promise<Contract> {
-    if (this.contractType === ContractType.PROXYHUB) {
+    const type = this.getContractType(this.contract);
+    if (type === ContractType.PROXYHUB) {
       // Let's fetch the relevant proxy contract
       // All proxy accounts are listed - according to the owner's signing address.
       const proxyAccountAddr = await this.contract.accounts(
