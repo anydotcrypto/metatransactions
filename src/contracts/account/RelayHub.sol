@@ -68,5 +68,4 @@ contract RelayHub is ReplayProtection {
         emit Deployed(_signer, deployed);
     }
 
-
 }

@@ -52,21 +52,21 @@ export class MetaTxHandler {
   public static getHubAddress(chainid: ChainID, contractType: ContractType) {
     if (chainid === ChainID.MAINNET) {
       if (contractType === ContractType.RELAYHUB) {
-        return "0x70107abB312db18bD9AdDec39CE711374B09EBC1" as string;
+        return "0x36892A63E99d66d01766e227F3cCc6235dE09eD9" as string;
       }
 
       if (contractType === ContractType.PROXYHUB) {
-        return "0x0b116DF91Aae33d85840165c5487462E0E821242" as string;
+        return "0xE139c086d9EEC16cBaF5a125FFf748939Fb734f1" as string;
       }
     }
 
     if (chainid === ChainID.ROPSTEN) {
       if (contractType === ContractType.RELAYHUB) {
-        return "0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798" as string;
+        return "0xf4cb3Ff902f8fE23f3638Eb6F33B467c4180e605" as string;
       }
 
       if (contractType === ContractType.PROXYHUB) {
-        return "0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9" as string;
+        return "0x5A60af44A45d11Cefd0182cb0514cce3149a0445" as string;
       }
     }
     throw new Error("Please specify a valid ChainID and ContractType");
