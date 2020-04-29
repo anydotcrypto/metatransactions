@@ -159,7 +159,7 @@ It deploys a new ```ProxyAccount``` for the user and then stores a record of it 
 - **DeployContract contracts**: Deploys a new smart contract with a deterministic address. 
 
 ```
-const tx = await proxyAccount.deployContract(
+await proxyAccount.deployContract(
           initData: string, // Bytecode of the contract
           replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
           replayProtectionAuthority: string, // Address (default is 0x00....)
@@ -171,7 +171,7 @@ const tx = await proxyAccount.deployContract(
 - **Forward**: Calls out to the target contract with the user's desired calldata.  
 
 ```
-proxyAccount.forward(
+await proxyAccount.forward(
         target: string, // Contract address
         value: BigNumber, // ETH to send
         data: string, // Calldata
@@ -250,7 +250,7 @@ It only has two functions:
 - **DeployContract contracts**: Deploys a new smart contract with a deterministic address. 
 
 ```
-const tx = await relayHub.deployContract(
+await relayHub.deployContract(
           initData: string, // Bytecode of the contract
           replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
           replayProtectionAuthority: string, // Address (default is 0x00....)
@@ -261,7 +261,7 @@ const tx = await relayHub.deployContract(
 - **Forward**: Calls out to the target contract with the user's desired calldata. The signer's address is appended to the calldata sent to the target contract. 
 
 ```
-const tx = relayHub.forward(
+await relayHub.forward(
         target: string, // Contract address
         data: string, // Calldata
         replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
