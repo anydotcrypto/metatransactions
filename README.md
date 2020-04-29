@@ -338,4 +338,17 @@ Then we can simply build and test:
 npm run build && npm run test
 ```
 
+## Where is the ProxyHub and RelayHub?
+
+We have deployed the latest version of the ProxyHub and RelayHub. The links can be found below. 
+
+Mainnet: 
+- [ProxyHub](https://etherscan.io/address/0xE139c086d9EEC16cBaF5a125FFf748939Fb734f1)
+- [RelayHub](https://etherscan.io/address/0x36892A63E99d66d01766e227F3cCc6235dE09eD9)
+
+Ropsten:
+- [ProxyHub](https://ropsten.etherscan.io/address/0x5A60af44A45d11Cefd0182cb0514cce3149a0445)
+- [RelayHub](https://ropsten.etherscan.io/address/0xf4cb3Ff902f8fE23f3638Eb6F33B467c4180e605)
+
+
 Thanks for checking out this code repository. It was first motivated by EIP-2585 and the RelayHub standard by the GSN. 
