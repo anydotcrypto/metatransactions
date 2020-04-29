@@ -1,18 +1,18 @@
 # A Minimal Meta-Transaction Library
 
-Ethereum transaction's intertwine the identity of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is **not straight forward for Alice to pay the gas fee on behalf of Bob** who wants to execute a command in a smart contract. Until it is fixed at the platform level, then Alice and Bob must adopt a meta-transaction standard in order to support this functionality (e.g. transaction infrastructure as a service in a non-custodial manner). 
+Ethereum transaction's intertwine the identity of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is **not straight forward for Alice to pay the gas fee on behalf of Bob** who wants to execute a command in a smart contract. Until it is fixed at the platform level, then Alice and Bob must adopt a meta-transaction standard to support this functionality (e.g. transaction infrastructure as a service in a non-custodial manner). 
 
 There are two approaches: 
 
 - **Proxy contracts:** All transactions for the user are sent via a proxy contract and it is compatible with all existing smart contracts. 
 - **\_msgSender():** All transactions are sent via a global RelayHub.sol contract and the target contract must support the standard which requires it to replace msg.sender with \_msgSender(). It is only compatible with contracts that have upgraded to use the standard. 
 
-We have put together this meta-transaction library to support both approaches and there are several benefits:
-- **Ease of adoption:** New smart contracts do not need to handle replay protection (e.g. the permit() standard). 
-- **Global RelayHub:** The \_msgSender() standard requires a hard-coded relayhub contract. This is a minimal RelayHub.sol that simply deals with checking replay protection before calling the target contract. 
-- **Single standard & library:** There are several ways to construct and sign meta-transactions, so we hope this repository can become a single standard that any project can adopt. 
+We have put together this meta-transaction library to support both approaches. We hope it will benefit the community in the following ways: 
+- **Ease of adoption:** All new smart contracts can support meta-transactions without handling replay protection (e.g. the permit() standard).
+- **Global RelayHub:** Our minimal RelayHub.sol can be a candidate for the hard-coded RelayHub in the \_msgSender() standard.
+- **Single client library:** There are several libraries for constructing and signing transactions, but more often than not it is mixed up with the application logic. This repository is designed to become a single standard any project can adopt. 
 
-The end-goal of this library is to make it easier for developers and users to tap into third party APIs that focus on getting transactions in the blockchain. 
+Finally, the ultimate goal is to make it easier for developers to tap into third party relayer APIs that focus on getting transactions in the blockchain. 
 
 ## Getting started 
 
@@ -27,7 +27,7 @@ npm i @anydotcrypto/metatransactions --save-dev
 2. You need to import the package into your file: 
 
 ```
-import {ChainID, ContractType,  MetaTxHandler } from "@anydotcrypto/metatransactions/dist";
+import { ChainID, ContractType,  MetaTxHandler } from "@anydotcrypto/metatransactions/dist";
 ```
 
 3. You need to decide which msg.sender solution to use and for what network. 
@@ -42,23 +42,23 @@ ContractType.PROXYHUB
 ContractType.RELAYHUB
 ```
 
-We cover the pros (and cons) for the contract types here. If you are unsure which one to use, then we recommend ```ContractType.ProxyHub``` as it works for all existing contracts. e.g. the meta-transaction is sent via a minimal proxy contract and the msg.sender will be the proxy contract's address. 
+We cover [ProxyHub vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyhub-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend ```ContractType.PROXYHUB``` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.  
 
 4. You need to decide which replay protection to use.
 
-Our library contains three types of replay protectio (and more in-depth information can be [found here](https://github.com/PISAresearch/metamask-comp)):
+Our library contains three types of replay protection (and more in-depth information can be [found here](https://github.com/PISAresearch/metamask-comp)):
 - **Replace-by-nonce**: Same as Ethereum, it increments a nonce for every new transaction.
 - **Multinonce:** There are multiple replace-by-nonce queues, so it supports up to N concurrent transactions at any time.
 - **Bitflip:** There is no queue and all transactions are processed out of order (e.g. batch withdrawals).
 
-If you want to use Replace-by-nonce && Multinonce: 
+If you want to use Replace-by-nonce or Multinonce: 
 
 ``` 
 const concurrency = 10;
 const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ChainID.PROXYHUB, concurrency); 
 ```
 
-This sets up the meta-transaction handler to use the multinonce replay proetction with 10 nonce queues and to authorise all meta-transactions to be sent via a proxy contract. If you want all transactions to be processed in the transaction by order, then just set ```concurrency=1```. 
+This sets up the meta-transaction handler to use the multinonce replay protection with 10 nonce queues. If you want all transactions to be processed in the transaction by order, then just set ```concurrency=1```. 
 
 If you want to use bitflip: 
 
@@ -66,12 +66,13 @@ If you want to use bitflip:
 const metaTxHandler = MetaTxHandler.bitflip(ChainID.MAINNET, ChainID.PROXYHUB);
 ```
 
-This sets up the meta-transaction handler to use the bitflip replay protection and to authorise all meta-transactions to be sent via a proxy contract. Bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering. 
+This sets up the meta-transaction handler to use the bitflip replay protection. Bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering. 
 
-5. Using the meta-transaction handler to authorise a transaction. 
+5. You are now ready to authorise a meta-transaction using the MetaTxHandler. 
 
 ```
 const user = Wallet.fromMnemonic(""); 
+const echo = new EchoFactory(user).atach("");
 const callData = echo.interface.functions.broadcastMessage.encode(["to the moon"]);
 const value = new BigNumber("0");
 
@@ -79,12 +80,18 @@ const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ContractType.PRO
 const params = await metaTxHandler.signMetaTransaction(user, echo.address, value, callData) ;
 ```
 
-The meta-transaction handler just requires the users signing wallet, the target contract's address, the value to be sent (proxy contracts only) and the desired calldata (function name and its arguments). It takes care of the replay protection and authorising the meta-transaction under the hood. The returned ```params``` can be used to finally send the meta-transaction to Ethereum: 
+The meta-transaction handler just requires:
+- Users signing wallet,
+- Target contract's address, 
+- Value to be sent (proxy contracts only) 
+- Desired calldata (function name and its arguments). 
+
+It takes care of the replay protection (multinonce/bitflip) and authorising the meta-transaction under the hood. The returned ```params``` can be used to send the meta-transaction to Ethereum: 
 
 ```
 const relayer = Wallet.fromMnemonic("");
 
-// All meta-transactions for ChainID. ProxyHub are sent from the user's ProxyAccount contract.
+// All meta-transactions for ProxyHub are sent from the user's ProxyAccount contract.
 // We assume it is already deployed on the network. Look at the ProxyHub section to 
 // find out more (super-easy to deploy). 
 const proxyAccount = new ProxyAccountFactory(relayer).attach(params.hub);
@@ -123,24 +130,24 @@ const tx = await relayerAPI.forward(relayerWallet, params); // Assumes ProxyAcco
 const receipt = await tx.wait(1)
 ```
 
-As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The parametesr (or its encoding) can be sent to the RelayerAPI who takes care of wrapping it in an Ethereum transaction and getting it in the blockchain. 
+As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The ```params``` (or its encoding) can be sent to the RelayerAPI who takes care of wrapping it in an Ethereum transaction and getting it in the blockchain. 
 
 ## ProxyHub vs RelayHub
 
 As we mentioned earlier, there are two solutions to the msg.sender problem. 
 
-- ProxyHub: Deploys a proxy account contract for the user with a deterministic address. All meta-transactions are sent via the user's proxy account. 
-- RelayHub: There is no proxy account contracts. The RelayHub appends the signer's address onto the calldata that is sent to the target contract. It requires the target contract to support the \_msgSender() standard. 
+- **ProxyHub**: Deploys a proxy account contract for the user with a deterministic address. All meta-transactions are sent via the user's proxy account. 
+- **RelayHub**: There is no proxy account contracts. The RelayHub appends the signer's address onto the calldata that is sent to the target contract. It requires the target contract to support the \_msgSender() standard. 
 
-While the ProxyHub works for all existing smart contracts, the RelayHub allows the signer's address to be the msg.sender in the target contract. Going forward, we hope that the RelayHub serves as an example that can become a precompile/a new opcode in Ethereum. 
+While the ProxyHub works for all existing smart contracts, the RelayHub requires the target contract to support the \_msgSender() standard. If supported, the RelayHub allows the signer's address to be the msg.sender in the target contract. Going forward, we hope that the RelayHub serves as a model and it can later become a precompile/a new opcode in Ethereum. 
 
-Note, the one big difference between the ProxyHub and the RelayHub is the forward() function. ProxyHub lets the user set a ```value``` of ETH that can be sent (e.g. the proxy account can have an ETH balance). However, the RelayHub does not have a ```value``` argument and does not support sending ETH. See [this issue](https://github.com/anydotcrypto/metatransactions/issues/9) to find out why. 
+Note, the one big difference between the ProxyHub and the RelayHub is the forward() function. ProxyHub lets the user set ```value``` of ETH that can be sent (e.g. the proxy account can have an ETH balance) in the meta-transaction. However, the RelayHub does not have a ```value``` argument and does not support sending ETH. See [this issue](https://github.com/anydotcrypto/metatransactions/issues/9) to find out why. 
 
 ### Proxy Hub
 
-It is a central registry contract that is responsible for deploying proxy contracts (```ProxyAccount.sol```). Every proxy contract is destinated for a single user and it has a deterministic address via CREATE2. We have used the [CloneFactory](https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol) to minimise storage overhead on the network.
+It is a central registry contract that is responsible for deploying proxy contracts (```ProxyAccount.sol```). Every proxy contract is destinated for a single user and it has a deterministic address via CREATE2. We use the [CloneFactory](https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol) to minimise storage overhead on the network.
 
-There is only one function that we care about:
+There is only one function to care about:
 
 ```
 const user = Wallet.fromMnemonic("");
@@ -149,10 +156,33 @@ await proxyHub.createProxyContract(user.address);
 
 It deploys a new ```ProxyAccount``` for the user and then stores a record of it in the ProxyHub. Our ProxyAccount is a minimal contract that checks the user's signed the meta-transaction and the replay protection is valid. It only has two functions: 
 
-- **Forward**: Calls out to the target contract with the user's desired calldata.  
 - **DeployContract contracts**: Deploys a new smart contract with a deterministic address. 
 
-Here is a code example for both: 
+```
+const tx = await proxyAccount.deployContract(
+          initData: string, // Bytecode of the contract
+          replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
+          replayProtectionAuthority: string, // Address (default is 0x00....)
+          signature: string // Signer's signature (address stored in proxy)
+        );
+
+```
+
+- **Forward**: Calls out to the target contract with the user's desired calldata.  
+
+```
+proxyAccount.forward(
+        target: string, // Contract address
+        value: BigNumber, // ETH to send
+        data: string, // Calldata
+        replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
+        replayProtectionAuthority: string, // Address (default is 0x00....)
+        signature: string // Signer's signature (address stored in proxy)
+);
+```
+
+Let's look at a full code example.
+
 ```
 // Who is our signer?
 const user = Wallet.fromMnemonic("");
@@ -177,7 +207,7 @@ const tx = await proxyAccount.connect(relayer).deployContract(
           params.replayProtectionAuthority,
           params.signature
         );
-        
+
 // Compute deterministic address for the deployed contract (helper function coming soon)
 const hByteCode = arrayify(keccak256(initCode));
 const encodeToSalt = defaultAbiCoder.encode(["address", "bytes"],[signer.address, params.replayProtection]);
@@ -216,8 +246,29 @@ It is a central registry contract that keeps track of the signer's address and t
 The benefit of the RelayHub is that the signer's address is set as the msg.sender and there are no proxy contracts. Thus, it is more natural for the user who wants to look up their address in the contract. We hope our RelayHub will eventually become a new precompile or opcode in Ethereum - which may ultimately solve the msg.sender problem for relay transactions.
 
 It only has two functions: 
-- **Forward**: Calls out to the target contract with the user's desired calldata. The signer's address is appended to the calldata sent to the target contract. 
+
 - **DeployContract contracts**: Deploys a new smart contract with a deterministic address. 
+
+```
+const tx = await relayHub.deployContract(
+          initData: string, // Bytecode of the contract
+          replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
+          replayProtectionAuthority: string, // Address (default is 0x00....)
+          signature: string // Signer's signature (address stored in proxy)
+        );
+```
+
+- **Forward**: Calls out to the target contract with the user's desired calldata. The signer's address is appended to the calldata sent to the target contract. 
+
+```
+const tx = relayHub.forward(
+        target: string, // Contract address
+        data: string, // Calldata
+        replayProtection: string, // Encoding of replay protection (nonce1, nonce2)
+        replayProtectionAuthority: string, // Address (default is 0x00....)
+        signature: string // Signer's signature (address stored in proxy)
+);
+```
 
 Here is a code example for both:
 
