@@ -14,6 +14,7 @@ contract ReplayProtection {
         // Fetch chainId
         uint256 chainId;
         assembly {chainId := chainid() }
+        return chainId;
     }
 
     /**
