@@ -1,11 +1,11 @@
 # A Minimal Meta-Transaction Library
 
-Ethereum transaction's intertwine the identity of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is **not straight forward for Alice to pay the gas fee on behalf of Bob** who wants to execute a command in a smart contract. Until it is fixed at the platform level, then Alice and Bob must adopt a meta-transaction standard to support this functionality (e.g. transaction infrastructure as a service in a non-custodial manner). 
+Ethereum transactions intertwine the identity of who paid for the transaction (gas.payer) and who wants to execute a command (msg.sender). As a result, it is **not straight forward for Alice to pay the gas fee on behalf of Bob** who wants to execute a command in a smart contract. Until it is fixed at the platform level, then Alice and Bob must adopt a meta-transaction standard to support this functionality (e.g. transaction infrastructure as a service in a non-custodial manner). 
 
 There are two approaches: 
 
 - **Proxy contracts:** All transactions for the user are sent via a proxy contract and it is compatible with all existing smart contracts. 
-- **\_msgSender():** All transactions are sent via a global RelayHub.sol contract and the target contract must support the standard which requires it to replace msg.sender with \_msgSender(). It is only compatible with contracts that have upgraded to use the standard. 
+- **\_msgSender():** All transactions are sent via a global RelayHub.sol contract and the target contract must support the standard which requires it to replace msg.sender with \_msgSender(). It is only compatible with contracts that have been upgraded to use the standard. 
 
 We have put together this meta-transaction library to support both approaches. We hope it will benefit the community in the following ways: 
 - **Ease of adoption:** All new smart contracts can support meta-transactions without handling replay protection (e.g. the permit() standard).
@@ -66,7 +66,7 @@ If you want to use bitflip:
 const metaTxHandler = MetaTxHandler.bitflip(ChainID.MAINNET, ChainID.PROXYHUB);
 ```
 
-This sets up the meta-transaction handler to use the bitflip replay protection. Bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering. 
+This sets up the meta-transaction handler to use the bitflip replay protection. Bitflip's advantage is that it supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering. 
 
 5. You are now ready to authorise a meta-transaction using the MetaTxHandler. 
 
@@ -130,7 +130,7 @@ const tx = await relayerAPI.forward(relayerWallet, params); // Assumes ProxyAcco
 const receipt = await tx.wait(1)
 ```
 
-As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The ```params``` (or its encoding) can be sent to the RelayerAPI who takes care of wrapping it in an Ethereum transaction and getting it in the blockchain. 
+As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The ```params``` (or its encoding) can be sent to the RelayerAPI who takes care of wrapping it in an Ethereum transaction and getting it into the blockchain.
 
 ## ProxyHub vs RelayHub
 
