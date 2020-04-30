@@ -40,8 +40,8 @@ export enum ContractType {
 }
 
 export enum ChainID {
-  MAINNET = 0,
-  ROPSTEN = 1,
+  MAINNET = 1,
+  ROPSTEN = 3,
 }
 
 /**
