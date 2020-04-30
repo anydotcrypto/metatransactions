@@ -72,7 +72,7 @@ This sets up the meta-transaction handler to use the bitflip replay protection. 
 
 ```
 const user = Wallet.fromMnemonic(""); 
-const echo = new EchoFactory(user).atach("");
+const echo = new EchoFactory(user).attach("");
 const callData = echo.interface.functions.broadcastMessage.encode(["to the moon"]);
 const value = new BigNumber("0");
 
