@@ -17,7 +17,8 @@ export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactor
 
 export { MultiNonce } from "./ts/multinonce";
 export { BitFlip } from "./ts/bitflip";
-export { MetaTxHandler } from "./ts/metatxhandler";
+export { MetaTxHandler, ChainID, ContractType } from "./ts/metatxhandler";
+export { RelayerAPI } from "./ts/relayer";
 
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };
