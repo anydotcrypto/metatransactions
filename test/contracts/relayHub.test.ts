@@ -3,7 +3,7 @@ import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
 import Doppelganger from "ethereum-doppelganger";
-import { mock, when, anything, spy, instance } from "ts-mockito";
+import { when, spy } from "ts-mockito";
 
 import { fnIt } from "@pisa-research/test-utils";
 import {
@@ -18,7 +18,8 @@ import { Wallet } from "ethers/wallet";
 import {
   MetaTxHandler,
   ChainID,
-  ContractType,
+  ForwarderType,
+  ReplayProtectionType,
 } from "../../src/ts/metatxhandler";
 
 const expect = chai.expect;
@@ -50,7 +51,10 @@ async function createRelayHub(
 
   const spiedMetaTxHandler = spy(MetaTxHandler);
   when(
-    spiedMetaTxHandler.getHubAddress(ChainID.MAINNET, ContractType.RELAYHUB)
+    spiedMetaTxHandler.getForwarderAddress(
+      ChainID.MAINNET,
+      ForwarderType.RELAYHUB
+    )
   ).thenReturn(relayHub.address);
 
   return {
@@ -75,17 +79,15 @@ describe("RelayHub Contract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
-      const params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       const tx = relayHub
         .connect(sender)
@@ -113,19 +115,17 @@ describe("RelayHub Contract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
       // Send off first transaction!
-      let params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      let params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       let tx = relayHub
         .connect(sender)
@@ -143,12 +143,10 @@ describe("RelayHub Contract", () => {
         .withArgs(owner.address);
 
       // Send off second transaction!
-      params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       tx = relayHub
         .connect(sender)
@@ -186,10 +184,10 @@ describe("RelayHub Contract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
       // @ts-ignore:
@@ -240,10 +238,10 @@ describe("RelayHub Contract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
       // @ts-ignore:
       const encodedData = metaTxHandler.encodeMetaTransactionToSign(
@@ -286,19 +284,17 @@ describe("RelayHub Contract", () => {
         []
       );
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
       // Send off first transaction!
-      let params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      let params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       let tx = relayHub
         .connect(sender)
@@ -323,19 +319,17 @@ describe("RelayHub Contract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
-      const params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       const tx = relayHub
         .connect(sender)
@@ -377,10 +371,10 @@ describe("RelayHub Contract", () => {
         [msgSenderCon.address, msgSenderCall]
       );
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
       // @ts-ignore:
@@ -435,10 +429,10 @@ describe("RelayHub Contract", () => {
         [msgSenderCon.address, msgSenderCall]
       );
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
       // @ts-ignore:
@@ -492,16 +486,15 @@ describe("RelayHub Contract", () => {
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const metaTxHandler = MetaTxHandler.bitflip(
+      const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
         ChainID.MAINNET,
-        ContractType.RELAYHUB
+        ReplayProtectionType.BITFLIP,
+        owner
       );
-      const params1 = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params1 = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       const tx1 = relayHub
         .connect(sender)
@@ -518,12 +511,10 @@ describe("RelayHub Contract", () => {
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
 
-      const params2 = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params2 = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        callData: msgSenderCall,
+      });
 
       const tx2 = relayHub
         .connect(sender)

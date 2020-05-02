@@ -1,6 +1,7 @@
 import { Wallet, Contract } from "ethers";
-import { ForwardParams, ContractType } from "./metatxhandler";
+import { ForwarderType, MetaTxHandler } from "./metatxhandler";
 import { ProxyAccountFactory } from "..";
+import { ForwardParams } from "./forwarder";
 
 export class RelayerAPI {
   constructor(private readonly contract: Contract) {}
@@ -11,9 +12,9 @@ export class RelayerAPI {
    * @param params Forward parameters
    */
   public async getForwardCallData(relayer: Wallet, params: ForwardParams) {
-    const type = this.getContractType(this.contract);
+    const type = MetaTxHandler.getContractType(this.contract);
 
-    if (type === ContractType.PROXYHUB) {
+    if (type === ForwarderType.PROXYHUB) {
       // Reverts if the ProxyAccount does not exist.
       const proxyAccount = await this.getProxyAccountContract(
         relayer,
@@ -55,7 +56,7 @@ export class RelayerAPI {
     const callData = this.getForwardCallData(relayer, params);
 
     return relayer.sendTransaction({
-      to: params.hub, // Potentially a ProxyAccount
+      to: params.to, // Potentially a ProxyAccount
       data: callData,
     });
   }
@@ -71,8 +72,8 @@ export class RelayerAPI {
     signer: Wallet,
     ownerOfProxyAccountAddr: string
   ): Promise<Contract> {
-    const type = this.getContractType(this.contract);
-    if (type === ContractType.PROXYHUB) {
+    const type = MetaTxHandler.getContractType(this.contract);
+    if (type === ForwarderType.PROXYHUB) {
       // Let's fetch the relevant proxy contract
       // All proxy accounts are listed - according to the owner's signing address.
       const proxyAccountAddr = await this.contract.accounts(
@@ -90,27 +91,5 @@ export class RelayerAPI {
     throw new Error(
       "ProxyAccounts can only be fetched if a ProxyHub contract is installed for this MetaTxHandler"
     );
-  }
-
-  /**
-   * Unfortunately, instanceof does not work when compiled
-   * to javascript. In order to detect if the hub is a ProxyAccount,
-   * RelayHub or ProxyHub - we rely on checking the existance of a
-   * function.
-   * - init() is only available in a ProxyAccount
-   * - accounts() is only available in a ProxyHub
-   * If neither function is detected, we assume it is a RelayHub.
-   * @param hub Contract
-   */
-  private getContractType(contract: Contract) {
-    if (contract.init) {
-      return ContractType.PROXYACCOUNT;
-    }
-
-    if (contract.accounts) {
-      return ContractType.PROXYHUB;
-    }
-
-    return ContractType.RELAYHUB;
   }
 }

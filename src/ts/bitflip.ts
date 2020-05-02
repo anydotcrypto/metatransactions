@@ -16,7 +16,7 @@ export class BitFlip extends ReplayProtectionAuthority {
   private bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
   lock: Lock;
 
-  constructor(private readonly contract: string) {
+  constructor() {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.bitmapTracker = new Map<string, BigNumber>();
@@ -29,7 +29,7 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param contract RelayHub or ProxyAccount
    * @param searchFrom Starting bitmap index
    */
-  private async searchBitmaps(signer: Wallet) {
+  private async searchBitmaps(signer: Wallet, contractAddress: string) {
     let foundEmptyBit = false;
     let index = this.indexTracker.get(signer.address);
     let bitmap = this.bitmapTracker.get(signer.address);
@@ -41,7 +41,7 @@ export class BitFlip extends ReplayProtectionAuthority {
       const max = Number.MAX_SAFE_INTEGER;
       // Would prefer something better than Math.random()
       index = new BigNumber(Math.floor(Math.random() * (max - min + 1) + min));
-      bitmap = await this.accessNonceStore(signer, index, this.contract);
+      bitmap = await this.accessNonceStore(signer, index, contractAddress);
     }
 
     // Let's try to find an empty bit for 1000 indexes
@@ -56,7 +56,7 @@ export class BitFlip extends ReplayProtectionAuthority {
         if (bitToFlip.eq(new BigNumber("-1"))) {
           // No, let's try the next bitmap
           index = index.add(1);
-          bitmap = await this.accessNonceStore(signer, index, this.contract);
+          bitmap = await this.accessNonceStore(signer, index, contractAddress);
         } else {
           // We found an empty bit
           foundEmptyBit = true;
@@ -113,10 +113,16 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    * @param contract RelayHub or Proxy Account
    */
-  public async getEncodedReplayProtection(signer: Wallet) {
+  public async getEncodedReplayProtection(
+    signer: Wallet,
+    contractAddress: string
+  ) {
     try {
       this.lock.acquire();
-      const { index, bitToFlip } = await this.searchBitmaps(signer);
+      const { index, bitToFlip } = await this.searchBitmaps(
+        signer,
+        contractAddress
+      );
       return defaultAbiCoder.encode(["uint", "uint"], [index, bitToFlip]);
     } finally {
       this.lock.release();

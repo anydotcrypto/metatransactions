@@ -8,10 +8,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
   nonceTracker: Map<string, BigNumber>;
   lock: Lock;
 
-  constructor(
-    private readonly contract: string,
-    private readonly concurrency: number
-  ) {
+  constructor(private readonly concurrency: number) {
     super();
     this.indexTracker = new Map<string, BigNumber>();
     this.nonceTracker = new Map<string, BigNumber>();
@@ -26,7 +23,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
    * @param contractAddress Relay contract's address
    * @param index Concurrency index for reply protection
    */
-  private async getLatestMultiNonce(signer: Wallet) {
+  private async getLatestMultiNonce(signer: Wallet, contractAddress: string) {
     // By default, we cycle through each queue.
     // So we maximise concurrency, not ordered transactions.
     let index = this.indexTracker.get(signer.address);
@@ -44,7 +41,7 @@ export class MultiNonce extends ReplayProtectionAuthority {
     // Have we used this nonce before?
     if (!nonce) {
       // No, let's grab it from the contract.
-      nonce = await this.accessNonceStore(signer, index!, this.contract);
+      nonce = await this.accessNonceStore(signer, index!, contractAddress);
     }
 
     this.nonceTracker.set(nonceIndex, nonce.add(1)); // Increment for use next time
@@ -59,10 +56,16 @@ export class MultiNonce extends ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    * @param contract RelayHub or ContractAccount
    */
-  public async getEncodedReplayProtection(signer: Wallet) {
+  public async getEncodedReplayProtection(
+    signer: Wallet,
+    contractAddress: string
+  ) {
     try {
       await this.lock.acquire();
-      const { index, nonce } = await this.getLatestMultiNonce(signer);
+      const { index, nonce } = await this.getLatestMultiNonce(
+        signer,
+        contractAddress
+      );
       return defaultAbiCoder.encode(["uint", "uint"], [index, nonce]);
     } finally {
       this.lock.release();

@@ -26,12 +26,14 @@ import {
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
-  ForwardParams,
   MetaTxHandler,
   ChainID,
-  ContractType,
+  ReplayProtectionType,
+  ForwarderType,
 } from "../../src/ts/metatxhandler";
 import { RelayerAPI } from "../../src/ts/relayer";
+import { ProxyForwarder } from "../../src/ts/proxyfowarder";
+import { ForwardParams } from "../../src/ts/forwarder";
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -47,7 +49,7 @@ export const constructDigest = (params: ForwardParams) => {
       defaultAbiCoder.encode(
         ["address", "address", "uint", "bytes", "bytes", "address", "uint"],
         [
-          params.hub,
+          params.to,
           params.target,
           params.value,
           params.data,
@@ -84,7 +86,10 @@ async function createProxyHub(
 
   const spiedMetaTxHandler = spy(MetaTxHandler);
   when(
-    spiedMetaTxHandler.getHubAddress(ChainID.MAINNET, ContractType.PROXYHUB)
+    spiedMetaTxHandler.getForwarderAddress(
+      ChainID.MAINNET,
+      ForwarderType.PROXYHUB
+    )
   ).thenReturn(proxyHub.address);
 
   return {
@@ -112,7 +117,7 @@ describe("ProxyHubProxy", () => {
         .accounts(sender.address);
 
       const baseAddress = await proxyHub.baseAccount();
-      const builtAddress = MetaTxHandler.buildCreate2Address(
+      const builtAddress = ProxyForwarder.buildCreate2Address(
         proxyHub.address,
         sender.address,
         baseAddress
@@ -154,18 +159,17 @@ describe("ProxyHubProxy", () => {
 
       const proxyAccountFactory = new ProxyAccountFactory(owner);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getProxyForwarder(
         ChainID.MAINNET,
-        ContractType.PROXYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        owner
       );
 
-      const params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        value: new BigNumber("0"),
+        callData: msgSenderCall,
+      });
 
       const tx = proxyAccount
         .connect(sender)
@@ -193,19 +197,18 @@ describe("ProxyHubProxy", () => {
       );
 
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getProxyForwarder(
         ChainID.MAINNET,
-        ContractType.PROXYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        sender
       );
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        value: new BigNumber("0"),
+        callData: msgSenderCall,
+      });
 
       const relayerAPI = new RelayerAPI(proxyHub);
       const tx = relayerAPI.forward(sender, params);
@@ -225,18 +228,17 @@ describe("ProxyHubProxy", () => {
         createProxyHub
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getProxyForwarder(
         ChainID.MAINNET,
-        ContractType.PROXYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        sender
       );
 
-      const params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        value: new BigNumber("0"),
+        callData: msgSenderCall,
+      });
 
       const relayerAPI = new RelayerAPI(proxyHub);
 
@@ -254,20 +256,19 @@ describe("ProxyHubProxy", () => {
         createProxyHub
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getProxyForwarder(
         ChainID.MAINNET,
-        ContractType.PROXYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        sender
       );
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
       const proxyAddress = await proxyHub.accounts(owner.address);
-      const params = await metaTxHandler.signMetaTransaction(
-        owner,
-        msgSenderCon.address,
-        new BigNumber("0"),
-        msgSenderCall
-      );
+      const params = await metaTxHandler.signMetaTransaction(owner, {
+        target: msgSenderCon.address,
+        value: new BigNumber("0"),
+        callData: msgSenderCall,
+      });
 
       const relayerAPI = new RelayerAPI(proxyHub);
       const callData = await relayerAPI.getForwardCallData(sender, params);
@@ -300,10 +301,10 @@ describe("ProxyHubProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getProxyForwarder(
         ChainID.MAINNET,
-        ContractType.PROXYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        sender
       );
 
       const initCode = msgSenderFactory.getDeployTransaction(proxyHub.address)
@@ -363,10 +364,10 @@ describe("ProxyHubProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const metaTxHandler = MetaTxHandler.multinonce(
+      const metaTxHandler = MetaTxHandler.getProxyForwarder(
         ChainID.MAINNET,
-        ContractType.PROXYHUB,
-        1
+        ReplayProtectionType.MULTINONCE,
+        sender
       );
 
       // Doesn't like bytecode. Meh.
