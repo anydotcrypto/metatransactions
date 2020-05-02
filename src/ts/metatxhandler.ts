@@ -1,11 +1,11 @@
 import { Wallet } from "ethers/wallet";
 import { MultiNonce } from "./multinonce";
 import { BitFlip } from "./bitflip";
-import { ProxyHubFactory } from "..";
 import { ProxyForwarder } from "./proxyfowarder";
 import { RelayHubFactory } from "../typedContracts/RelayHubFactory";
 import { RelayHubForwarder } from "./relayforwarder";
 import { Contract } from "ethers";
+import { ProxyAccountDeployerFactory } from "..";
 
 export enum ForwarderType {
   RELAYHUB,
@@ -16,6 +16,7 @@ export enum ForwarderType {
 export enum ReplayProtectionType {
   BITFLIP,
   MULTINONCE,
+  NONCE,
 }
 
 export enum ChainID {
@@ -54,43 +55,102 @@ export class MetaTxHandler {
     throw new Error("Please specify a valid ChainID and ContractType");
   }
 
-  public static getProxyForwarder(
+  /**
+   * A pre-configuration of a proxy forwarder.
+   * Dedicated to a single wallet.
+   * @param chainid MAINNET or ROPSTEN
+   * @param replayProtectionAuth BITFLIP, MULTINONCE OR NONCE
+   * @param signer Signer's wallet
+   */
+  public static async getProxyForwarder(
     chainid: ChainID,
     replayProtectionAuth: ReplayProtectionType,
-    wallet: Wallet
+    signer: Wallet
   ) {
     const addr = this.getForwarderAddress(chainid, ForwarderType.PROXYHUB);
 
-    const proxyHub = new ProxyHubFactory(wallet).attach(addr);
+    const proxyHub = new ProxyAccountDeployerFactory(signer).attach(addr);
+    const baseAccount = await proxyHub.baseAccount();
+    const proxyAddress = ProxyForwarder.buildCreate2Address(
+      proxyHub.address,
+      signer.address,
+      baseAccount
+    );
 
     if (replayProtectionAuth == ReplayProtectionType.BITFLIP) {
-      return new ProxyForwarder(chainid, proxyHub, new BitFlip());
+      return new ProxyForwarder(
+        chainid,
+        proxyHub,
+        signer,
+        new BitFlip(signer, proxyAddress)
+      );
     }
 
-    return new ProxyForwarder(chainid, proxyHub, new MultiNonce(30));
+    if (replayProtectionAuth == ReplayProtectionType.MULTINONCE) {
+      return new ProxyForwarder(
+        chainid,
+        proxyHub,
+        signer,
+        new MultiNonce(30, signer, proxyAddress)
+      );
+    }
+
+    return new ProxyForwarder(
+      chainid,
+      proxyHub,
+      signer,
+      new MultiNonce(1, signer, proxyAddress)
+    );
   }
 
+  /**
+   * A pre-configuration of a relayhub forwarder.
+   * Dedicated to a single wallet.
+   * @param chainid MAINNET or ROPSTEN
+   * @param replayProtectionAuth BITFLIP, MULTINONCE OR NONCE
+   * @param signer Signer's wallet
+   */
   public static getRelayHubForwarder(
     chainid: ChainID,
     replayProtectionAuth: ReplayProtectionType,
-    wallet: Wallet
+    signer: Wallet
   ) {
     const addr = this.getForwarderAddress(chainid, ForwarderType.RELAYHUB);
 
-    const relayHub = new RelayHubFactory(wallet).attach(addr);
+    const relayHub = new RelayHubFactory(signer).attach(addr);
     if (replayProtectionAuth == ReplayProtectionType.BITFLIP) {
-      return new RelayHubForwarder(chainid, relayHub, new BitFlip());
+      return new RelayHubForwarder(
+        chainid,
+        relayHub,
+        signer,
+        new BitFlip(signer, relayHub.address)
+      );
     }
-    return new RelayHubForwarder(chainid, relayHub, new MultiNonce(30));
+
+    if (replayProtectionAuth == ReplayProtectionType.MULTINONCE) {
+      return new RelayHubForwarder(
+        chainid,
+        relayHub,
+        signer,
+        new MultiNonce(30, signer, relayHub.address)
+      );
+    }
+
+    return new RelayHubForwarder(
+      chainid,
+      relayHub,
+      signer,
+      new MultiNonce(1, signer, relayHub.address)
+    );
   }
 
   /**
    * Unfortunately, instanceof does not work when compiled
    * to javascript. In order to detect if the hub is a ProxyAccount,
-   * RelayHub or ProxyHub - we rely on checking the existance of a
+   * RelayHub or ProxyAccountFactory - we rely on checking the existance of a
    * function.
    * - init() is only available in a ProxyAccount
-   * - accounts() is only available in a ProxyHub
+   * - accounts() is only available in a ProxyAccountFactory
    * If neither function is detected, we assume it is a RelayHub.
    * @param hub Contract
    */
@@ -105,45 +165,4 @@ export class MetaTxHandler {
 
     return ForwarderType.RELAYHUB;
   }
-
-  // public static multinonce(
-  //   chainid: ChainID,
-  //   forwarderType: ForwarderType,
-  //   concurrency: number,
-  //   wallet: Wallet
-  // ) {
-  //   const addr = this.getForwarderAddress(chainid, forwarderType);
-
-  //   if (forwarderType === ForwarderType.RELAYHUB) {
-  //     const relayHub = new RelayHubFactory(wallet).attach(addr);
-  //     return new RelayHubForwarder(
-  //       chainid,
-  //       relayHub,
-  //       new MultiNonce(concurrency)
-  //     );
-  //   }
-
-  //   if (forwarderType === ForwarderType.PROXYHUB) {
-  //     const proxyHub = new ProxyHubFactory(wallet).attach(addr);
-  //     return new ProxyForwarder(chainid, proxyHub, new MultiNonce(concurrency));
-  //   }
-  // }
-
-  // public static bitflip(
-  //   chainid: ChainID,
-  //   forwarderType: ForwarderType,
-  //   wallet: Wallet
-  // ) {
-  //   const addr = this.getForwarderAddress(chainid, forwarderType);
-
-  //   if (forwarderType === ForwarderType.RELAYHUB) {
-  //     const relayHub = new RelayHubFactory(wallet).attach(addr);
-  //     return new RelayHubForwarder(chainid, relayHub, new BitFlip());
-  //   }
-
-  //   if (forwarderType === ForwarderType.PROXYHUB) {
-  //     const proxyHub = new ProxyHubFactory(wallet).attach(addr);
-  //     return new ProxyForwarder(chainid, proxyHub, new BitFlip());
-  //   }
-  // }
 }

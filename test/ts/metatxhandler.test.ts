@@ -5,11 +5,11 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   RelayHubFactory,
-  ProxyHubFactory,
   MetaTxHandler,
   MsgSenderExampleFactory,
+  ProxyAccountDeployerFactory,
 } from "../../src";
-import { when, spy, reset } from "ts-mockito";
+import { when, spy } from "ts-mockito";
 
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -32,7 +32,7 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
 
   const relayHub = relayHubFactory.attach(relayResult.contractAddress!);
 
-  const proxyHubFactory = new ProxyHubFactory(admin);
+  const proxyHubFactory = new ProxyAccountDeployerFactory(admin);
   const proxyHubCreationTx = proxyHubFactory.getDeployTransaction();
 
   const proxyHubCreation = await admin.sendTransaction(proxyHubCreationTx);
@@ -79,19 +79,19 @@ describe("Meta Transaction Handler", () => {
   //     ForwarderType.PROXYHUB
   //   );
 
-  //   const mainnetProxyHub = MetaTxHandler.getForwarderAddress(
+  //   const mainnetProxyAccountFactory = MetaTxHandler.getForwarderAddress(
   //     ChainID.MAINNET,
   //     ForwarderType.PROXYHUB
   //   );
 
-  //   expect(mainnetProxyHub).to.eq("0x0b116DF91Aae33d85840165c5487462E0E821242");
+  //   expect(mainnetProxyAccountFactory).to.eq("0x0b116DF91Aae33d85840165c5487462E0E821242");
 
-  //   const ropstenProxyHub = MetaTxHandler.getForwarderAddress(
+  //   const ropstenProxyAccountFactory = MetaTxHandler.getForwarderAddress(
   //     ChainID.ROPSTEN,
   //     ForwarderType.PROXYHUB
   //   );
 
-  //   expect(ropstenProxyHub).to.eq("0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9");
+  //   expect(ropstenProxyAccountFactory).to.eq("0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9");
 
   //   const mainnetRelayHub = MetaTxHandler.getForwarderAddress(
   //     ChainID.MAINNET,
@@ -122,6 +122,46 @@ describe("Meta Transaction Handler", () => {
     ).to.throw("Please specify a valid ChainID and ContractType");
   }).timeout(50000);
 
+  it("Create the RelayForwarder with Nonce ", async () => {
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
+    const proxyForwarder = MetaTxHandler.getRelayHubForwarder(
+      ChainID.MAINNET,
+      ReplayProtectionType.NONCE,
+      admin
+    );
+    const callData = msgSenderExample.interface.functions.willRevert.encode([]);
+
+    for (let i = 0; i < 10; i++) {
+      const forwardParams = await proxyForwarder.signMetaTransaction({
+        target: msgSenderExample.address,
+        callData,
+      });
+
+      const decodedReplayProtection = defaultAbiCoder.decode(
+        ["uint", "uint"],
+        forwardParams.replayProtection
+      );
+      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
+      expect(forwardParams.data).to.eq(callData, "Calldata");
+      expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
+      expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
+      expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
+      expect(forwardParams.replayProtectionAuthority).to.eq(
+        "0x0000000000000000000000000000000000000000",
+        "Built-in replay protection"
+      );
+      expect(forwardParams.signer).to.eq(
+        admin.address,
+        "Signer address is the admin wallet"
+      );
+      expect(forwardParams.target).to.eq(
+        msgSenderExample.address,
+        "Target contract"
+      );
+      expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins");
+    }
+  }).timeout(50000);
+
   it("Create the RelayForwarder with MultiNonce ", async () => {
     const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
     const proxyForwarder = MetaTxHandler.getRelayHubForwarder(
@@ -131,33 +171,35 @@ describe("Meta Transaction Handler", () => {
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await proxyForwarder.signMetaTransaction(admin, {
-      target: msgSenderExample.address,
-      callData,
-    });
+    for (let i = 0; i < 10; i++) {
+      const forwardParams = await proxyForwarder.signMetaTransaction({
+        target: msgSenderExample.address,
+        callData,
+      });
 
-    const decodedReplayProtection = defaultAbiCoder.decode(
-      ["uint", "uint"],
-      forwardParams.replayProtection
-    );
-    expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-    expect(forwardParams.data).to.eq(callData, "Calldata");
-    expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
-    );
-    expect(forwardParams.signer).to.eq(
-      admin.address,
-      "Signer address is the admin wallet"
-    );
-    expect(forwardParams.target).to.eq(
-      msgSenderExample.address,
-      "Target contract"
-    );
-    expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins");
+      const decodedReplayProtection = defaultAbiCoder.decode(
+        ["uint", "uint"],
+        forwardParams.replayProtection
+      );
+      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
+      expect(forwardParams.data).to.eq(callData, "Calldata");
+      expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
+      expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
+      expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+      expect(forwardParams.replayProtectionAuthority).to.eq(
+        "0x0000000000000000000000000000000000000000",
+        "Built-in replay protection"
+      );
+      expect(forwardParams.signer).to.eq(
+        admin.address,
+        "Signer address is the admin wallet"
+      );
+      expect(forwardParams.target).to.eq(
+        msgSenderExample.address,
+        "Target contract"
+      );
+      expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins");
+    }
   }).timeout(50000);
 
   it("Create the RelayForwarder with Bitflip ", async () => {
@@ -169,7 +211,7 @@ describe("Meta Transaction Handler", () => {
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await proxyForwarder.signMetaTransaction(admin, {
+    const forwardParams = await proxyForwarder.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
@@ -198,61 +240,110 @@ describe("Meta Transaction Handler", () => {
     expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins sent");
   }).timeout(50000);
 
+  it("Create the ProxyForwarder with Nonce ", async () => {
+    const { admin, msgSenderExample } = await loadFixture(createHubs);
+    const proxyForwarder = await MetaTxHandler.getProxyForwarder(
+      ChainID.MAINNET,
+      ReplayProtectionType.NONCE,
+      admin
+    );
+    const callData = msgSenderExample.interface.functions.willRevert.encode([]);
+
+    for (let i = 0; i < 10; i++) {
+      const forwardParams = await proxyForwarder.signMetaTransaction({
+        target: msgSenderExample.address,
+        value: new BigNumber("10"),
+        callData,
+      });
+
+      const decodedReplayProtection = defaultAbiCoder.decode(
+        ["uint", "uint"],
+        forwardParams.replayProtection
+      );
+      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
+      expect(forwardParams.data).to.eq(callData, "Calldata");
+      expect(forwardParams.to).to.eq(
+        await proxyForwarder.getProxyAddress(),
+        "Proxy account address"
+      );
+      expect(decodedReplayProtection[0]).to.eq(new BigNumber(0), "Nonce1");
+      expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
+      expect(forwardParams.replayProtectionAuthority).to.eq(
+        "0x0000000000000000000000000000000000000000",
+        "Built-in replay protection"
+      );
+      expect(forwardParams.signer).to.eq(
+        admin.address,
+        "Signer address is the admin wallet"
+      );
+      expect(forwardParams.target).to.eq(
+        msgSenderExample.address,
+        "Target contract"
+      );
+      expect(forwardParams.value).to.eq(
+        new BigNumber("10"),
+        "10 coins sent to the proxy hub"
+      );
+    }
+  }).timeout(50000);
+
   it("Create the ProxyForwarder with MultiNonce ", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = MetaTxHandler.getProxyForwarder(
+    const proxyForwarder = await MetaTxHandler.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await proxyForwarder.signMetaTransaction(admin, {
-      target: msgSenderExample.address,
-      value: new BigNumber("10"),
-      callData,
-    });
+    for (let i = 0; i < 10; i++) {
+      const forwardParams = await proxyForwarder.signMetaTransaction({
+        target: msgSenderExample.address,
+        value: new BigNumber("10"),
+        callData,
+      });
 
-    const decodedReplayProtection = defaultAbiCoder.decode(
-      ["uint", "uint"],
-      forwardParams.replayProtection
-    );
-    expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-    expect(forwardParams.data).to.eq(callData, "Calldata");
-    expect(forwardParams.to).to.eq(
-      await proxyForwarder.getProxyAddress(admin.address),
-      "Proxy account address"
-    );
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
-    );
-    expect(forwardParams.signer).to.eq(
-      admin.address,
-      "Signer address is the admin wallet"
-    );
-    expect(forwardParams.target).to.eq(
-      msgSenderExample.address,
-      "Target contract"
-    );
-    expect(forwardParams.value).to.eq(
-      new BigNumber("10"),
-      "10 coins sent to the proxy hub"
-    );
+      const decodedReplayProtection = defaultAbiCoder.decode(
+        ["uint", "uint"],
+        forwardParams.replayProtection
+      );
+      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
+      expect(forwardParams.data).to.eq(callData, "Calldata");
+      expect(forwardParams.to).to.eq(
+        await proxyForwarder.getProxyAddress(),
+        "Proxy account address"
+      );
+      expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
+      expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+      expect(forwardParams.replayProtectionAuthority).to.eq(
+        "0x0000000000000000000000000000000000000000",
+        "Built-in replay protection"
+      );
+      expect(forwardParams.signer).to.eq(
+        admin.address,
+        "Signer address is the admin wallet"
+      );
+      expect(forwardParams.target).to.eq(
+        msgSenderExample.address,
+        "Target contract"
+      );
+      expect(forwardParams.value).to.eq(
+        new BigNumber("10"),
+        "10 coins sent to the proxy hub"
+      );
+    }
   }).timeout(50000);
 
   it("Create the ProxyForwarder with Bitflip ", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = MetaTxHandler.getProxyForwarder(
+    const proxyForwarder = await MetaTxHandler.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await proxyForwarder.signMetaTransaction(admin, {
+    const forwardParams = await proxyForwarder.signMetaTransaction({
       target: msgSenderExample.address,
       value: new BigNumber("10"),
       callData,
@@ -265,7 +356,7 @@ describe("Meta Transaction Handler", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getProxyAddress(admin.address),
+      await proxyForwarder.getProxyAddress(),
       "Proxy account address"
     );
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;

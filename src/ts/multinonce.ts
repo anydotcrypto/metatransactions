@@ -1,72 +1,62 @@
-import { defaultAbiCoder, BigNumber, keccak256 } from "ethers/utils";
+import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Wallet } from "ethers";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { Lock } from "@pisa-research/utils";
 
 export class MultiNonce extends ReplayProtectionAuthority {
-  indexTracker: Map<string, BigNumber>;
-  nonceTracker: Map<string, BigNumber>;
+  private index: BigNumber;
+  // Weird JS Bug. If BigNumber is the Key, then the lookup
+  // will fail. String iS OK.
+  private nonceTracker: Map<string, BigNumber>;
   lock: Lock;
 
-  constructor(private readonly concurrency: number) {
-    super();
-    this.indexTracker = new Map<string, BigNumber>();
-    this.nonceTracker = new Map<string, BigNumber>();
-    this.lock = new Lock();
-  }
-
   /**
-   * Fetch latest nonce we can use for the replay protection. It is either taken
-   * from the contract directoy or what we have kept in memory.
-   * We assume that a transaction is immediately broadcasted if this function is called.
-   * @param signer Signer's address
-   * @param contractAddress Relay contract's address
-   * @param index Concurrency index for reply protection
+   * MultiNonce replay protection maintains N queues of transactions.
+   * Implemented strategy appends every new transaction to the N queues in rotation,
+   * so we support up to N out-of-order transactions.
+   * @param concurrency Up to N out-of-order transactions at a time
+   * @param signer Signer's wallet
+   * @param forwarderAddress RelayHub or ProxyAccount
    */
-  private async getLatestMultiNonce(signer: Wallet, contractAddress: string) {
-    // By default, we cycle through each queue.
-    // So we maximise concurrency, not ordered transactions.
-    let index = this.indexTracker.get(signer.address);
-    if (!index) {
-      index = new BigNumber("0");
-    }
-
-    // Given the signer's address and queue index, what was the last used nonce in the queue?
-    let nonceIndex = keccak256(
-      defaultAbiCoder.encode(["string", "uint"], [signer.address, index])
-    );
-
-    let nonce = this.nonceTracker.get(nonceIndex);
-
-    // Have we used this nonce before?
-    if (!nonce) {
-      // No, let's grab it from the contract.
-      nonce = await this.accessNonceStore(signer, index!, contractAddress);
-    }
-
-    this.nonceTracker.set(nonceIndex, nonce.add(1)); // Increment for use next time
-    this.indexTracker.set(signer.address, index.add(1).mod(this.concurrency)); // Increment for next time
-    return { index, nonce };
-  }
-
-  /**
-   * Fetches and encodes the latest nonce for this signer
-   * Note: If the contract address changes, we will refresh the nonce tracker
-   * and freshly request new nonces from the network.
-   * @param signerAddress Signer's address
-   * @param contract RelayHub or ContractAccount
-   */
-  public async getEncodedReplayProtection(
+  constructor(
+    private readonly concurrency: number,
     signer: Wallet,
-    contractAddress: string
+    forwarderAddress: string
   ) {
+    super(signer, forwarderAddress);
+    this.lock = new Lock();
+    this.index = new BigNumber(0);
+    this.nonceTracker = new Map<string, BigNumber>();
+  }
+
+  /**
+   * Fetch latest nonce we can use for the replay protection.
+   * We assume that a transaction is immediately broadcasted if this function is called.
+   */
+  private async getLatestMultiNonce() {
+    let storedNonce = this.nonceTracker.get(this.index.toString());
+    // Have we used this nonce before?
+    if (!storedNonce) {
+      // No, let's grab it from the contract.
+      storedNonce = await this.accessNonceStore(this.index);
+    }
+
+    const newIndex = this.index;
+
+    // Store for next time
+    this.nonceTracker.set(this.index.toString(), storedNonce.add(1));
+    this.index = this.index.add(1).mod(this.concurrency);
+    return { newIndex, storedNonce };
+  }
+
+  /**
+   * Fetch the latest replay protection and encode it.
+   */
+  public async getEncodedReplayProtection() {
     try {
       await this.lock.acquire();
-      const { index, nonce } = await this.getLatestMultiNonce(
-        signer,
-        contractAddress
-      );
-      return defaultAbiCoder.encode(["uint", "uint"], [index, nonce]);
+      const { newIndex, storedNonce } = await this.getLatestMultiNonce();
+      return defaultAbiCoder.encode(["uint", "uint"], [newIndex, storedNonce]);
     } finally {
       this.lock.release();
     }

@@ -84,7 +84,7 @@ describe("RelayHub Contract", () => {
         ReplayProtectionType.MULTINONCE,
         owner
       );
-      const params = await metaTxHandler.signMetaTransaction(owner, {
+      const params = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });
@@ -122,7 +122,7 @@ describe("RelayHub Contract", () => {
       );
 
       // Send off first transaction!
-      let params = await metaTxHandler.signMetaTransaction(owner, {
+      let params = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });
@@ -143,7 +143,7 @@ describe("RelayHub Contract", () => {
         .withArgs(owner.address);
 
       // Send off second transaction!
-      params = await metaTxHandler.signMetaTransaction(owner, {
+      params = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });
@@ -291,7 +291,7 @@ describe("RelayHub Contract", () => {
       );
 
       // Send off first transaction!
-      let params = await metaTxHandler.signMetaTransaction(owner, {
+      let params = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });
@@ -326,7 +326,7 @@ describe("RelayHub Contract", () => {
       );
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
-      const params = await metaTxHandler.signMetaTransaction(owner, {
+      const params = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });
@@ -491,7 +491,7 @@ describe("RelayHub Contract", () => {
         ReplayProtectionType.BITFLIP,
         owner
       );
-      const params1 = await metaTxHandler.signMetaTransaction(owner, {
+      const params1 = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });
@@ -511,7 +511,7 @@ describe("RelayHub Contract", () => {
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
 
-      const params2 = await metaTxHandler.signMetaTransaction(owner, {
+      const params2 = await metaTxHandler.signMetaTransaction({
         target: msgSenderCon.address,
         callData: msgSenderCall,
       });

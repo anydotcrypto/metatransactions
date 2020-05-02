@@ -11,26 +11,32 @@ import {
 
 /**
  * A single library for approving meta-transactions and its associated
- * replay protection.
+ * replay protection. All contracts must support the msgSender() standard.
  */
 export class RelayHubForwarder extends Forwarder<RelayCallData> {
+  public async getOnchainAddress(): Promise<string> {
+    return this.signer.address;
+  }
   /**
-   * Sets up a MetaTxHandler with the desired ReplayProtection Authority.
+   * Sets up the RelayHub Forwarder that relies on the msgSender() standard.
+   * It can only be used for a single wallet.
+   * @param chainID MAINNET or ROPSTEN
    * @param relayHub RelayHub
+   * @param signer Signer's wallet
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
   constructor(
     chainID: ChainID,
     relayHub: RelayHub,
+    signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
-    super(chainID, relayHub, replayProtectionAuthority);
+    super(chainID, relayHub, signer, replayProtectionAuthority);
   }
 
   /**
    * Standard encoding for contract call data
-   * @param target Target contract
-   * @param callData Encoded function call with data
+   * @param data Target contract and the desired calldata
    */
   protected getEncodedCallData(data: RelayCallData) {
     return defaultAbiCoder.encode(
@@ -41,14 +47,10 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
 
   /**
    * Easy method for signing a meta-transaction. Takes care of replay protection.]
-   * @param signer Signer's wallet
    * @param data target: contractAddress, callData
    */
-  public async signMetaTransaction(signer: Wallet, data: RelayCallData) {
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer,
-      this.forwarder.address
-    );
+  public async signMetaTransaction(data: RelayCallData) {
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
 
     const encodedCallData = this.getEncodedCallData(data);
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -58,13 +60,13 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
       this.forwarder.address
     );
 
-    const signature = await signer.signMessage(
+    const signature = await this.signer.signMessage(
       arrayify(keccak256(encodedMetaTx))
     );
 
     const params: ForwardParams = {
       to: this.forwarder.address,
-      signer: signer.address,
+      signer: this.signer.address,
       target: data.target,
       value: "0",
       data: data.callData,
@@ -78,8 +80,7 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
   }
 
   public async encodeSignedMetaTransaction(
-    params: ForwardParams,
-    wallet: Wallet
+    params: ForwardParams
   ): Promise<string> {
     return this.forwarder.interface.functions.forward.encode([
       params.target,
@@ -94,14 +95,10 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
   /**
    * Easy method for deploying a contract via meta-transaction.
    * Takes care of replay protection.
-   * @param signer Signer's wallet
    * @param initCode Bytecode for the smart contract
    */
-  public async signMetaDeployment(signer: Wallet, initCode: string) {
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer,
-      this.forwarder.address
-    );
+  public async signMetaDeployment(initCode: string) {
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
 
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       initCode,
@@ -110,13 +107,13 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
       this.forwarder.address
     );
 
-    const signature = await signer.signMessage(
+    const signature = await this.signer.signMessage(
       arrayify(keccak256(encodedMetaTx))
     );
 
     const params: DeploymentParams = {
       to: this.forwarder.address,
-      signer: signer.address,
+      signer: this.signer.address,
       data: initCode,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),

@@ -8,7 +8,7 @@ export class RelayerAPI {
   /**
    * Returns the encoded calldata for the relay contract. Used by the relayer
    * to .call() into the RelayHub/ProxyAccount before .call() into the TargetContract.
-   * @param user User's wallet
+   * @param relayer Relayer's wallet
    * @param params Forward parameters
    */
   public async getForwardCallData(relayer: Wallet, params: ForwardParams) {
@@ -62,11 +62,12 @@ export class RelayerAPI {
   }
 
   /**
-   * If it is a ProxyHub, we will fetch the signer's contract account address.
+   * If it is a ProxyAccountFactory, we will fetch the signer's contract account address.
    * Otherwise, it will throw an error.
-   * @param signer Signer's wallet
+   * @param signer Relayer's wallet
+   * @param ownerOfProxyAccountAddr Proxy account address. It may not yet exist.
    * @returns Proxy account contract
-   * @throws If the MetaTxHandler is not set up with the ProxyHub contract or if the Proxy account does not yet exist.
+   * @throws If the MetaTxHandler is not set up with the ProxyAccountFactory contract or if the Proxy account does not yet exist.
    */
   private async getProxyAccountContract(
     signer: Wallet,
@@ -89,7 +90,7 @@ export class RelayerAPI {
     }
 
     throw new Error(
-      "ProxyAccounts can only be fetched if a ProxyHub contract is installed for this MetaTxHandler"
+      "ProxyAccounts can only be fetched if a ProxyAccountFactory contract is installed for this MetaTxHandler"
     );
   }
 }

@@ -6,8 +6,8 @@ export { BitFlipNonceStoreFactory } from "./typedContracts/BitFlipNonceStoreFact
 export { ProxyAccount } from "./typedContracts/ProxyAccount";
 export { ProxyAccountFactory } from "./typedContracts/ProxyAccountFactory";
 
-export { ProxyHub } from "./typedContracts/ProxyHub";
-export { ProxyHubFactory } from "./typedContracts/ProxyHubFactory";
+export { ProxyAccountDeployer } from "./typedContracts/ProxyAccountDeployer";
+export { ProxyAccountDeployerFactory } from "./typedContracts/ProxyAccountDeployerFactory";
 
 export { RelayHub } from "./typedContracts/RelayHub";
 export { RelayHubFactory } from "./typedContracts/RelayHubFactory";

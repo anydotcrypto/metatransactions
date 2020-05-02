@@ -40,10 +40,16 @@ export abstract class Forwarder<T> {
   constructor(
     protected readonly chainID: ChainID,
     protected readonly forwarder: Contract,
+    public readonly signer: Wallet,
     protected readonly replayProtectionAuthority: ReplayProtectionAuthority
   ) {}
 
+  /**
+   * Encodes calldata for the meta-transaction signature.
+   * @param data Target contract, calldata, and sometimes value
+   */
   protected abstract getEncodedCallData(data: T): string;
+
   /**
    * A meta-transaction includes:
    * - Calldata
@@ -54,7 +60,7 @@ export abstract class Forwarder<T> {
    * @param encodedCallData Encoding includes target, value and calldata
    * @param encodedReplayProtection Encoding includes the replay protection nonces (e.g. typically 2 nonces)
    * @param replayProtectionAuthority Address of replay protection
-   * @param contract Contract for verifying the replay protection
+   * @param proxyAddress RelayHub or ProxyAccount contract address
    */
   protected encodeMetaTransactionToSign(
     encodedCallData: string,
@@ -75,18 +81,31 @@ export abstract class Forwarder<T> {
     );
   }
 
-  public abstract async signMetaTransaction(
-    signer: Wallet,
-    data: T
-  ): Promise<ForwardParams>;
+  /**
+   * Sign a meta-transaction and return the forward parameters
+   * @param data Data required to sign the meta-transaction
+   */
+  public abstract async signMetaTransaction(data: T): Promise<ForwardParams>;
 
+  /**
+   * Encodes the forward function and its arguments such that
+   * included in the data field of an Ethereum Transaction.
+   * @param params ForwardParameters
+   */
   public abstract async encodeSignedMetaTransaction(
-    params: ForwardParams,
-    wallet: Wallet
+    params: ForwardParams
   ): Promise<string>;
 
+  /**
+   * Authorises the deployment of a smart contract with a deterministic address
+   * @param initCode Bytecode of contract
+   */
   public abstract async signMetaDeployment(
-    signer: Wallet,
     initCode: string
   ): Promise<DeploymentParams>;
+
+  /**
+   * The address that will appear in the msg.sender of target contract
+   */
+  public abstract async getOnchainAddress(): Promise<string>;
 }

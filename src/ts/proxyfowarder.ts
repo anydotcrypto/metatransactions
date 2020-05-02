@@ -6,35 +6,37 @@ import {
 } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
-import { ProxyHub, ChainID } from "..";
+import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "..";
 import { ForwardParams, Forwarder, ProxyCallData } from "./forwarder";
 import { DeploymentParams } from "./forwarder";
-import { ProxyAccountFactory } from "../typedContracts/ProxyAccountFactory";
 
 /**
  * A single library for approving meta-transactions and its associated
- * replay protection.
+ * replay protection. All meta-transactions are sent via proxy contracts.
  */
 export class ProxyForwarder extends Forwarder<ProxyCallData> {
+  public getOnchainAddress(): Promise<string> {
+    throw new Error("Method not implemented.");
+  }
   /**
-   * Sets up a MetaTxHandler with the desired ReplayProtection Authority.
+   * All meta-transactions are sent via an proxy contract.
    * @param chainID Chain ID
    * @param proxyHub Address of contract
+   * @param signer Signer's wallet
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
   constructor(
     chainID: ChainID,
-    proxyHub: ProxyHub,
+    proxyHub: ProxyAccountDeployer,
+    signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
-    super(chainID, proxyHub, replayProtectionAuthority);
+    super(chainID, proxyHub, signer, replayProtectionAuthority);
   }
 
   /**
    * Standard encoding for contract call data
-   * @param target Target contract
-   * @param value Denominated in wei
-   * @param callData Encoded function call with data
+   * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
   protected getEncodedCallData(data: ProxyCallData) {
     // ProxyAccounts have a "value" field.
@@ -45,39 +47,36 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Deploys a proxy contract for the user
-   * @param wallet Wallet to sign Ethereum Transaction
-   * @param userAddress User's Ethereum Account
+   * Returns the encoded calldata for creating a proxy contract
+   * No need for ForwardParams as no signature is required in ProxyAccountDeployer
    */
-  public async createProxyContract(wallet: Wallet, userAddress: string) {
-    const deployed = await this.forwarder.connect(wallet).accounts(userAddress);
+  public async createProxyContract() {
+    const deployed = await this.forwarder
+      .connect(this.signer)
+      .accounts(this.signer.address);
 
     // Does the user have a proxy contract?
     if (deployed === "0x0000000000000000000000000000000000000000") {
-      const tx = await this.forwarder
-        .connect(wallet)
-        .createProxyAccount(userAddress);
+      const callData = this.forwarder.interface.functions.createProxyAccount.encode(
+        [this.signer.address]
+      );
 
-      return tx;
+      return callData;
     }
 
-    throw new Error("ProxyAccount for " + userAddress + " already exists.");
+    throw new Error(
+      "ProxyAccount for " + this.signer.address + " already exists."
+    );
   }
 
   /**
-   * Easy method for signing a meta-transaction. Takes care of replay protection.]
-   * @param signer Signer's wallet
-   * @param target Target contract address
-   * @param value Value to send
-   * @param callData Encoded calldata
+   * Takes care of replay protection and signs a meta-transaction.
+   * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
    */
-  public async signMetaTransaction(signer: Wallet, data: ProxyCallData) {
-    const proxyAddr = await this.getProxyAddress(signer.address);
+  public async signMetaTransaction(data: ProxyCallData) {
+    const proxyAddr = await this.getProxyAddress();
 
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer,
-      proxyAddr
-    );
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
 
     const encodedCallData = this.getEncodedCallData(data);
 
@@ -88,13 +87,13 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
       proxyAddr
     );
 
-    const signature = await signer.signMessage(
+    const signature = await this.signer.signMessage(
       arrayify(keccak256(encodedMetaTx))
     );
 
     const params: ForwardParams = {
       to: proxyAddr,
-      signer: signer.address,
+      signer: this.signer.address,
       target: data.target,
       value: data.value.toString(),
       data: data.callData,
@@ -107,20 +106,28 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
     return params;
   }
 
-  public async getProxyAddress(signerAddress: string) {
+  /**
+   * ProxyAccount address for this signer
+   * Caution: Contract may not be deployed yet.
+   */
+  public async getProxyAddress() {
     const baseAddress = await this.forwarder.baseAccount();
     return ProxyForwarder.buildCreate2Address(
       this.forwarder.address,
-      signerAddress,
+      this.signer.address,
       baseAddress
     );
   }
 
+  /**
+   * Encodes the forward parameters such that it can be included in
+   * an Ethereum Transaction's data field.
+   * @param params Forward Parameters
+   */
   public async encodeSignedMetaTransaction(
-    params: ForwardParams,
-    wallet: Wallet
+    params: ForwardParams
   ): Promise<string> {
-    const proxyAccount = new ProxyAccountFactory(wallet).attach(params.to);
+    const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
 
     return proxyAccount.interface.functions.forward.encode([
       params.target,
@@ -133,18 +140,14 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Easy method for deploying a contract via meta-transaction.
+   * Signs a meta-transaction to deploy a contract via CREATE2.
    * Takes care of replay protection.
-   * @param signer Signer's wallet
    * @param initCode Bytecode for the smart contract
    */
-  public async signMetaDeployment(signer: Wallet, initCode: string) {
-    const proxyAddr = await this.getProxyAddress(signer.address);
+  public async signMetaDeployment(initCode: string) {
+    const proxyAddr = await this.getProxyAddress();
 
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection(
-      signer,
-      proxyAddr
-    );
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
 
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       initCode,
@@ -153,13 +156,13 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
       proxyAddr
     );
 
-    const signature = await signer.signMessage(
+    const signature = await this.signer.signMessage(
       arrayify(keccak256(encodedMetaTx))
     );
 
     const params: DeploymentParams = {
       to: proxyAddr,
-      signer: signer.address,
+      signer: this.signer.address,
       data: initCode,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
@@ -173,7 +176,7 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
   /**
    * Computes the proxy contract account.
    * Thanks to _prestwich for his pseudocode, got it to work!
-   * @param creatorAddress Creator of the clone contract (ProxyHub)
+   * @param creatorAddress Creator of the clone contract (ProxyAccountFactory)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
    */

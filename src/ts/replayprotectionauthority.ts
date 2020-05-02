@@ -6,28 +6,28 @@ export interface Nonces {
   index: BigNumber;
   latestNonce: BigNumber;
 }
-
 /**
- * Easy to implement replay protection authority.
- * It should be designed to work for multi-users
- * like in the RelayHub and single-users like in
- * the contract accounts.
+ * Common functionality for the replay protection authorities.
  */
 export abstract class ReplayProtectionAuthority {
+  /**
+   * Replay protection is dedicated for a single user
+   * @param signer Signer's wallet
+   */
+  constructor(
+    protected readonly signer: Wallet,
+    protected readonly forwarderAddress: string
+  ) {}
+
   /**
    * On-chain contract address for the authority.
    */
   abstract getAddress(): string;
 
   /**
-   * Return the encoded replay protection for this signer
-   *
-   * @param signerAddress Signer's address
+   * Fetch and encode the latest replay protection
    */
-  abstract async getEncodedReplayProtection(
-    signer: Wallet,
-    contract: string
-  ): Promise<string>;
+  abstract async getEncodedReplayProtection(): Promise<string>;
 
   /**
    * We may need to access on-chain contract to fetch the starting
@@ -37,20 +37,19 @@ export abstract class ReplayProtectionAuthority {
    * @param index Index in Nonce Store
    * @param contract Hub Contract
    */
-  protected async accessNonceStore(
-    signer: Wallet,
-    index: BigNumber,
-    contract: string
-  ): Promise<BigNumber> {
+  protected async accessNonceStore(index: BigNumber): Promise<BigNumber> {
     try {
-      const replayProtection = new ReplayProtectionFactory(signer).attach(
-        contract
+      const replayProtection = new ReplayProtectionFactory(this.signer).attach(
+        this.forwarderAddress
       );
       // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
       // Onchain ID = H(signerAddress, index).
       // Mostly benefits bitflip & multinonce.
       const onchainId = keccak256(
-        defaultAbiCoder.encode(["address", "uint"], [signer.address, index])
+        defaultAbiCoder.encode(
+          ["address", "uint"],
+          [this.signer.address, index]
+        )
       );
 
       return await replayProtection.nonceStore(onchainId);

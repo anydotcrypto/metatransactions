@@ -39,14 +39,14 @@ contract ProxyAccount is ReplayProtection {
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        // Assumes that ProxyHub is ReplayProtection. 
+        // Assumes that ProxyAccountFactory is ReplayProtection. 
         bytes memory encodedData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature));
 
         // No need to check _target account since it will jump into the signer's proxy account first.
-        // e.g. we can never perform a .call() from ProxyHub directly.
+        // e.g. we can never perform a .call() from ProxyAccountFactory directly.
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));
         require(success, "Forwarding call failed.");
     }
@@ -92,11 +92,10 @@ contract ProxyAccount is ReplayProtection {
 
 
 /**
- * A minimal relay hub contract.
- * Verifies the signer's signature and replay protection before forwarding calldata to the target.
- * Delegates nonce verification to another contract.
+ * Responsible for deploying new proxy accounts via CREATE2
+ * Every user has their own proxy account.
  */
-contract ProxyHub is ReplayProtection {
+contract ProxyAccountDeployer is ReplayProtection {
 
     // TOOD:We can remove map once we can deterministically compute
     // address and verify that it exists on-chain.

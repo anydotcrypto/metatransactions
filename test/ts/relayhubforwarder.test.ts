@@ -5,11 +5,11 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   RelayHubFactory,
-  ProxyHubFactory,
   MetaTxHandler,
   MsgSenderExampleFactory,
   BitFlip,
   MultiNonce,
+  ProxyAccountDeployerFactory,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -36,7 +36,7 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
 
   const relayHub = relayHubFactory.attach(relayResult.contractAddress!);
 
-  const proxyHubFactory = new ProxyHubFactory(admin);
+  const proxyHubFactory = new ProxyAccountDeployerFactory(admin);
   const proxyHubCreationTx = proxyHubFactory.getDeployTransaction();
 
   const proxyHubCreation = await admin.sendTransaction(proxyHubCreationTx);
@@ -85,7 +85,7 @@ describe("RelayHub Forwarder", () => {
       admin
     );
 
-    const forwardParams = await metaTxHandler.signMetaTransaction(admin, {
+    const forwardParams = await metaTxHandler.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
@@ -127,7 +127,7 @@ describe("RelayHub Forwarder", () => {
       ReplayProtectionType.BITFLIP,
       admin
     );
-    const forwardParams = await metaTxHandler.signMetaTransaction(admin, {
+    const forwardParams = await metaTxHandler.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
@@ -166,18 +166,18 @@ describe("RelayHub Forwarder", () => {
     const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       relayHub,
-      new MultiNonce(noQueues)
+      user1,
+      new MultiNonce(noQueues, user1, relayHub.address)
     );
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
-    const forwardParams = await proxyForwarder.signMetaTransaction(user1, {
+    const forwardParams = await proxyForwarder.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
 
     const encoded = await proxyForwarder.encodeSignedMetaTransaction(
-      forwardParams,
-      user1
+      forwardParams
     );
 
     const tx = user1.sendTransaction({
@@ -199,14 +199,15 @@ describe("RelayHub Forwarder", () => {
     const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       relayHub,
-      new BitFlip()
+      user2,
+      new BitFlip(user2, relayHub.address)
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let j = 0; j < 10; j++) {
       for (let i = 0; i < 256; i++) {
-        const forwardParams = await proxyForwarder.signMetaTransaction(user2, {
+        const forwardParams = await proxyForwarder.signMetaTransaction({
           target: msgSenderExample.address,
           callData,
         });
@@ -274,10 +275,7 @@ describe("RelayHub Forwarder", () => {
       relayHub.address
     ).data! as string;
 
-    const deploymentParams = await metaTxHandler.signMetaDeployment(
-      admin,
-      initCode
-    );
+    const deploymentParams = await metaTxHandler.signMetaDeployment(initCode);
 
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
