@@ -13,7 +13,8 @@ jobs:
       - run: node --version
       - checkout
       - setup_remote_docker
-      - run: npm run build && npm run test
+      - run: npm install
+      - run: npm run test
 
 workflows:
   build-and-test:
