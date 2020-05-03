@@ -18,13 +18,13 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
   /**
    * All meta-transactions are sent via an proxy contract.
    * @param chainID Chain ID
-   * @param proxyHub Address of contract
+   * @param proxyDeployer Address of contract
    * @param signer Signer's wallet
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
   constructor(
     chainID: ChainID,
-    private readonly proxyHub: ProxyAccountDeployer,
+    private readonly proxyDeployer: ProxyAccountDeployer,
     signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
@@ -48,13 +48,13 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * No need for ForwardParams as no signature is required in ProxyAccountDeployer
    */
   public async createProxyContract() {
-    const deployed = await this.proxyHub
+    const deployed = await this.proxyDeployer
       .connect(this.signer)
       .accounts(this.signer.address);
 
     // Does the user have a proxy contract?
     if (deployed === "0x0000000000000000000000000000000000000000") {
-      const callData = this.proxyHub.interface.functions.createProxyAccount.encode(
+      const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
         [this.signer.address]
       );
 
@@ -72,10 +72,10 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    */
   public async getProxyAddress() {
     if (!this.baseAccount) {
-      this.baseAccount = await this.proxyHub.baseAccount();
+      this.baseAccount = await this.proxyDeployer.baseAccount();
     }
     return ProxyAccountForwarder.buildCreate2Address(
-      this.proxyHub.address,
+      this.proxyDeployer.address,
       this.signer.address,
       this.baseAccount
     );

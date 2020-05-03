@@ -30,13 +30,17 @@ async function createHubs(
   provider: Provider,
   [admin, user1, user2, user3]: Wallet[]
 ) {
-  const proxyHubFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyHubCreationTx = proxyHubFactory.getDeployTransaction();
+  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
+  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
 
-  const proxyHubCreation = await admin.sendTransaction(proxyHubCreationTx);
-  const proxyResult = await proxyHubCreation.wait(1);
+  const proxyDeployerCreation = await admin.sendTransaction(
+    proxyDeployerCreationTx
+  );
+  const proxyResult = await proxyDeployerCreation.wait(1);
 
-  const proxyHub = proxyHubFactory.attach(proxyResult.contractAddress!);
+  const proxyDeployer = proxyDeployerFactory.attach(
+    proxyResult.contractAddress!
+  );
 
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(
     AddressZero
@@ -48,10 +52,10 @@ async function createHubs(
   when(
     // @ts-ignore
     spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
-  ).thenReturn(proxyHub.address);
+  ).thenReturn(proxyDeployer.address);
 
   return {
-    proxyHub,
+    proxyDeployer,
     admin,
     user1,
     user2,
@@ -63,18 +67,18 @@ async function createHubs(
 
 describe("Proxy Forwarder", () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
-    const { proxyHub, admin, user1 } = await loadFixture(createHubs);
+    const { proxyDeployer, admin, user1 } = await loadFixture(createHubs);
 
-    const baseAccount = await proxyHub.baseAccount();
+    const baseAccount = await proxyDeployer.baseAccount();
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyHub,
+      proxyDeployer,
       admin,
       new MultiNonce(
         10,
         user1,
         ProxyAccountForwarder.buildCreate2Address(
-          proxyHub.address,
+          proxyDeployer.address,
           user1.address,
           baseAccount
         )
@@ -83,26 +87,28 @@ describe("Proxy Forwarder", () => {
 
     const encoded = await proxyForwarder.createProxyContract();
 
-    await user1.sendTransaction({ to: proxyHub.address, data: encoded });
+    await user1.sendTransaction({ to: proxyDeployer.address, data: encoded });
 
-    const proxyAccountAddress = await proxyHub.accounts(admin.address);
+    const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
     const computedProxyAddress = await proxyForwarder.getProxyAddress();
     expect(computedProxyAddress).to.eq(proxyAccountAddress.toLowerCase());
   }).timeout(50000);
 
   it("Sign a single meta-transaction with multinonce", async () => {
-    const { msgSenderExample, proxyHub, admin } = await loadFixture(createHubs);
+    const { msgSenderExample, proxyDeployer, admin } = await loadFixture(
+      createHubs
+    );
 
-    const baseAccount = await proxyHub.baseAccount();
+    const baseAccount = await proxyDeployer.baseAccount();
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyHub,
+      proxyDeployer,
       admin,
       new MultiNonce(
         10,
         admin,
         ProxyAccountForwarder.buildCreate2Address(
-          proxyHub.address,
+          proxyDeployer.address,
           admin.address,
           baseAccount
         )
@@ -148,20 +154,22 @@ describe("Proxy Forwarder", () => {
   });
 
   it("Encode a signed meta-transaction", async () => {
-    const { msgSenderExample, proxyHub, user1 } = await loadFixture(createHubs);
+    const { msgSenderExample, proxyDeployer, user1 } = await loadFixture(
+      createHubs
+    );
 
-    const baseAccount = await proxyHub.baseAccount();
+    const baseAccount = await proxyDeployer.baseAccount();
 
     const noQueues = 10;
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyHub,
+      proxyDeployer,
       user1,
       new MultiNonce(
         noQueues,
         user1,
         ProxyAccountForwarder.buildCreate2Address(
-          proxyHub.address,
+          proxyDeployer.address,
           user1.address,
           baseAccount
         )
@@ -179,13 +187,13 @@ describe("Proxy Forwarder", () => {
       forwardParams
     );
 
-    await proxyHub.createProxyAccount(user1.address);
+    await proxyDeployer.createProxyAccount(user1.address);
     const tx = user1.sendTransaction({
       to: forwardParams.to,
       data: encoded,
     });
 
-    const addr = await proxyHub.accounts(user1.address);
+    const addr = await proxyDeployer.accounts(user1.address);
 
     await expect(tx)
       .to.emit(
@@ -197,18 +205,20 @@ describe("Proxy Forwarder", () => {
   }).timeout(50000);
 
   it("Sign a single meta-transaction with bitflip", async () => {
-    const { msgSenderExample, proxyHub, admin } = await loadFixture(createHubs);
+    const { msgSenderExample, proxyDeployer, admin } = await loadFixture(
+      createHubs
+    );
 
-    const baseAccount = await proxyHub.baseAccount();
+    const baseAccount = await proxyDeployer.baseAccount();
 
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyHub,
+      proxyDeployer,
       admin,
       new BitFlip(
         admin,
         ProxyAccountForwarder.buildCreate2Address(
-          proxyHub.address,
+          proxyDeployer.address,
           admin.address,
           baseAccount
         )
@@ -254,17 +264,19 @@ describe("Proxy Forwarder", () => {
   }).timeout(50000);
 
   it("Sign multiple meta-transactions with bitflip", async () => {
-    const { msgSenderExample, proxyHub, user1 } = await loadFixture(createHubs);
+    const { msgSenderExample, proxyDeployer, user1 } = await loadFixture(
+      createHubs
+    );
 
-    const baseAccount = await proxyHub.baseAccount();
+    const baseAccount = await proxyDeployer.baseAccount();
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyHub,
+      proxyDeployer,
       user1,
       new BitFlip(
         user1,
         ProxyAccountForwarder.buildCreate2Address(
-          proxyHub.address,
+          proxyDeployer.address,
           user1.address,
           baseAccount
         )
@@ -315,7 +327,7 @@ describe("Proxy Forwarder", () => {
 
   it("Tries to re-deploy the same proxy contract twice and fails.", async () => {
     const {
-      proxyHub,
+      proxyDeployer,
       admin,
       user1,
       proxyAccountForwarderFactory,
@@ -328,17 +340,17 @@ describe("Proxy Forwarder", () => {
     );
 
     const encoded = await forwarder.createProxyContract();
-    await user1.sendTransaction({ to: proxyHub.address, data: encoded });
+    await user1.sendTransaction({ to: proxyDeployer.address, data: encoded });
 
-    const proxyAccountAddress = await proxyHub.accounts(admin.address);
+    const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
 
     expect(await forwarder.getProxyAddress()).to.eq(
       proxyAccountAddress.toLowerCase()
     );
 
     // Try to re-deploy via the contract directly.
-    await expect(proxyHub.connect(admin).createProxyAccount(admin.address)).to
-      .be.reverted;
+    await expect(proxyDeployer.connect(admin).createProxyAccount(admin.address))
+      .to.be.reverted;
 
     // Try to re-deploy via the library. Caught before sending transaction.
     return expect(
@@ -349,9 +361,11 @@ describe("Proxy Forwarder", () => {
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
-    const { proxyHub, admin, proxyAccountForwarderFactory } = await loadFixture(
-      createHubs
-    );
+    const {
+      proxyDeployer,
+      admin,
+      proxyAccountForwarderFactory,
+    } = await loadFixture(createHubs);
 
     const forwarder = await proxyAccountForwarderFactory.createNew(
       ChainID.MAINNET,
@@ -360,13 +374,13 @@ describe("Proxy Forwarder", () => {
     );
 
     const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-      proxyHub.address
+      proxyDeployer.address
     ).data! as string;
 
     const deploymentParams = await forwarder.signMetaDeployment(initCode);
 
-    await proxyHub.connect(admin).createProxyAccount(admin.address);
-    const proxyAccountAddress = await proxyHub.accounts(admin.address);
+    await proxyDeployer.connect(admin).createProxyAccount(admin.address);
+    const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
     const proxyAccount = new ProxyAccountFactory(admin).attach(
       proxyAccountAddress
     );
@@ -385,7 +399,7 @@ describe("Proxy Forwarder", () => {
       "Built-in replay protection"
     );
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
-    const onchainID = await proxyHub.getChainID();
+    const onchainID = await proxyDeployer.getChainID();
     expect(deploymentParams.chainId).to.eq(onchainID);
 
     // All deployments are performed via the proxy account directly.

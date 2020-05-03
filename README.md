@@ -54,7 +54,7 @@ ReplayProtectionType.MULTINONCE // N queues
 ReplayProtectionType.NONCE // Single queue
 ```
 
-For the msg.sender solution, we cover [ProxyAccountFactory vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyhub-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend `ContractType.PROXYACCOUNTDEPLOYER` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.
+For the msg.sender solution, we cover [ProxyAccountFactory vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyaccount-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend `ContractType.PROXYACCOUNTDEPLOYER` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.
 
 4. Time to instantiate the forwarder library!
 
@@ -142,7 +142,7 @@ const receipt = await tx.wait(1)
 
 As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The `params` (or its encoding) can be wrapped in an Ethereum transaction and sent to the blockchain.
 
-## ProxyAccountsDeployer vs RelayHub
+## ProxyAccount vs RelayHub
 
 As we mentioned earlier, there are two solutions to the msg.sender problem.
 
@@ -161,7 +161,7 @@ There is only one function to care about:
 
 ```
 const user = Wallet.fromMnemonic("");
-await proxyHub.createProxyContract(user.address);
+await proxyDeployer.createProxyContract(user.address);
 ```
 
 It deploys a new `ProxyAccount` for the user and then stores a record of it in the ProxyAccountDeployer. Our ProxyAccount is a minimal contract that checks the user's signed the meta-transaction and the replay protection is valid. It only has two functions:

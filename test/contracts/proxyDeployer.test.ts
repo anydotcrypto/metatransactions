@@ -36,7 +36,7 @@ chai.use(chaiAsPromised);
 let hubClass: ProxyAccountDeployer;
 let accountClass: ProxyAccount;
 
-type proxyHubFunctions = typeof hubClass.functions;
+type proxyDeployerFunctions = typeof hubClass.functions;
 type accountFunctions = typeof accountClass.functions;
 
 export const constructDigest = (params: ForwardParams) => {
@@ -62,8 +62,8 @@ async function createProxyAccountDeployer(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
 ) {
-  const proxyHubFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyHubCreationTx = proxyHubFactory.getDeployTransaction();
+  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
+  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
 
   const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
   await nonceStoreMock.deploy(admin);
@@ -73,12 +73,14 @@ async function createProxyAccountDeployer(
   const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
   const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
 
-  const proxyHubCreation = await admin.sendTransaction(proxyHubCreationTx);
-  const result = await proxyHubCreation.wait(1);
+  const proxyDeployerCreation = await admin.sendTransaction(
+    proxyDeployerCreationTx
+  );
+  const result = await proxyDeployerCreation.wait(1);
 
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
-  const proxyHub = proxyHubFactory.attach(result.contractAddress!);
+  const proxyDeployer = proxyDeployerFactory.attach(result.contractAddress!);
 
   const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
 
@@ -86,11 +88,11 @@ async function createProxyAccountDeployer(
   when(
     // @ts-ignore
     spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
-  ).thenReturn(proxyHub.address);
+  ).thenReturn(proxyDeployer.address);
 
   return {
     provider,
-    proxyHub,
+    proxyDeployer,
     admin,
     owner,
     sender,
@@ -102,22 +104,22 @@ async function createProxyAccountDeployer(
 }
 
 describe("ProxyAccountFactoryProxy", () => {
-  fnIt<proxyHubFunctions>(
+  fnIt<proxyDeployerFunctions>(
     (a) => a.createProxyAccount,
     "create proxy account with deterministic address (and compute offchain deterministic address)",
     async () => {
-      const { proxyHub, sender } = await loadFixture(
+      const { proxyDeployer, sender } = await loadFixture(
         createProxyAccountDeployer
       );
 
-      await proxyHub.connect(sender).createProxyAccount(sender.address);
-      const proxyAddress = await proxyHub
+      await proxyDeployer.connect(sender).createProxyAccount(sender.address);
+      const proxyAddress = await proxyDeployer
         .connect(sender)
         .accounts(sender.address);
 
-      const baseAddress = await proxyHub.baseAccount();
+      const baseAddress = await proxyDeployer.baseAccount();
       const builtAddress = ProxyAccountForwarder.buildCreate2Address(
-        proxyHub.address,
+        proxyDeployer.address,
         sender.address,
         baseAddress
       );
@@ -129,16 +131,18 @@ describe("ProxyAccountFactoryProxy", () => {
     }
   );
 
-  fnIt<proxyHubFunctions>(
+  fnIt<proxyDeployerFunctions>(
     (a) => a.createProxyAccount,
     "cannot re-create the same proxy twice",
     async () => {
-      const { proxyHub, sender } = await loadFixture(
+      const { proxyDeployer, sender } = await loadFixture(
         createProxyAccountDeployer
       );
 
-      await proxyHub.connect(sender).createProxyAccount(sender.address);
-      const tx = proxyHub.connect(sender).createProxyAccount(sender.address);
+      await proxyDeployer.connect(sender).createProxyAccount(sender.address);
+      const tx = proxyDeployer
+        .connect(sender)
+        .createProxyAccount(sender.address);
 
       await expect(tx).to.be.reverted;
     }
@@ -149,7 +153,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "for proxyAccount emits expected address",
     async () => {
       const {
-        proxyHub,
+        proxyDeployer,
         owner,
         sender,
         msgSenderCon,
@@ -157,8 +161,8 @@ describe("ProxyAccountFactoryProxy", () => {
       } = await loadFixture(createProxyAccountDeployer);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const proxyAddress = await proxyHub
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const proxyAddress = await proxyDeployer
         .connect(sender)
         .accounts(owner.address);
 
@@ -198,7 +202,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "looks up proxy account address and forwards the call.",
     async () => {
       const {
-        proxyHub,
+        proxyDeployer,
         owner,
         sender,
         msgSenderCon,
@@ -212,7 +216,7 @@ describe("ProxyAccountFactoryProxy", () => {
         owner
       );
 
-      await proxyHub.connect(sender).createProxyAccount(owner.address);
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
       const params = await forwarder.signMetaTransaction({
         target: msgSenderCon.address,
         value: new BigNumber("0"),
@@ -236,7 +240,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "returns encoded forward calldata that we send in a transaction",
     async () => {
       const {
-        proxyHub,
+        proxyDeployer,
         owner,
         sender,
         msgSenderCon,
@@ -249,8 +253,8 @@ describe("ProxyAccountFactoryProxy", () => {
         owner
       );
 
-      await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const proxyAddress = await proxyHub.accounts(owner.address);
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const proxyAddress = await proxyDeployer.accounts(owner.address);
       const params = await forwarder.signMetaTransaction({
         target: msgSenderCon.address,
         value: new BigNumber("0"),
@@ -275,7 +279,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "deploys a contract via the proxy account",
     async () => {
       const {
-        proxyHub,
+        proxyDeployer,
         owner,
         sender,
         proxyAccountForwarderFactory,
@@ -283,8 +287,8 @@ describe("ProxyAccountFactoryProxy", () => {
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
-      await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const proxyAccountAddr = await proxyHub
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const proxyAccountAddr = await proxyDeployer
         .connect(sender)
         .accounts(owner.address);
       const proxyAccountFactory = new ProxyAccountFactory(sender);
@@ -296,8 +300,9 @@ describe("ProxyAccountFactoryProxy", () => {
         owner
       );
 
-      const initCode = msgSenderFactory.getDeployTransaction(proxyHub.address)
-        .data! as string;
+      const initCode = msgSenderFactory.getDeployTransaction(
+        proxyDeployer.address
+      ).data! as string;
 
       // Deploy the proxy using CREATE2
       const params = await forwarder.signMetaDeployment(initCode);
@@ -342,7 +347,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "deploys an encoded metadeployment via a proxy account",
     async () => {
       const {
-        proxyHub,
+        proxyDeployer,
         owner,
         sender,
         proxyAccountForwarderFactory,
@@ -350,8 +355,8 @@ describe("ProxyAccountFactoryProxy", () => {
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
-      await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const proxyAccountAddr = await proxyHub
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const proxyAccountAddr = await proxyDeployer
         .connect(sender)
         .accounts(owner.address);
       const proxyAccountFactory = new ProxyAccountFactory(sender);
@@ -363,8 +368,9 @@ describe("ProxyAccountFactoryProxy", () => {
         owner
       );
 
-      const initCode = msgSenderFactory.getDeployTransaction(proxyHub.address)
-        .data! as string;
+      const initCode = msgSenderFactory.getDeployTransaction(
+        proxyDeployer.address
+      ).data! as string;
 
       // Deploy the proxy using CREATE2
       const params = await forwarder.signMetaDeployment(initCode);
@@ -408,7 +414,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "deploy missing real init code and fails",
     async () => {
       const {
-        proxyHub,
+        proxyDeployer,
         owner,
         sender,
         proxyAccountForwarderFactory,
@@ -416,8 +422,8 @@ describe("ProxyAccountFactoryProxy", () => {
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
-      await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const proxyAccountAddr = await proxyHub
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const proxyAccountAddr = await proxyDeployer
         .connect(sender)
         .accounts(owner.address);
 

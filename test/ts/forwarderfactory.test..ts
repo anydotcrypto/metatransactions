@@ -34,13 +34,17 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
 
   const relayHub = relayHubFactory.attach(relayResult.contractAddress!);
 
-  const proxyHubFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyHubCreationTx = proxyHubFactory.getDeployTransaction();
+  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
+  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
 
-  const proxyHubCreation = await admin.sendTransaction(proxyHubCreationTx);
-  const proxyResult = await proxyHubCreation.wait(1);
+  const proxyDeployerCreation = await admin.sendTransaction(
+    proxyDeployerCreationTx
+  );
+  const proxyResult = await proxyDeployerCreation.wait(1);
 
-  const proxyHub = proxyHubFactory.attach(proxyResult.contractAddress!);
+  const proxyDeployer = proxyDeployerFactory.attach(
+    proxyResult.contractAddress!
+  );
 
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(
     relayHub.address
@@ -60,11 +64,11 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
   when(
     // @ts-ignore
     spiedProxyForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
-  ).thenReturn(proxyHub.address);
+  ).thenReturn(proxyDeployer.address);
 
   return {
     relayHub,
-    proxyHub,
+    proxyDeployer,
     admin,
     msgSenderExample,
     proxyAccountsForwardersFactory,
