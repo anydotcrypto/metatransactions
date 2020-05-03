@@ -49,7 +49,6 @@ export interface ProxyCallData {
 export abstract class Forwarder<T> {
   constructor(
     protected readonly chainID: ChainID,
-    protected readonly forwarder: Contract,
     public readonly signer: Wallet,
     protected readonly replayProtectionAuthority: ReplayProtectionAuthority
   ) {}

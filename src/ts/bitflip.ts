@@ -14,7 +14,7 @@ import BN from "bn.js";
 export class BitFlip extends ReplayProtectionAuthority {
   private index: BigNumber; // Keep track of bitmap index
   private bitmap: BigNumber;
-  lock: Lock;
+  private readonly lock: Lock;
 
   /**
    * BitFlip replay protection for a single wallet

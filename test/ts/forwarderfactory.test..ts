@@ -5,7 +5,7 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   RelayHubFactory,
-  MetaTxHandler,
+  ForwarderFactory,
   MsgSenderExampleFactory,
   ProxyAccountDeployerFactory,
 } from "../../src";
@@ -17,7 +17,7 @@ import {
   ChainID,
   ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/metatxhandler";
+} from "../../src/ts/forwarderfactory";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -44,18 +44,20 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
     relayHub.address
   );
 
-  const spiedMetaTxHandler = spy(MetaTxHandler);
+  const spiedForwarderFactory = spy(ForwarderFactory);
   when(
-    spiedMetaTxHandler.getForwarderAddress(
+    // @ts-ignore
+    spiedForwarderFactory.getForwarderAddress(
       ChainID.MAINNET,
       ForwarderType.RELAYHUB
     )
   ).thenReturn(relayHub.address);
 
   when(
-    spiedMetaTxHandler.getForwarderAddress(
+    // @ts-ignore
+    spiedForwarderFactory.getForwarderAddress(
       ChainID.MAINNET,
-      ForwarderType.PROXYHUB
+      ForwarderType.PROXYACCOUNTDEPLOYER
     )
   ).thenReturn(proxyHub.address);
 
@@ -67,40 +69,40 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
   };
 }
 
-describe("Meta Transaction Handler", () => {
+describe("Forwarder Factory", () => {
   // The "spy" in the other tests is carrying over here. Reset() will not fix it.
   // it("Check the hard-coded addresses for ropsten and mainnet", async () => {
-  //   const spiedMetaTxHandler = spy(MetaTxHandler);
+  //   const spiedForwarderFactory = spy(ForwarderFactory);
 
-  //   // resetCalls(spiedMetaTxHandler);
+  //   // resetCalls(spiedForwarderFactory);
 
-  //   spiedMetaTxHandler.getForwarderAddress(
+  //   spiedForwarderFactory.getForwarderAddress(
   //     ChainID.MAINNET,
-  //     ForwarderType.PROXYHUB
+  //     ForwarderType.PROXYACCOUNTDEPLOYER
   //   );
 
-  //   const mainnetProxyAccountFactory = MetaTxHandler.getForwarderAddress(
+  //   const mainnetProxyAccountFactory = ForwarderFactory.getForwarderAddress(
   //     ChainID.MAINNET,
-  //     ForwarderType.PROXYHUB
+  //     ForwarderType.PROXYACCOUNTDEPLOYER
   //   );
 
   //   expect(mainnetProxyAccountFactory).to.eq("0x0b116DF91Aae33d85840165c5487462E0E821242");
 
-  //   const ropstenProxyAccountFactory = MetaTxHandler.getForwarderAddress(
+  //   const ropstenProxyAccountFactory = ForwarderFactory.getForwarderAddress(
   //     ChainID.ROPSTEN,
-  //     ForwarderType.PROXYHUB
+  //     ForwarderType.PROXYACCOUNTDEPLOYER
   //   );
 
   //   expect(ropstenProxyAccountFactory).to.eq("0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9");
 
-  //   const mainnetRelayHub = MetaTxHandler.getForwarderAddress(
+  //   const mainnetRelayHub = ForwarderFactory.getForwarderAddress(
   //     ChainID.MAINNET,
   //     ForwarderType.RELAYHUB
   //   );
 
   //   expect(mainnetRelayHub).to.eq("0x70107abB312db18bD9AdDec39CE711374B09EBC1");
 
-  //   const ropstenRelayHub = MetaTxHandler.getForwarderAddress(
+  //   const ropstenRelayHub = ForwarderFactory.getForwarderAddress(
   //     ChainID.ROPSTEN,
   //     ForwarderType.RELAYHUB
   //   );
@@ -115,7 +117,8 @@ describe("Meta Transaction Handler", () => {
 
   it("There is no hard-coded address for a proxy account and getHubAddress() should throw an error.", async () => {
     expect(
-      MetaTxHandler.getForwarderAddress.bind(
+      // @ts-ignore
+      ForwarderFactory.getForwarderAddress.bind(
         ChainID.MAINNET,
         ForwarderType.PROXYACCOUNT
       )
@@ -124,7 +127,7 @@ describe("Meta Transaction Handler", () => {
 
   it("Create the RelayForwarder with Nonce ", async () => {
     const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = MetaTxHandler.getRelayHubForwarder(
+    const proxyForwarder = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -164,7 +167,7 @@ describe("Meta Transaction Handler", () => {
 
   it("Create the RelayForwarder with MultiNonce ", async () => {
     const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = MetaTxHandler.getRelayHubForwarder(
+    const proxyForwarder = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -204,7 +207,7 @@ describe("Meta Transaction Handler", () => {
 
   it("Create the RelayForwarder with Bitflip ", async () => {
     const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = MetaTxHandler.getRelayHubForwarder(
+    const proxyForwarder = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
@@ -242,7 +245,7 @@ describe("Meta Transaction Handler", () => {
 
   it("Create the ProxyForwarder with Nonce ", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = await MetaTxHandler.getProxyForwarder(
+    const proxyForwarder = await ForwarderFactory.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -289,7 +292,7 @@ describe("Meta Transaction Handler", () => {
 
   it("Create the ProxyForwarder with MultiNonce ", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = await MetaTxHandler.getProxyForwarder(
+    const proxyForwarder = await ForwarderFactory.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -336,7 +339,7 @@ describe("Meta Transaction Handler", () => {
 
   it("Create the ProxyForwarder with Bitflip ", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = await MetaTxHandler.getProxyForwarder(
+    const proxyForwarder = await ForwarderFactory.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin

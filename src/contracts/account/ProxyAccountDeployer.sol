@@ -39,14 +39,14 @@ contract ProxyAccount is ReplayProtection {
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        // Assumes that ProxyAccountFactory is ReplayProtection. 
+        // Assumes that ProxyAccountDeployer is ReplayProtection. 
         bytes memory encodedData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature));
 
         // No need to check _target account since it will jump into the signer's proxy account first.
-        // e.g. we can never perform a .call() from ProxyAccountFactory directly.
+        // e.g. we can never perform a .call() from ProxyAccountDeployer directly.
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));
         require(success, "Forwarding call failed.");
     }

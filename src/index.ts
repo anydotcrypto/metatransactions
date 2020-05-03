@@ -15,10 +15,16 @@ export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 export { ReplayProtection } from "./typedContracts/ReplayProtection";
 export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
+export { ProxyAccountForwarder } from "./ts/proxyaccountfowarder";
+export { RelayHubForwarder } from "./ts/relayforwarder";
+
 export { MultiNonce } from "./ts/multinonce";
 export { BitFlip } from "./ts/bitflip";
-export { MetaTxHandler, ChainID, ForwarderType } from "./ts/metatxhandler";
-// export { RelayerAPI } from "./ts/relayer";
+export {
+  ForwarderFactory,
+  ChainID,
+  ForwarderType,
+} from "./ts/forwarderfactory";
 
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };

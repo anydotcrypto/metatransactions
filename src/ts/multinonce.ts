@@ -5,10 +5,10 @@ import { Lock } from "@pisa-research/utils";
 
 export class MultiNonce extends ReplayProtectionAuthority {
   private index: BigNumber;
-  // Weird JS Bug. If BigNumber is the Key, then the lookup
-  // will fail. String iS OK.
+  // Cannot use BigNumber as the mapping index.
+  // So we used string.
   private nonceTracker: Map<string, BigNumber>;
-  lock: Lock;
+  private readonly lock: Lock;
 
   /**
    * MultiNonce replay protection maintains N queues of transactions.

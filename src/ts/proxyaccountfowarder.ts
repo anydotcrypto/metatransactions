@@ -8,7 +8,8 @@ import { ForwardParams, Forwarder, ProxyCallData } from "./forwarder";
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyForwarder extends Forwarder<ProxyCallData> {
+export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
+  private baseAccount: string;
   /**
    * All meta-transactions are sent via an proxy contract.
    * @param chainID Chain ID
@@ -18,11 +19,11 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
    */
   constructor(
     chainID: ChainID,
-    proxyHub: ProxyAccountDeployer,
+    private readonly proxyHub: ProxyAccountDeployer,
     signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
-    super(chainID, proxyHub, signer, replayProtectionAuthority);
+    super(chainID, signer, replayProtectionAuthority);
   }
 
   /**
@@ -42,13 +43,13 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
    * No need for ForwardParams as no signature is required in ProxyAccountDeployer
    */
   public async createProxyContract() {
-    const deployed = await this.forwarder
+    const deployed = await this.proxyHub
       .connect(this.signer)
       .accounts(this.signer.address);
 
     // Does the user have a proxy contract?
     if (deployed === "0x0000000000000000000000000000000000000000") {
-      const callData = this.forwarder.interface.functions.createProxyAccount.encode(
+      const callData = this.proxyHub.interface.functions.createProxyAccount.encode(
         [this.signer.address]
       );
 
@@ -65,11 +66,13 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
    * Caution: Contract may not be deployed yet.
    */
   public async getProxyAddress() {
-    const baseAddress = await this.forwarder.baseAccount();
-    return ProxyForwarder.buildCreate2Address(
-      this.forwarder.address,
+    if (!this.baseAccount) {
+      this.baseAccount = await this.proxyHub.baseAccount();
+    }
+    return ProxyAccountForwarder.buildCreate2Address(
+      this.proxyHub.address,
       this.signer.address,
-      baseAddress
+      this.baseAccount
     );
   }
 
@@ -131,7 +134,7 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
   /**
    * Computes the proxy contract account.
    * Thanks to _prestwich for his pseudocode, got it to work!
-   * @param creatorAddress Creator of the clone contract (ProxyAccountFactory)
+   * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
    */

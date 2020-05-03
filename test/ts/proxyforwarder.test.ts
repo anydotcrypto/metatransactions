@@ -5,7 +5,7 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   ProxyAccountDeployerFactory,
-  MetaTxHandler,
+  ForwarderFactory,
   MsgSenderExampleFactory,
   ProxyAccountFactory,
   MultiNonce,
@@ -19,9 +19,9 @@ import {
   ChainID,
   ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/metatxhandler";
+} from "../../src/ts/forwarderfactory";
 import { AddressZero } from "ethers/constants";
-import { ProxyForwarder } from "../../src/ts/proxyfowarder";
+import { ProxyAccountForwarder } from "../../src/ts/proxyaccountfowarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -43,12 +43,13 @@ async function createHubs(
     AddressZero
   );
 
-  const spiedMetaTxHandler = spy(MetaTxHandler);
+  const spiedForwarderFactory = spy(ForwarderFactory);
 
   when(
-    spiedMetaTxHandler.getForwarderAddress(
+    // @ts-ignore
+    spiedForwarderFactory.getForwarderAddress(
       ChainID.MAINNET,
-      ForwarderType.PROXYHUB
+      ForwarderType.PROXYACCOUNTDEPLOYER
     )
   ).thenReturn(proxyHub.address);
 
@@ -67,14 +68,14 @@ describe("Proxy Forwarder", () => {
     const { proxyHub, admin, user1 } = await loadFixture(createHubs);
 
     const baseAccount = await proxyHub.baseAccount();
-    const proxyForwarder = new ProxyForwarder(
+    const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyHub,
       admin,
       new MultiNonce(
         10,
         user1,
-        ProxyForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildCreate2Address(
           proxyHub.address,
           user1.address,
           baseAccount
@@ -95,14 +96,14 @@ describe("Proxy Forwarder", () => {
     const { msgSenderExample, proxyHub, admin } = await loadFixture(createHubs);
 
     const baseAccount = await proxyHub.baseAccount();
-    const proxyForwarder = new ProxyForwarder(
+    const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyHub,
       admin,
       new MultiNonce(
         10,
         admin,
-        ProxyForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildCreate2Address(
           proxyHub.address,
           admin.address,
           baseAccount
@@ -154,14 +155,14 @@ describe("Proxy Forwarder", () => {
     const baseAccount = await proxyHub.baseAccount();
 
     const noQueues = 10;
-    const proxyForwarder = new ProxyForwarder(
+    const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyHub,
       user1,
       new MultiNonce(
         noQueues,
         user1,
-        ProxyForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildCreate2Address(
           proxyHub.address,
           user1.address,
           baseAccount
@@ -202,13 +203,13 @@ describe("Proxy Forwarder", () => {
 
     const baseAccount = await proxyHub.baseAccount();
 
-    const proxyForwarder = new ProxyForwarder(
+    const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyHub,
       admin,
       new BitFlip(
         admin,
-        ProxyForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildCreate2Address(
           proxyHub.address,
           admin.address,
           baseAccount
@@ -258,13 +259,13 @@ describe("Proxy Forwarder", () => {
     const { msgSenderExample, proxyHub, user1 } = await loadFixture(createHubs);
 
     const baseAccount = await proxyHub.baseAccount();
-    const proxyForwarder = new ProxyForwarder(
+    const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyHub,
       user1,
       new BitFlip(
         user1,
-        ProxyForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildCreate2Address(
           proxyHub.address,
           user1.address,
           baseAccount
@@ -317,18 +318,18 @@ describe("Proxy Forwarder", () => {
   it("Tries to re-deploy the same proxy contract twice and fails.", async () => {
     const { proxyHub, admin, user1 } = await loadFixture(createHubs);
 
-    const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+    const forwarder = await ForwarderFactory.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
     );
 
-    const encoded = await metaTxHandler.createProxyContract();
+    const encoded = await forwarder.createProxyContract();
     await user1.sendTransaction({ to: proxyHub.address, data: encoded });
 
     const proxyAccountAddress = await proxyHub.accounts(admin.address);
 
-    expect(await metaTxHandler.getProxyAddress()).to.eq(
+    expect(await forwarder.getProxyAddress()).to.eq(
       proxyAccountAddress.toLowerCase()
     );
 
@@ -338,16 +339,16 @@ describe("Proxy Forwarder", () => {
 
     // Try to re-deploy via the library. Caught before sending transaction.
     return expect(
-      metaTxHandler.createProxyContract()
+      forwarder.createProxyContract()
     ).to.be.eventually.rejectedWith(
       "ProxyAccount for " + admin.address + " already exists."
     );
   }).timeout(50000);
 
-  it("Deploy a new meta-contract with the ProxyAccountFactory installed.", async () => {
+  it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
     const { proxyHub, admin } = await loadFixture(createHubs);
 
-    const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+    const forwarder = await ForwarderFactory.getProxyForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -357,7 +358,7 @@ describe("Proxy Forwarder", () => {
       proxyHub.address
     ).data! as string;
 
-    const deploymentParams = await metaTxHandler.signMetaDeployment(initCode);
+    const deploymentParams = await forwarder.signMetaDeployment(initCode);
 
     await proxyHub.connect(admin).createProxyAccount(admin.address);
     const proxyAccountAddress = await proxyHub.accounts(admin.address);

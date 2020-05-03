@@ -26,13 +26,12 @@ import {
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
-  MetaTxHandler,
+  ForwarderFactory,
   ChainID,
   ReplayProtectionType,
   ForwarderType,
-} from "../../src/ts/metatxhandler";
-import { RelayerAPI } from "../../src/ts/relayer";
-import { ProxyForwarder } from "../../src/ts/proxyfowarder";
+} from "../../src/ts/forwarderfactory";
+import { ProxyAccountForwarder } from "../../src/ts/proxyaccountfowarder";
 import { ForwardParams } from "../../src/ts/forwarder";
 
 const expect = chai.expect;
@@ -62,7 +61,7 @@ export const constructDigest = (params: ForwardParams) => {
   );
 };
 
-async function createProxyAccountFactory(
+async function createProxyAccountDeployer(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
 ) {
@@ -84,11 +83,12 @@ async function createProxyAccountFactory(
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
   const proxyHub = proxyHubFactory.attach(result.contractAddress!);
 
-  const spiedMetaTxHandler = spy(MetaTxHandler);
+  const spiedForwarderFactory = spy(ForwarderFactory);
   when(
-    spiedMetaTxHandler.getForwarderAddress(
+    // @ts-ignore
+    spiedForwarderFactory.getForwarderAddress(
       ChainID.MAINNET,
-      ForwarderType.PROXYHUB
+      ForwarderType.PROXYACCOUNTDEPLOYER
     )
   ).thenReturn(proxyHub.address);
 
@@ -109,7 +109,9 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.createProxyAccount,
     "create proxy account with deterministic address (and compute offchain deterministic address)",
     async () => {
-      const { proxyHub, sender } = await loadFixture(createProxyAccountFactory);
+      const { proxyHub, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
 
       await proxyHub.connect(sender).createProxyAccount(sender.address);
       const proxyAddress = await proxyHub
@@ -117,7 +119,7 @@ describe("ProxyAccountFactoryProxy", () => {
         .accounts(sender.address);
 
       const baseAddress = await proxyHub.baseAccount();
-      const builtAddress = ProxyForwarder.buildCreate2Address(
+      const builtAddress = ProxyAccountForwarder.buildCreate2Address(
         proxyHub.address,
         sender.address,
         baseAddress
@@ -134,7 +136,9 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.createProxyAccount,
     "cannot re-create the same proxy twice",
     async () => {
-      const { proxyHub, sender } = await loadFixture(createProxyAccountFactory);
+      const { proxyHub, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
 
       await proxyHub.connect(sender).createProxyAccount(sender.address);
       const tx = proxyHub.connect(sender).createProxyAccount(sender.address);
@@ -148,7 +152,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "for proxyAccount emits expected address",
     async () => {
       const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
-        createProxyAccountFactory
+        createProxyAccountDeployer
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
@@ -159,13 +163,13 @@ describe("ProxyAccountFactoryProxy", () => {
 
       const proxyAccountFactory = new ProxyAccountFactory(owner);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
-      const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+      const forwarder = await ForwarderFactory.getProxyForwarder(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
       );
 
-      const params = await metaTxHandler.signMetaTransaction({
+      const params = await forwarder.signMetaTransaction({
         target: msgSenderCon.address,
         value: new BigNumber("0"),
         callData: msgSenderCall,
@@ -193,25 +197,27 @@ describe("ProxyAccountFactoryProxy", () => {
     "looks up proxy account address and forwards the call.",
     async () => {
       const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
-        createProxyAccountFactory
+        createProxyAccountDeployer
       );
 
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+      const forwarder = await ForwarderFactory.getProxyForwarder(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
       );
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
-      const params = await metaTxHandler.signMetaTransaction({
+      const params = await forwarder.signMetaTransaction({
         target: msgSenderCon.address,
         value: new BigNumber("0"),
         callData: msgSenderCall,
       });
 
-      const relayerAPI = new RelayerAPI(proxyHub);
-      const tx = relayerAPI.forward(sender, params);
+      const tx = sender.sendTransaction({
+        to: params.to,
+        data: await forwarder.encodeSignedMetaTransaction(params),
+      });
 
       await expect(tx).to.emit(
         msgSenderCon,
@@ -222,41 +228,13 @@ describe("ProxyAccountFactoryProxy", () => {
 
   fnIt<accountFunctions>(
     (a) => a.forward,
-    "looks up proxy account address and tries to foward, but fails as proxy account doesn't exist",
-    async () => {
-      const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
-        createProxyAccountFactory
-      );
-      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = await MetaTxHandler.getProxyForwarder(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
-      );
-
-      const params = await metaTxHandler.signMetaTransaction({
-        target: msgSenderCon.address,
-        value: new BigNumber("0"),
-        callData: msgSenderCall,
-      });
-
-      const relayerAPI = new RelayerAPI(proxyHub);
-
-      return expect(
-        relayerAPI.forward(sender, params)
-      ).to.eventually.be.rejectedWith("Proxy account does not exist.");
-    }
-  );
-
-  fnIt<accountFunctions>(
-    (a) => a.forward,
     "returns encoded forward calldata that we send in a transaction",
     async () => {
       const { proxyHub, owner, sender, msgSenderCon } = await loadFixture(
-        createProxyAccountFactory
+        createProxyAccountDeployer
       );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+      const forwarder = await ForwarderFactory.getProxyForwarder(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -264,20 +242,17 @@ describe("ProxyAccountFactoryProxy", () => {
 
       await proxyHub.connect(sender).createProxyAccount(owner.address);
       const proxyAddress = await proxyHub.accounts(owner.address);
-      const params = await metaTxHandler.signMetaTransaction({
+      const params = await forwarder.signMetaTransaction({
         target: msgSenderCon.address,
         value: new BigNumber("0"),
         callData: msgSenderCall,
       });
 
-      const relayerAPI = new RelayerAPI(proxyHub);
-      const callData = await relayerAPI.getForwardCallData(sender, params);
-
       const tx = sender.sendTransaction({
         to: proxyAddress,
         gasLimit: 500000,
         gasPrice: parseEther("0.000001"),
-        data: callData,
+        data: await forwarder.encodeSignedMetaTransaction(params),
       });
 
       await expect(tx)
@@ -291,7 +266,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "deploys a contract via the proxyHub",
     async () => {
       const { proxyHub, owner, sender } = await loadFixture(
-        createProxyAccountFactory
+        createProxyAccountDeployer
       );
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
@@ -303,7 +278,7 @@ describe("ProxyAccountFactoryProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+      const forwarder = await ForwarderFactory.getProxyForwarder(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -313,7 +288,7 @@ describe("ProxyAccountFactoryProxy", () => {
         .data! as string;
 
       // Deploy the proxy using CREATE2
-      const params = await metaTxHandler.signMetaDeployment(initCode);
+      const params = await forwarder.signMetaDeployment(initCode);
       await proxyAccount
         .connect(sender)
         .deployContract(
@@ -355,7 +330,7 @@ describe("ProxyAccountFactoryProxy", () => {
     "deploy missing real init code and fails",
     async () => {
       const { proxyHub, owner, sender } = await loadFixture(
-        createProxyAccountFactory
+        createProxyAccountDeployer
       );
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
@@ -368,7 +343,7 @@ describe("ProxyAccountFactoryProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
-      const metaTxHandler = await MetaTxHandler.getProxyForwarder(
+      const forwarder = await ForwarderFactory.getProxyForwarder(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -378,7 +353,7 @@ describe("ProxyAccountFactoryProxy", () => {
       const initCode = msgSenderFactory.bytecode;
 
       // Deploy the proxy using CREATE2
-      const params = await metaTxHandler.signMetaDeployment(initCode);
+      const params = await forwarder.signMetaDeployment(initCode);
       const deployed = proxyAccount
         .connect(sender)
         .deployContract(

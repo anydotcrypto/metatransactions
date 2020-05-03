@@ -1,13 +1,8 @@
-import { keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
+import { defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { RelayHub, ChainID } from "..";
-import {
-  ForwardParams,
-  DeploymentParams,
-  RelayCallData,
-  Forwarder,
-} from "./forwarder";
+import { ForwardParams, RelayCallData, Forwarder } from "./forwarder";
 
 /**
  * A single library for approving meta-transactions and its associated
@@ -24,11 +19,11 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
    */
   constructor(
     chainID: ChainID,
-    relayHub: RelayHub,
+    private readonly relayHub: RelayHub,
     signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
-    super(chainID, relayHub, signer, replayProtectionAuthority);
+    super(chainID, signer, replayProtectionAuthority);
   }
 
   /**
@@ -77,7 +72,7 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
   public async encodeSignedMetaTransaction(
     params: ForwardParams
   ): Promise<string> {
-    return this.forwarder.interface.functions.forward.encode([
+    return this.relayHub.interface.functions.forward.encode([
       params.target,
       params.data,
       params.replayProtection,
@@ -91,6 +86,6 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
    * Helper function when signing a new meta-transaction
    */
   public async getForwarderAddress(): Promise<string> {
-    return this.forwarder.address;
+    return this.relayHub.address;
   }
 }

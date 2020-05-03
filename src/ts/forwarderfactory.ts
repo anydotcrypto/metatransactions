@@ -1,16 +1,17 @@
 import { Wallet } from "ethers/wallet";
 import { MultiNonce } from "./multinonce";
 import { BitFlip } from "./bitflip";
-import { ProxyForwarder } from "./proxyfowarder";
+import { ProxyAccountForwarder } from "./proxyaccountfowarder";
 import { RelayHubFactory } from "../typedContracts/RelayHubFactory";
 import { RelayHubForwarder } from "./relayforwarder";
 import { Contract } from "ethers";
 import { ProxyAccountDeployerFactory } from "..";
+import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 
 export enum ForwarderType {
   RELAYHUB,
   PROXYACCOUNT,
-  PROXYHUB,
+  PROXYACCOUNTDEPLOYER,
 }
 
 export enum ReplayProtectionType {
@@ -28,8 +29,8 @@ export enum ChainID {
  * A single library for approving meta-transactions and its associated
  * replay protection.
  */
-export class MetaTxHandler {
-  public static getForwarderAddress(
+export class ForwarderFactory {
+  protected static getForwarderAddress(
     chainid: ChainID,
     forwarderType: ForwarderType
   ) {
@@ -38,7 +39,7 @@ export class MetaTxHandler {
         return "0x7915DCbe8E2b132832c63E0704D9EBBbD5800dd8" as string;
       }
 
-      if (forwarderType === ForwarderType.PROXYHUB) {
+      if (forwarderType === ForwarderType.PROXYACCOUNTDEPLOYER) {
         return "0x894CEd16b2710B90763e7daa83829fec7Ebd31E9" as string;
       }
     }
@@ -48,7 +49,7 @@ export class MetaTxHandler {
         return "0xdFaed94BCDbe2Ca6399F78621925AD1D5b851750" as string;
       }
 
-      if (forwarderType === ForwarderType.PROXYHUB) {
+      if (forwarderType === ForwarderType.PROXYACCOUNTDEPLOYER) {
         return "0xc9d6292CA60605CB2d443a5395737a307E417E53" as string;
       }
     }
@@ -59,108 +60,106 @@ export class MetaTxHandler {
    * A pre-configuration of a proxy forwarder.
    * Dedicated to a single wallet.
    * @param chainid MAINNET or ROPSTEN
-   * @param replayProtectionAuth BITFLIP, MULTINONCE OR NONCE
+   * @param replayProtectionType BITFLIP, MULTINONCE OR NONCE
    * @param signer Signer's wallet
    */
   public static async getProxyForwarder(
     chainid: ChainID,
-    replayProtectionAuth: ReplayProtectionType,
+    replayProtectionType: ReplayProtectionType,
     signer: Wallet
   ) {
-    const addr = this.getForwarderAddress(chainid, ForwarderType.PROXYHUB);
+    const addr = this.getForwarderAddress(
+      chainid,
+      ForwarderType.PROXYACCOUNTDEPLOYER
+    );
 
     const proxyHub = new ProxyAccountDeployerFactory(signer).attach(addr);
     const baseAccount = await proxyHub.baseAccount();
-    const proxyAddress = ProxyForwarder.buildCreate2Address(
+    const proxyAddress = ProxyAccountForwarder.buildCreate2Address(
       proxyHub.address,
       signer.address,
       baseAccount
     );
 
-    if (replayProtectionAuth == ReplayProtectionType.BITFLIP) {
-      return new ProxyForwarder(
-        chainid,
-        proxyHub,
-        signer,
-        new BitFlip(signer, proxyAddress)
-      );
-    }
-
-    if (replayProtectionAuth == ReplayProtectionType.MULTINONCE) {
-      return new ProxyForwarder(
-        chainid,
-        proxyHub,
-        signer,
-        new MultiNonce(30, signer, proxyAddress)
-      );
-    }
-
-    return new ProxyForwarder(
+    return new ProxyAccountForwarder(
       chainid,
       proxyHub,
       signer,
-      new MultiNonce(1, signer, proxyAddress)
+      ForwarderFactory.getReplayProtection(
+        signer,
+        proxyAddress,
+        replayProtectionType
+      )
     );
+  }
+
+  /**
+   * Fetch a pre-configured replay protection
+   * @param signer Signer's wallet
+   * @param forwarderAddress Forwarder address
+   * @param replayProtectionType Replay Protection
+   */
+  protected static getReplayProtection(
+    signer: Wallet,
+    forwarderAddress: string,
+    replayProtectionType: ReplayProtectionType
+  ): ReplayProtectionAuthority {
+    if (replayProtectionType == ReplayProtectionType.MULTINONCE) {
+      return new MultiNonce(30, signer, forwarderAddress);
+    }
+
+    if (replayProtectionType == ReplayProtectionType.BITFLIP) {
+      return new BitFlip(signer, forwarderAddress);
+    }
+
+    return new MultiNonce(1, signer, forwarderAddress);
   }
 
   /**
    * A pre-configuration of a relayhub forwarder.
    * Dedicated to a single wallet.
    * @param chainid MAINNET or ROPSTEN
-   * @param replayProtectionAuth BITFLIP, MULTINONCE OR NONCE
+   * @param replayProtectionType BITFLIP, MULTINONCE OR NONCE
    * @param signer Signer's wallet
    */
   public static getRelayHubForwarder(
     chainid: ChainID,
-    replayProtectionAuth: ReplayProtectionType,
+    replayProtectionType: ReplayProtectionType,
     signer: Wallet
   ) {
     const addr = this.getForwarderAddress(chainid, ForwarderType.RELAYHUB);
 
     const relayHub = new RelayHubFactory(signer).attach(addr);
-    if (replayProtectionAuth == ReplayProtectionType.BITFLIP) {
-      return new RelayHubForwarder(
-        chainid,
-        relayHub,
-        signer,
-        new BitFlip(signer, relayHub.address)
-      );
-    }
-
-    if (replayProtectionAuth == ReplayProtectionType.MULTINONCE) {
-      return new RelayHubForwarder(
-        chainid,
-        relayHub,
-        signer,
-        new MultiNonce(30, signer, relayHub.address)
-      );
-    }
 
     return new RelayHubForwarder(
       chainid,
       relayHub,
       signer,
-      new MultiNonce(1, signer, relayHub.address)
+      ForwarderFactory.getReplayProtection(
+        signer,
+        relayHub.address,
+        replayProtectionType
+      )
     );
   }
 
   /**
    * Unfortunately, instanceof does not work when compiled
    * to javascript. In order to detect if the hub is a ProxyAccount,
-   * RelayHub or ProxyAccountFactory - we rely on checking the existance of a
+   * RelayHub or ProxyAccountDeployer - we rely on checking the existance of a
    * function.
    * - init() is only available in a ProxyAccount
-   * - accounts() is only available in a ProxyAccountFactory
+   * - accounts() is only available in a ProxyAccountDeployer
    * If neither function is detected, we assume it is a RelayHub.
    * @param hub Contract
    */
-  public static getContractType(contract: Contract) {
+  protected static getContractType(contract: Contract) {
     if (contract.init) {
       return ForwarderType.PROXYACCOUNT;
     }
 
     if (contract.accounts) {
-      return ForwarderType.PROXYHUB;
+      return ForwarderType.PROXYACCOUNTDEPLOYER;
     }
 
     return ForwarderType.RELAYHUB;

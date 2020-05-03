@@ -28,7 +28,7 @@ npm i @anydotcrypto/metatransactions --save-dev
 2. You need to import the package into your file:
 
 ```
-import { ChainID, ContractType,  MetaTxHandler } from "@anydotcrypto/metatransactions/dist";
+import { ChainID, ContractType,  ForwarderFactory } from "@anydotcrypto/metatransactions/dist";
 ```
 
 3. You need to decide which msg.sender solution to use and for what network.
@@ -39,11 +39,11 @@ We have created two enumerations to keep it simple:
 ChainID.MAINNET
 ChainID.ROPSTEN
 
-ContractType.PROXYHUB
+ContractType.PROXYACCOUNTDEPLOYER
 ContractType.RELAYHUB
 ```
 
-We cover [ProxyAccountFactory vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyhub-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend `ContractType.PROXYHUB` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.
+We cover [ProxyAccountFactory vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyhub-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend `ContractType.PROXYACCOUNTDEPLOYER` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.
 
 4. You need to decide which replay protection to use.
 
@@ -57,7 +57,7 @@ If you want to use Replace-by-nonce or Multinonce:
 
 ```
 const concurrency = 10;
-const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ChainID.PROXYHUB, concurrency);
+const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ChainID.PROXYACCOUNTDEPLOYER, concurrency);
 ```
 
 This sets up the meta-transaction handler to use the multinonce replay protection with 10 nonce queues. If you want all transactions to be processed in the transaction by order, then just set `concurrency=1`.
@@ -65,12 +65,12 @@ This sets up the meta-transaction handler to use the multinonce replay protectio
 If you want to use bitflip:
 
 ```
-const metaTxHandler = MetaTxHandler.bitflip(ChainID.MAINNET, ChainID.PROXYHUB);
+const forwarder = ForwarderFactory.bitflip(ChainID.MAINNET, ChainID.PROXYACCOUNTDEPLOYER);
 ```
 
 This sets up the meta-transaction handler to use the bitflip replay protection. Bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering.
 
-5. You are now ready to authorise a meta-transaction using the MetaTxHandler.
+5. You are now ready to authorise a meta-transaction using the ForwarderFactory.
 
 ```
 const user = Wallet.fromMnemonic("");
@@ -78,8 +78,8 @@ const echo = new EchoFactory(user).attach("");
 const callData = echo.interface.functions.broadcastMessage.encode(["to the moon"]);
 const value = new BigNumber("0");
 
-const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ContractType.PROXYHUB, 100);
-const params = await metaTxHandler.signMetaTransaction(user, echo.address, value, callData) ;
+const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.PROXYACCOUNTDEPLOYER, 100);
+const params = await forwarder.signMetaTransaction(user, echo.address, value, callData) ;
 ```
 
 The meta-transaction handler just requires:
@@ -125,8 +125,8 @@ const value = new BigNumber("0");
 const callData = targetContract.interface.functions.test.encode([]);
 
 // Prepare and authorise the meta-transaction
-const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ContractType.PROXYHUB, 100);
-const params = await metaTxHandler.signMetaTransaction(user, targetContract.address, value, callData) ;
+const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.PROXYACCOUNTDEPLOYER, 100);
+const params = await forwarder.signMetaTransaction(user, targetContract.address, value, callData) ;
 
 // Set up a relayer to publish the metatx
 const relayerWallet Wallet.fromMnemonic("");
@@ -202,8 +202,8 @@ const echoFactory = new EchoFactory(user);
 const initCode = echoFactory.getDeployTransaction().data! as string; // Constructor arguments accepted
 
 // Set up meta-transaction handler and sign meta-deployment
-const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ContractType.PROXYHUB, 100);
-const params = await metaTxHandler.signMetaDeployment(user, initCode);
+const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.PROXYACCOUNTDEPLOYER, 100);
+const params = await forwarder.signMetaDeployment(user, initCode);
 
 // Relayer sends transaction to network (or sent up to Relayer API)
 const tx = await proxyAccount.connect(relayer).deployContract(
@@ -225,7 +225,7 @@ const echoContract = echoFactory.attach(echoAddress);
 // Sending the meta-transaction
 const callData = echoContract.interface.functions.broadcastMessage.encode([]);
 const value = new BigNumber("0");
-const params = await metaTxHandler.signMetaTransaction(
+const params = await forwarder.signMetaTransaction(
         user,
         echoContract.address,
         value,
@@ -286,11 +286,11 @@ const echoFactory = new EchoFactory(user);
 const initCode = echoFactory.getDeployTransaction().data! as string; // Constructor arguments accepted
 
 // Set up meta-transaction handler and sign meta-deployment
-const metaTxHandler = MetaTxHandler.multinonce(ChainID.MAINNET, ContractType.RELAYHUB, 100);
-const params = await metaTxHandler.signMetaDeployment(user, initCode);
+const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.RELAYHUB, 100);
+const params = await forwarder.signMetaDeployment(user, initCode);
 
 // Relayer sends transaction to network (or sent up to Relayer API)
-const relayHubAddress = MetaTxHandler.getHubAddress(ChainID.MAINNET, ContractType.RELAYHUB);
+const relayHubAddress = ForwarderFactory.getHubAddress(ChainID.MAINNET, ContractType.RELAYHUB);
 const relayHub = new RelayHubFacotry(relayer).attach(relayHubAddress);
 const tx = await relayHub.connect(relayer).deployContract(
           params.data,
@@ -311,7 +311,7 @@ const echoContract = echoFactory.attach(echoAddress);
 // Sending the meta-transaction
 const callData = echoContract.interface.functions.broadcastMessage.encode([]);
 const value = new BigNumber("0");
-const params = await metaTxHandler.signMetaTransaction(
+const params = await forwarder.signMetaTransaction(
         user,
         echoContract.address,
         value,

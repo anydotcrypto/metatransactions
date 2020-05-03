@@ -5,7 +5,7 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   RelayHubFactory,
-  MetaTxHandler,
+  ForwarderFactory,
   MsgSenderExampleFactory,
   BitFlip,
   MultiNonce,
@@ -19,7 +19,7 @@ import {
   ChainID,
   ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/metatxhandler";
+} from "../../src/ts/forwarderfactory";
 import { Forwarder, ProxyCallData } from "../../src/ts/forwarder";
 import { RelayHubForwarder } from "../../src/ts/relayforwarder";
 
@@ -48,18 +48,20 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
     relayHub.address
   );
 
-  const spiedMetaTxHandler = spy(MetaTxHandler);
+  const spiedForwarderFactory = spy(ForwarderFactory);
   when(
-    spiedMetaTxHandler.getForwarderAddress(
+    // @ts-ignore
+    spiedForwarderFactory.getForwarderAddress(
       ChainID.MAINNET,
       ForwarderType.RELAYHUB
     )
   ).thenReturn(relayHub.address);
 
   when(
-    spiedMetaTxHandler.getForwarderAddress(
+    // @ts-ignore
+    spiedForwarderFactory.getForwarderAddress(
       ChainID.MAINNET,
-      ForwarderType.PROXYHUB
+      ForwarderType.PROXYACCOUNTDEPLOYER
     )
   ).thenReturn(proxyHub.address);
 
@@ -79,13 +81,13 @@ describe("RelayHub Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
+    const forwarder = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
     );
 
-    const forwardParams = await metaTxHandler.signMetaTransaction({
+    const forwardParams = await forwarder.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
@@ -122,12 +124,12 @@ describe("RelayHub Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
+    const forwarder = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
     );
-    const forwardParams = await metaTxHandler.signMetaTransaction({
+    const forwardParams = await forwarder.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
@@ -239,18 +241,18 @@ describe("RelayHub Forwarder", () => {
   }).timeout(500000);
 
   // TODO: Should we throw an error here? Or let it gracefully set to 0.
-  it("MetaTxHandler ignores value for the RelayHub if the types are mixed up (ProxyCallData instead of RelayCallData) the types are mixed up accidently.", async () => {
+  it("ForwarderFactory ignores value for the RelayHub if the types are mixed up (ProxyCallData instead of RelayCallData) the types are mixed up accidently.", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
-    const metaTxHandler: Forwarder<ProxyCallData> = MetaTxHandler.getRelayHubForwarder(
+    const forwarder: Forwarder<ProxyCallData> = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
     );
 
     //@ts-ignore
-    const encoded = await metaTxHandler.getEncodedCallData({
+    const encoded = await forwarder.getEncodedCallData({
       target: msgSenderExample.address,
       value: new BigNumber("10"),
       callData,
@@ -265,7 +267,7 @@ describe("RelayHub Forwarder", () => {
   it("Deploy a new meta-contract with the RelayHub installed.", async () => {
     const { relayHub, admin } = await loadFixture(createHubs);
 
-    const metaTxHandler = MetaTxHandler.getRelayHubForwarder(
+    const forwarder = ForwarderFactory.getRelayHubForwarder(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -275,7 +277,7 @@ describe("RelayHub Forwarder", () => {
       relayHub.address
     ).data! as string;
 
-    const deploymentParams = await metaTxHandler.signMetaDeployment(initCode);
+    const deploymentParams = await forwarder.signMetaDeployment(initCode);
 
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
