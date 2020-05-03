@@ -12,7 +12,7 @@
     "dist"
   ],
   "scripts": {
-    "build-test": "npm run build && npm run runtest",
+    "build-test": "npm run clean && npm run build && npm run runtest",
     "build-execute": "npm run build && npm run execute",
     "build-just": "waffle waffle.json",
     "build": "waffle waffle.json && npm run build-types",
@@ -20,7 +20,8 @@
     "execute": "ts-node src/deployment/deploy.ts",
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run runtest -- --timeout='30000'",
-    "prepublish": "rm -r ./dist && rm -r ./build && npm run build"
+    "clean": "rm -r ./dist && rm -r ./build",
+    "prepublish": "npm run build"
   },
   "devDependencies": {
     "@pisa-research/utils": "^0.1.39",
