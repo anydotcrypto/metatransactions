@@ -21,7 +21,8 @@
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run runtest -- --timeout='30000'",
     "clean": "rm -r ./dist && rm -r ./build",
-    "prepublish": "npm run build"
+    "preinstall": "node -e \"!process.env.npm_config_user_agent.startsWith('pnpm/') && !console.log('Install pnpm globally using \\`npm i -g pnpm\\` then do \\`pnpm i\\` to install dependencies in this repository\\n') && process.exit(1)\"",
+    "preuninstall": "node -e \"!process.env.npm_config_user_agent.startsWith('pnpm/') && !console.log('Install pnpm globally using \\`npm i -g pnpm\\` then do \\`pnpm i\\` to install dependencies in this repository\\n') && process.exit(1)\""
   },
   "devDependencies": {
     "@pisa-research/utils": "^0.1.39",
@@ -37,12 +38,11 @@
   },
   "dependencies": {
     "@any-sender/client": "^0.2.0-beta.0",
-    "@chainlink/contracts": "0.0.3",
     "@openzeppelin/contracts": "3.0.0-beta.0",
     "@pisa-research/test-utils": "^0.1.36",
     "@types/bn.js": "^4.11.6",
     "bn.js": "^5.1.1",
-    "ethers": "^4.0.43",
+    "ethers": "^4.0.47",
     "npm": "^6.14.4",
     "secure-random": "^1.1.2",
     "ts-node": "^8.8.2",

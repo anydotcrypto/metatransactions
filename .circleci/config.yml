@@ -1,4 +1,10 @@
 version: 2.1
+install_pnpm: &install_pnpm
+  # Control pnpm version dependency explicitly
+  run:
+    name: install pnpm
+    command: sudo npm i -g pnpm@4.11.6
+
 jobs:
   install-build-test:
     docker:
@@ -7,8 +13,9 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: node --version
-      - run: npm install
-      - run: npm run test
+      - <<: *install_pnpm
+      - run: pnpm install
+      - run: pnpm run test
 
 workflows:
   build-and-test:
