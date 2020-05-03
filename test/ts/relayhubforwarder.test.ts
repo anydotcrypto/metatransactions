@@ -2,7 +2,7 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, defaultAbiCoder } from "ethers/utils";
+import { BigNumber, defaultAbiCoder, arrayify, keccak256 } from "ethers/utils";
 import {
   RelayHubFactory,
   ForwarderFactory,
@@ -307,5 +307,76 @@ describe("RelayHub Forwarder", () => {
 
     // Successfully deployed
     expect(receipt.status).to.eq(1);
+  }).timeout(50000);
+
+  it("Encode the meta-deployment before publishing to the network", async () => {
+    const { relayHub, admin, user2 } = await loadFixture(createHubs);
+
+    const forwarder = ForwarderFactory.getRelayHubForwarder(
+      ChainID.MAINNET,
+      ReplayProtectionType.MULTINONCE,
+      admin
+    );
+
+    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
+      relayHub.address
+    ).data! as string;
+
+    const deploymentParams = await forwarder.signMetaDeployment(initCode);
+
+    const decodedReplayProtection = defaultAbiCoder.decode(
+      ["uint", "uint"],
+      deploymentParams.replayProtection
+    );
+
+    expect(deploymentParams.to).to.eq(relayHub.address);
+    expect(deploymentParams.signer).to.eq(admin.address);
+    expect(deploymentParams.initCode).to.eq(initCode);
+    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1"); // Picks a randon number greater than 6174
+    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+    expect(deploymentParams.replayProtectionAuthority).to.eq(
+      "0x0000000000000000000000000000000000000000",
+      "Built-in replay protection"
+    );
+    expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
+
+    const encodedMetaDeployment = await forwarder.encodeSignedMetaDeployment(
+      deploymentParams
+    );
+
+    const tx = await user2.sendTransaction({
+      to: deploymentParams.to,
+      data: encodedMetaDeployment,
+    });
+
+    const receipt = await tx.wait(1);
+
+    // Successfully deployed
+    expect(receipt.status).to.eq(1);
+
+    // Compute deterministic address
+    const hByteCode = arrayify(keccak256(initCode));
+    const encodeToSalt = defaultAbiCoder.encode(
+      ["address", "bytes"],
+      [admin.address, deploymentParams.replayProtection]
+    );
+    const salt = arrayify(keccak256(encodeToSalt));
+
+    // Fetch the proxy on-chain instance
+    const msgSenderExampleAddress = await relayHub
+      .connect(admin)
+      .computeAddress(salt, hByteCode);
+    const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
+      msgSenderExampleAddress
+    );
+
+    // Try executing a function - it should exist and work
+    const msgSenderTx = msgSenderExample.connect(admin).test();
+    await expect(msgSenderTx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(admin.address);
   }).timeout(50000);
 });

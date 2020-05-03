@@ -28,24 +28,17 @@ npm i @anydotcrypto/metatransactions --save-dev
 2. You need to import the package into your file:
 
 ```
-import { ChainID, ContractType,  ForwarderFactory } from "@anydotcrypto/metatransactions/dist";
+import { ChainID, ReplayProtectionType, ForwarderFactory } from "@anydotcrypto/metatransactions/dist";
 ```
 
-3. You need to decide which msg.sender solution to use and for what network.
+3. You need to decide which the network, replay protection, and the msg.sender solution.
 
-We have created two enumerations to keep it simple:
+We have support for two networks:
 
 ```
 ChainID.MAINNET
 ChainID.ROPSTEN
-
-ContractType.PROXYACCOUNTDEPLOYER
-ContractType.RELAYHUB
 ```
-
-We cover [ProxyAccountFactory vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyhub-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend `ContractType.PROXYACCOUNTDEPLOYER` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.
-
-4. You need to decide which replay protection to use.
 
 Our library contains three types of replay protection (and more in-depth information can be [found here](https://github.com/PISAresearch/metamask-comp)):
 
@@ -53,22 +46,36 @@ Our library contains three types of replay protection (and more in-depth informa
 - **Multinonce:** There are multiple replace-by-nonce queues, so it supports up to N concurrent transactions at any time.
 - **Bitflip:** There is no queue and all transactions are processed out of order (e.g. batch withdrawals).
 
-If you want to use Replace-by-nonce or Multinonce:
+The enumeration is simpe:
 
 ```
+ReplayProtectionType.BITFLIP // Always out-of-order & concurrent
+ReplayProtectionType.MULTINONCE // N queues
+ReplayProtectionType.NONCE // Single queue
+```
+
+For the msg.sender solution, we cover [ProxyAccountFactory vs RelayHub](https://github.com/anydotcrypto/metatransactions#proxyhub-vs-relayhub) later in the README. If you are unsure which one to use, then we recommend `ContractType.PROXYACCOUNTDEPLOYER` as it works for all existing contracts. Essentially, each user has a minimal proxy account contract and their meta-transaction is sent via the proxy. The target's msg.sender is the proxy contract's address.
+
+4. Time to instantiate the forwarder library!
+
+If you want to use Proxy Accounts:
+
+```
+const signer = Wallet.Mnemonic("");
 const concurrency = 10;
-const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ChainID.PROXYACCOUNTDEPLOYER, concurrency);
+const forwarder = ForwarderFactory.getProxyForwarder(ChainID.MAINNET, ReplayProtectionType.MULTINONCE, signer);
 ```
 
-This sets up the meta-transaction handler to use the multinonce replay protection with 10 nonce queues. If you want all transactions to be processed in the transaction by order, then just set `concurrency=1`.
+The above option configures the proxy accounts to use multi-nonce replay protection (with 30 nonce queues). If you want all transactions to be processed in the transaction by order, then just set `ReplayProtectionType.NONCE`.
 
-If you want to use bitflip:
+If you want to use the RelayHub:
 
 ```
-const forwarder = ForwarderFactory.bitflip(ChainID.MAINNET, ChainID.PROXYACCOUNTDEPLOYER);
+const signer = wallet.Mnemonic("");
+const forwarder = ForwarderFactory.getRelayHubForwarder(ChainID.MAINNET, ReplayProtectType.BITFLIP, signer);
 ```
 
-This sets up the meta-transaction handler to use the bitflip replay protection. Bitflip is that supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering.
+The above configures the relay hub to use the bitflip replay protection. Bitflip supports an _unlimited number of concurrent transactions_ which is useful for batch withdrawals. It does not support ordered transactions, so use replace-by-nonce if you require ordering.
 
 5. You are now ready to authorise a meta-transaction using the ForwarderFactory.
 
@@ -78,15 +85,15 @@ const echo = new EchoFactory(user).attach("");
 const callData = echo.interface.functions.broadcastMessage.encode(["to the moon"]);
 const value = new BigNumber("0");
 
-const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.PROXYACCOUNTDEPLOYER, 100);
-const params = await forwarder.signMetaTransaction(user, echo.address, value, callData) ;
+const forwarder = ForwarderFactory.getProxyForwarder(ChainID.MAINNET, ReplayProtectionType.MULTINONCE, signer);
+const data = {target: echo.address, value: value, callData: callData}; // Explicit tutorial
+const params = await forwarder.signMetaTransaction({target: echo.address, value, data}) ;
 ```
 
-The meta-transaction handler just requires:
+The forwarder just requires:
 
-- Users signing wallet,
 - Target contract's address,
-- Value to be sent (proxy contracts only)
+- Value to be sent (proxy fowarder only)
 - Desired calldata (function name and its arguments).
 
 It takes care of the replay protection (multinonce/bitflip) and authorising the meta-transaction under the hood. The returned `params` can be used to send the meta-transaction to Ethereum:
@@ -97,7 +104,7 @@ const relayer = Wallet.fromMnemonic("");
 // All meta-transactions for ProxyAccountFactory are sent from the user's ProxyAccount contract.
 // We assume it is already deployed on the network. Look at the ProxyAccountFactory section to
 // find out more (super-easy to deploy).
-const proxyAccount = new ProxyAccountFactory(relayer).attach(params.hub);
+const proxyAccount = new ProxyAccountFactory(relayer).attach(params.to);
 const tx = await proxyAccount
         .connect(relayer)
         .forward(
@@ -111,8 +118,6 @@ const tx = await proxyAccount
 
 ```
 
-We have included an additional `relayer` class that is an example on how a relayer can take the forward parameters and send it to the network. It also includes functionality for encoding the meta-transaction and sending it in the `data` field of a transaction.
-
 ### All done! Good work!
 
 Here is a full example:
@@ -125,28 +130,28 @@ const value = new BigNumber("0");
 const callData = targetContract.interface.functions.test.encode([]);
 
 // Prepare and authorise the meta-transaction
-const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.PROXYACCOUNTDEPLOYER, 100);
-const params = await forwarder.signMetaTransaction(user, targetContract.address, value, callData) ;
+const forwarder = ForwarderFactory.getProxyForwarder(ChainID.MAINNET, ReplayProtectionType.MULTINONCE, signer);
+const params = await forwarder.signMetaTransaction({ target: targetContract.address, value, callData }) ;
 
-// Set up a relayer to publish the metatx
+// Relayer publishes transaction
 const relayerWallet Wallet.fromMnemonic("");
-const relayerAPI = new RelayerAPI(proxyHub);
-const tx = await relayerAPI.forward(relayerWallet, params); // Assumes ProxyAccount exists.
+const encodedMetaTx = forwarder.encodeMetaTransaction(params);
+const tx = await relayerWallet.sendTransaction( {to: params.to, data: encodedMetaTx}) );
 const receipt = await tx.wait(1)
 ```
 
-As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The `params` (or its encoding) can be sent to the RelayerAPI who takes care of wrapping it in an Ethereum transaction and getting it in the blockchain.
+As we can see in the above, it is easy for the user to craft and sign a meta-transaction for the target contract. The `params` (or its encoding) can be wrapped in an Ethereum transaction and sent to the blockchain.
 
-## ProxyAccountFactory vs RelayHub
+## ProxyAccountsDeployer vs RelayHub
 
 As we mentioned earlier, there are two solutions to the msg.sender problem.
 
-- **ProxyAccountFactory**: Deploys a proxy account contract for the user with a deterministic address. All meta-transactions are sent via the user's proxy account.
+- **ProxyAccountDeployer**: Deploys a proxy account contract for the user with a deterministic address. All meta-transactions are sent via the user's proxy account.
 - **RelayHub**: There is no proxy account contracts. The RelayHub appends the signer's address onto the calldata that is sent to the target contract. It requires the target contract to support the \_msgSender() standard.
 
-While the ProxyAccountFactory works for all existing smart contracts, the RelayHub requires the target contract to support the \_msgSender() standard. If supported, the RelayHub allows the signer's address to be the msg.sender in the target contract. Going forward, we hope that the RelayHub serves as a model and it can later become a precompile/a new opcode in Ethereum.
+While the ProxyAccountDeployer works for all existing smart contracts, the RelayHub requires the target contract to support the \_msgSender() standard. If supported, the RelayHub allows the signer's address to be the msg.sender in the target contract. Going forward, we hope that the RelayHub serves as a model and it can later become a precompile/a new opcode in Ethereum.
 
-Note, the one big difference between the ProxyAccountFactory and the RelayHub is the forward() function. ProxyAccountFactory lets the user set `value` of ETH that can be sent (e.g. the proxy account can have an ETH balance) in the meta-transaction. However, the RelayHub does not have a `value` argument and does not support sending ETH. See [this issue](https://github.com/anydotcrypto/metatransactions/issues/9) to find out why.
+Note, the one big difference between the ProxyAccountDeployer and the RelayHub is the forward() function. ProxyAccountDeployer lets the user set `value` of ETH that can be sent (e.g. the proxy account can have an ETH balance) in the meta-transaction. However, the RelayHub does not have a `value` argument and does not support sending ETH. See [this issue](https://github.com/anydotcrypto/metatransactions/issues/9) to find out why.
 
 ### Proxy Hub
 
@@ -159,7 +164,7 @@ const user = Wallet.fromMnemonic("");
 await proxyHub.createProxyContract(user.address);
 ```
 
-It deploys a new `ProxyAccount` for the user and then stores a record of it in the ProxyAccountFactory. Our ProxyAccount is a minimal contract that checks the user's signed the meta-transaction and the replay protection is valid. It only has two functions:
+It deploys a new `ProxyAccount` for the user and then stores a record of it in the ProxyAccountDeployer. Our ProxyAccount is a minimal contract that checks the user's signed the meta-transaction and the replay protection is valid. It only has two functions:
 
 - **DeployContract contracts**: Deploys a new smart contract with a deterministic address.
 
@@ -193,9 +198,6 @@ Let's look at a full code example.
 const user = Wallet.fromMnemonic("");
 const relayer = Wallet.fromMnemonic("");
 
-// Fetch the proxy account
-const proxyAccountAddress = await ProxyAccountFactory.accounts(user.address); // It is also easy to compute it.
-const proxyAccount = new ProxyAccountFactory(user).attach(proxyAccountAddress);
 
 // Deploying a smart contract
 const echoFactory = new EchoFactory(user);
@@ -205,13 +207,10 @@ const initCode = echoFactory.getDeployTransaction().data! as string; // Construc
 const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.PROXYACCOUNTDEPLOYER, 100);
 const params = await forwarder.signMetaDeployment(user, initCode);
 
-// Relayer sends transaction to network (or sent up to Relayer API)
-const tx = await proxyAccount.connect(relayer).deployContract(
-          params.data,
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signature
-        );
+// Send to the network via the ProxyAccount sends transaction to network (or sent up to Relayer API)
+// Fetch the proxy account
+const encodedMetaDeployment = forwarder.encodeMetaDeployment(params);
+const tx = await relayer.sendTransaction({to: params.to, data: encodedMetaDeployment});
 
 // Compute deterministic address for the deployed contract (helper function coming soon)
 const hByteCode = arrayify(keccak256(initCode));
@@ -226,10 +225,9 @@ const echoContract = echoFactory.attach(echoAddress);
 const callData = echoContract.interface.functions.broadcastMessage.encode([]);
 const value = new BigNumber("0");
 const params = await forwarder.signMetaTransaction(
-        user,
-        echoContract.address,
+        {to: echoContract.address,
         value,
-        callData
+        callData}
       );
 
 // Send to Ethereum (or send up to the RelayerAPI)
@@ -289,7 +287,7 @@ const initCode = echoFactory.getDeployTransaction().data! as string; // Construc
 const forwarder = ForwarderFactory.multinonce(ChainID.MAINNET, ContractType.RELAYHUB, 100);
 const params = await forwarder.signMetaDeployment(user, initCode);
 
-// Relayer sends transaction to network (or sent up to Relayer API)
+// Relayer sends transaction to network
 const relayHubAddress = ForwarderFactory.getHubAddress(ChainID.MAINNET, ContractType.RELAYHUB);
 const relayHub = new RelayHubFacotry(relayer).attach(relayHubAddress);
 const tx = await relayHub.connect(relayer).deployContract(

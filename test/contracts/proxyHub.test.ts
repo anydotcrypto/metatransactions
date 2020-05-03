@@ -263,7 +263,7 @@ describe("ProxyAccountFactoryProxy", () => {
 
   fnIt<accountFunctions>(
     (a) => a.deployContract,
-    "deploys a contract via the proxyHub",
+    "deploys a contract via the proxy account",
     async () => {
       const { proxyHub, owner, sender } = await loadFixture(
         createProxyAccountDeployer
@@ -297,6 +297,69 @@ describe("ProxyAccountFactoryProxy", () => {
           params.replayProtectionAuthority,
           params.signature
         );
+
+      // Compute deterministic address
+      const hByteCode = arrayify(keccak256(initCode));
+      const encodeToSalt = defaultAbiCoder.encode(
+        ["address", "bytes"],
+        [owner.address, params.replayProtection]
+      );
+      const salt = arrayify(keccak256(encodeToSalt));
+
+      // Fetch the proxy on-chain instance
+      const msgSenderExampleAddress = await proxyAccount
+        .connect(sender)
+        .computeAddress(salt, hByteCode);
+      const msgSenderExampleCon = msgSenderFactory.attach(
+        msgSenderExampleAddress
+      );
+
+      // Try executing a function - it should exist and work
+      const tx = msgSenderExampleCon.connect(sender).test();
+      await expect(tx)
+        .to.emit(
+          msgSenderExampleCon,
+          msgSenderExampleCon.interface.events.WhoIsSender.name
+        )
+        .withArgs(sender.address);
+    }
+  );
+
+  fnIt<accountFunctions>(
+    (a) => a.deployContract,
+    "deploys an encoded metadeployment via a proxy account",
+    async () => {
+      const { proxyHub, owner, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
+
+      const msgSenderFactory = new MsgSenderExampleFactory(owner);
+
+      await proxyHub.connect(sender).createProxyAccount(owner.address);
+      const proxyAccountAddr = await proxyHub
+        .connect(sender)
+        .accounts(owner.address);
+      const proxyAccountFactory = new ProxyAccountFactory(sender);
+      const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
+
+      const forwarder = await ForwarderFactory.getProxyForwarder(
+        ChainID.MAINNET,
+        ReplayProtectionType.MULTINONCE,
+        owner
+      );
+
+      const initCode = msgSenderFactory.getDeployTransaction(proxyHub.address)
+        .data! as string;
+
+      // Deploy the proxy using CREATE2
+      const params = await forwarder.signMetaDeployment(initCode);
+      const encodedMetaDeployment = await forwarder.encodeSignedMetaDeployment(
+        params
+      );
+      await sender.sendTransaction({
+        to: params.to,
+        data: encodedMetaDeployment,
+      });
 
       // Compute deterministic address
       const hByteCode = arrayify(keccak256(initCode));

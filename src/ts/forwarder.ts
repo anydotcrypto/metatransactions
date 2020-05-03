@@ -180,6 +180,10 @@ export abstract class Forwarder<T> {
     return params;
   }
 
+  public abstract async encodeSignedMetaDeployment(
+    params: DeploymentParams
+  ): Promise<string>;
+
   /**
    * The address that will appear in the msg.sender of target contract
    */

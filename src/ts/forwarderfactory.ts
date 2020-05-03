@@ -4,7 +4,6 @@ import { BitFlip } from "./bitflip";
 import { ProxyAccountForwarder } from "./proxyaccountfowarder";
 import { RelayHubFactory } from "../typedContracts/RelayHubFactory";
 import { RelayHubForwarder } from "./relayforwarder";
-import { Contract } from "ethers";
 import { ProxyAccountDeployerFactory } from "..";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 
@@ -141,27 +140,5 @@ export class ForwarderFactory {
         replayProtectionType
       )
     );
-  }
-
-  /**
-   * Unfortunately, instanceof does not work when compiled
-   * to javascript. In order to detect if the hub is a ProxyAccount,
-   * RelayHub or ProxyAccountDeployer - we rely on checking the existance of a
-   * function.
-   * - init() is only available in a ProxyAccount
-   * - accounts() is only available in a ProxyAccountDeployer
-   * If neither function is detected, we assume it is a RelayHub.
-   * @param hub Contract
-   */
-  protected static getContractType(contract: Contract) {
-    if (contract.init) {
-      return ForwarderType.PROXYACCOUNT;
-    }
-
-    if (contract.accounts) {
-      return ForwarderType.PROXYACCOUNTDEPLOYER;
-    }
-
-    return ForwarderType.RELAYHUB;
   }
 }

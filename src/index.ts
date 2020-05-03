@@ -24,6 +24,7 @@ export {
   ForwarderFactory,
   ChainID,
   ForwarderType,
+  ReplayProtectionType,
 } from "./ts/forwarderfactory";
 
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";

@@ -2,7 +2,12 @@ import { defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { RelayHub, ChainID } from "..";
-import { ForwardParams, RelayCallData, Forwarder } from "./forwarder";
+import {
+  ForwardParams,
+  RelayCallData,
+  Forwarder,
+  DeploymentParams,
+} from "./forwarder";
 
 /**
  * A single library for approving meta-transactions and its associated
@@ -75,6 +80,23 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
     return this.relayHub.interface.functions.forward.encode([
       params.target,
       params.data,
+      params.replayProtection,
+      params.replayProtectionAuthority,
+      params.signer,
+      params.signature,
+    ]);
+  }
+
+  /**
+   * Encodes the meta-deployment such that it can be included
+   * in the data field of an Ethereum transaction
+   * @param params Deployment parameters
+   */
+  public async encodeSignedMetaDeployment(
+    params: DeploymentParams
+  ): Promise<string> {
+    return this.relayHub.interface.functions.deployContract.encode([
+      params.initCode,
       params.replayProtection,
       params.replayProtectionAuthority,
       params.signer,
