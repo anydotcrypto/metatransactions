@@ -12,15 +12,14 @@ import {
   MsgSenderExampleFactory,
   RelayHub,
   IReplayProtectionJson,
+  RelayHubForwarderFactory,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
-  ForwarderFactory,
   ChainID,
-  ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/forwarderfactory";
+} from "../../src/ts/forwarders/forwarderfactory";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -48,14 +47,11 @@ async function createRelayHub(
 
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
-
-  const spiedForwarderFactory = spy(ForwarderFactory);
+  const forwarderFactory = new RelayHubForwarderFactory();
+  const spiedForwarderFactory = spy(forwarderFactory);
   when(
     // @ts-ignore
-    spiedForwarderFactory.getForwarderAddress(
-      ChainID.MAINNET,
-      ForwarderType.RELAYHUB
-    )
+    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
   ).thenReturn(relayHub.address);
 
   return {
@@ -67,6 +63,7 @@ async function createRelayHub(
     msgSenderCon,
     nonceStoreMock,
     bitFlipNonceStore,
+    forwarderFactory,
   };
 }
 
@@ -75,12 +72,16 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "for msgSender emits expected signer address",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -111,12 +112,16 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "sending two transactions should work with no replay protection conflicts",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -170,9 +175,13 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "receives bad replay protection authority address and fails",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
       const value = new BigNumber("0");
       const encodedReplayProtection = "0x";
@@ -185,7 +194,7 @@ describe("RelayHub Contract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -223,9 +232,13 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "replay protection too far in future and fails",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
       const value = new BigNumber("0");
       const encodedReplayProtection = defaultAbiCoder.encode(
@@ -239,7 +252,7 @@ describe("RelayHub Contract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -278,14 +291,18 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "target contract function reverts and we can detect it in the relay hub.",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.willRevert.encode(
         []
       );
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -315,12 +332,16 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "empty signature will emit a pseudo-random signer",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -359,6 +380,7 @@ describe("RelayHub Contract", () => {
         sender,
         msgSenderCon,
         bitFlipNonceStore,
+        forwarderFactory,
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
@@ -372,7 +394,7 @@ describe("RelayHub Contract", () => {
         [msgSenderCon.address, msgSenderCall]
       );
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -417,6 +439,7 @@ describe("RelayHub Contract", () => {
         sender,
         msgSenderCon,
         bitFlipNonceStore,
+        forwarderFactory,
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
@@ -430,7 +453,7 @@ describe("RelayHub Contract", () => {
         [msgSenderCon.address, msgSenderCall]
       );
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -482,12 +505,16 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "for msgSender emits expected signer address twice with inbuilt bitflip protection",
     async () => {
-      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
-        createRelayHub
-      );
+      const {
+        relayHub,
+        owner,
+        sender,
+        msgSenderCon,
+        forwarderFactory,
+      } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const forwarder = ForwarderFactory.getRelayHubForwarder(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.BITFLIP,
         owner

@@ -8,6 +8,8 @@ import {
   ForwarderFactory,
   MsgSenderExampleFactory,
   ProxyAccountDeployerFactory,
+  ProxyAccountForwarderFactory,
+  RelayHubForwarderFactory,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -17,7 +19,7 @@ import {
   ChainID,
   ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/forwarderfactory";
+} from "../../src/ts/forwarders/forwarderfactory";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -44,21 +46,20 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
     relayHub.address
   );
 
-  const spiedForwarderFactory = spy(ForwarderFactory);
+  const proxyAccountsForwardersFactory = new ProxyAccountForwarderFactory();
+  const relayHubForwardsFactory = new RelayHubForwarderFactory();
+
+  const spiedProxyForwarderFactory = spy(proxyAccountsForwardersFactory);
+  const spiedRelayHubForwarderFactory = spy(relayHubForwardsFactory);
+
   when(
     // @ts-ignore
-    spiedForwarderFactory.getForwarderAddress(
-      ChainID.MAINNET,
-      ForwarderType.RELAYHUB
-    )
+    spiedRelayHubForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
   ).thenReturn(relayHub.address);
 
   when(
     // @ts-ignore
-    spiedForwarderFactory.getForwarderAddress(
-      ChainID.MAINNET,
-      ForwarderType.PROXYACCOUNTDEPLOYER
-    )
+    spiedProxyForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
   ).thenReturn(proxyHub.address);
 
   return {
@@ -66,6 +67,8 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
     proxyHub,
     admin,
     msgSenderExample,
+    proxyAccountsForwardersFactory,
+    relayHubForwardsFactory,
   };
 }
 
@@ -126,8 +129,13 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the RelayForwarder with Nonce ", async () => {
-    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = ForwarderFactory.getRelayHubForwarder(
+    const {
+      relayHub,
+      admin,
+      msgSenderExample,
+      relayHubForwardsFactory,
+    } = await loadFixture(createHubs);
+    const proxyForwarder = await relayHubForwardsFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -166,8 +174,13 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the RelayForwarder with MultiNonce ", async () => {
-    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = ForwarderFactory.getRelayHubForwarder(
+    const {
+      relayHub,
+      admin,
+      msgSenderExample,
+      relayHubForwardsFactory,
+    } = await loadFixture(createHubs);
+    const relayForwarder = await relayHubForwardsFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -175,7 +188,7 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
-      const forwardParams = await proxyForwarder.signMetaTransaction({
+      const forwardParams = await relayForwarder.signMetaTransaction({
         target: msgSenderExample.address,
         callData,
       });
@@ -206,15 +219,20 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the RelayForwarder with Bitflip ", async () => {
-    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = ForwarderFactory.getRelayHubForwarder(
+    const {
+      relayHub,
+      admin,
+      msgSenderExample,
+      relayHubForwardsFactory,
+    } = await loadFixture(createHubs);
+    const relayForwarder = await relayHubForwardsFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await proxyForwarder.signMetaTransaction({
+    const forwardParams = await relayForwarder.signMetaTransaction({
       target: msgSenderExample.address,
       callData,
     });
@@ -244,8 +262,12 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the ProxyForwarder with Nonce ", async () => {
-    const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = await ForwarderFactory.getProxyForwarder(
+    const {
+      admin,
+      msgSenderExample,
+      proxyAccountsForwardersFactory,
+    } = await loadFixture(createHubs);
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -291,8 +313,12 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the ProxyForwarder with MultiNonce ", async () => {
-    const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = await ForwarderFactory.getProxyForwarder(
+    const {
+      admin,
+      msgSenderExample,
+      proxyAccountsForwardersFactory,
+    } = await loadFixture(createHubs);
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -338,8 +364,12 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the ProxyForwarder with Bitflip ", async () => {
-    const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const proxyForwarder = await ForwarderFactory.getProxyForwarder(
+    const {
+      admin,
+      msgSenderExample,
+      proxyAccountsForwardersFactory,
+    } = await loadFixture(createHubs);
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin

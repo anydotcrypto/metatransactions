@@ -5,11 +5,11 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   ProxyAccountDeployerFactory,
-  ForwarderFactory,
   MsgSenderExampleFactory,
   ProxyAccountFactory,
   MultiNonce,
   BitFlip,
+  ProxyAccountForwarderFactory,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -17,11 +17,10 @@ import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
   ChainID,
-  ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/forwarderfactory";
+} from "../../src/ts/forwarders/forwarderfactory";
 import { AddressZero } from "ethers/constants";
-import { ProxyAccountForwarder } from "../../src/ts/proxyaccountfowarder";
+import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyaccountfowarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -43,14 +42,12 @@ async function createHubs(
     AddressZero
   );
 
-  const spiedForwarderFactory = spy(ForwarderFactory);
+  const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
+  const spiedForwarderFactory = spy(proxyAccountForwarderFactory);
 
   when(
     // @ts-ignore
-    spiedForwarderFactory.getForwarderAddress(
-      ChainID.MAINNET,
-      ForwarderType.PROXYACCOUNTDEPLOYER
-    )
+    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
   ).thenReturn(proxyHub.address);
 
   return {
@@ -60,6 +57,7 @@ async function createHubs(
     user2,
     user3,
     msgSenderExample,
+    proxyAccountForwarderFactory,
   };
 }
 
@@ -316,9 +314,14 @@ describe("Proxy Forwarder", () => {
   }).timeout(500000);
 
   it("Tries to re-deploy the same proxy contract twice and fails.", async () => {
-    const { proxyHub, admin, user1 } = await loadFixture(createHubs);
+    const {
+      proxyHub,
+      admin,
+      user1,
+      proxyAccountForwarderFactory,
+    } = await loadFixture(createHubs);
 
-    const forwarder = await ForwarderFactory.getProxyForwarder(
+    const forwarder = await proxyAccountForwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -346,9 +349,11 @@ describe("Proxy Forwarder", () => {
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
-    const { proxyHub, admin } = await loadFixture(createHubs);
+    const { proxyHub, admin, proxyAccountForwarderFactory } = await loadFixture(
+      createHubs
+    );
 
-    const forwarder = await ForwarderFactory.getProxyForwarder(
+    const forwarder = await proxyAccountForwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin

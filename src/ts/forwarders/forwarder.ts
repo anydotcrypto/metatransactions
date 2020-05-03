@@ -1,5 +1,5 @@
-import { ChainID } from "..";
-import { ReplayProtectionAuthority } from "./replayprotectionauthority";
+import { ChainID } from "../..";
+import { ReplayProtectionAuthority } from "../replayprotection/replayprotectionauthority";
 import { Contract, Wallet } from "ethers";
 import {
   defaultAbiCoder,
@@ -95,7 +95,7 @@ export abstract class Forwarder<T> {
    * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
    */
   public async signMetaTransaction(data: T) {
-    const forwarderAddr = await this.getForwarderAddress();
+    const forwarderAddr = await this.getAddress();
 
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = this.getEncodedCallData(data);
@@ -154,7 +154,7 @@ export abstract class Forwarder<T> {
    * @param initCode Bytecode for the smart contract
    */
   public async signMetaDeployment(initCode: string) {
-    const forwarderAddr = await this.getForwarderAddress();
+    const forwarderAddr = await this.getAddress();
 
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -187,5 +187,5 @@ export abstract class Forwarder<T> {
   /**
    * The address that will appear in the msg.sender of target contract
    */
-  public abstract async getForwarderAddress(): Promise<string>;
+  public abstract async getAddress(): Promise<string>;
 }

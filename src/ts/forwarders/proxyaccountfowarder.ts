@@ -1,7 +1,7 @@
 import { keccak256, defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { ReplayProtectionAuthority } from "./replayprotectionauthority";
-import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "..";
+import { ReplayProtectionAuthority } from "../replayprotection/replayprotectionauthority";
+import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "../..";
 import {
   ForwardParams,
   Forwarder,
@@ -105,7 +105,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * Encodes the meta-deployment such that it can be included
    * in the data field of an Ethereum transaction.
    * @param params Deployment parameters
-   * @throws ProxyAccount contract must already be deployed on-chain.
+   * @throws ProxyAccount contract must already be deployed  on-chain.
    */
   public async encodeSignedMetaDeployment(
     params: DeploymentParams
@@ -151,7 +151,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * Used in the meta-transaction function to fetch
    * the forwarder address.
    */
-  public getForwarderAddress(): Promise<string> {
+  public getAddress(): Promise<string> {
     return this.getProxyAddress();
   }
 

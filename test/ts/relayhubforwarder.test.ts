@@ -5,11 +5,11 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder, arrayify, keccak256 } from "ethers/utils";
 import {
   RelayHubFactory,
-  ForwarderFactory,
   MsgSenderExampleFactory,
   BitFlip,
   MultiNonce,
   ProxyAccountDeployerFactory,
+  RelayHubForwarderFactory,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -17,11 +17,10 @@ import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
   ChainID,
-  ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/forwarderfactory";
-import { Forwarder, ProxyCallData } from "../../src/ts/forwarder";
-import { RelayHubForwarder } from "../../src/ts/relayforwarder";
+} from "../../src/ts/forwarders/forwarderfactory";
+import { Forwarder, ProxyCallData } from "../../src/ts/forwarders/forwarder";
+import { RelayHubForwarder } from "../../src/ts/forwarders/relayforwarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -48,22 +47,12 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
     relayHub.address
   );
 
-  const spiedForwarderFactory = spy(ForwarderFactory);
+  const forwarderFactory = new RelayHubForwarderFactory();
+  const spiedForwarderFactory = spy(forwarderFactory);
   when(
     // @ts-ignore
-    spiedForwarderFactory.getForwarderAddress(
-      ChainID.MAINNET,
-      ForwarderType.RELAYHUB
-    )
+    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
   ).thenReturn(relayHub.address);
-
-  when(
-    // @ts-ignore
-    spiedForwarderFactory.getForwarderAddress(
-      ChainID.MAINNET,
-      ForwarderType.PROXYACCOUNTDEPLOYER
-    )
-  ).thenReturn(proxyHub.address);
 
   return {
     relayHub,
@@ -72,16 +61,22 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
     user1,
     user2,
     msgSenderExample,
+    forwarderFactory,
   };
 }
 
 describe("RelayHub Forwarder", () => {
   it("Sign a meta-transaction with multinonce and check the forward params are correct", async () => {
-    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
+    const {
+      relayHub,
+      admin,
+      msgSenderExample,
+      forwarderFactory,
+    } = await loadFixture(createHubs);
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwarder = ForwarderFactory.getRelayHubForwarder(
+    const forwarder = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -120,11 +115,16 @@ describe("RelayHub Forwarder", () => {
   }).timeout(50000);
 
   it("Sign a meta-transaction with bitflip and check the forward params are correct", async () => {
-    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
+    const {
+      relayHub,
+      admin,
+      msgSenderExample,
+      forwarderFactory,
+    } = await loadFixture(createHubs);
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwarder = ForwarderFactory.getRelayHubForwarder(
+    const forwarder = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
@@ -242,17 +242,19 @@ describe("RelayHub Forwarder", () => {
 
   // TODO: Should we throw an error here? Or let it gracefully set to 0.
   it("ForwarderFactory ignores value for the RelayHub if the types are mixed up (ProxyCallData instead of RelayCallData) the types are mixed up accidently.", async () => {
-    const { admin, msgSenderExample } = await loadFixture(createHubs);
+    const { admin, msgSenderExample, forwarderFactory } = await loadFixture(
+      createHubs
+    );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
-    const forwarder: Forwarder<ProxyCallData> = ForwarderFactory.getRelayHubForwarder(
+    const forwarder: Forwarder<ProxyCallData> = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
     );
 
     //@ts-ignore
-    const encoded = await forwarder.getEncodedCallData({
+    const encoded = forwarder.getEncodedCallData({
       target: msgSenderExample.address,
       value: new BigNumber("10"),
       callData,
@@ -265,9 +267,9 @@ describe("RelayHub Forwarder", () => {
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the RelayHub installed.", async () => {
-    const { relayHub, admin } = await loadFixture(createHubs);
+    const { relayHub, admin, forwarderFactory } = await loadFixture(createHubs);
 
-    const forwarder = ForwarderFactory.getRelayHubForwarder(
+    const forwarder = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -310,9 +312,11 @@ describe("RelayHub Forwarder", () => {
   }).timeout(50000);
 
   it("Encode the meta-deployment before publishing to the network", async () => {
-    const { relayHub, admin, user2 } = await loadFixture(createHubs);
+    const { relayHub, admin, user2, forwarderFactory } = await loadFixture(
+      createHubs
+    );
 
-    const forwarder = ForwarderFactory.getRelayHubForwarder(
+    const forwarder = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin

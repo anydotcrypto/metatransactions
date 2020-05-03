@@ -1,6 +1,6 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers";
-import { ReplayProtectionFactory } from "../typedContracts/ReplayProtectionFactory";
+import { ReplayProtectionFactory } from "../../typedContracts/ReplayProtectionFactory";
 
 export interface Nonces {
   index: BigNumber;
