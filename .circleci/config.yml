@@ -7,11 +7,9 @@ jobs:
       name: node/default
     steps:
       - checkout
-      - node/with-cache:
-          steps:
-            - setup_remote_docker
-            - node/install-packages
-            - run: npm run test
+      - setup_remote_docker
+      - node/install-packages
+      - run: npm run test
 workflows:
   build-and-test:
     jobs:
