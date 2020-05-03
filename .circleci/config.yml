@@ -1,16 +1,23 @@
 version: 2.1
-orbs:
-  node: circleci/node@2.0.3
 jobs:
+    install-node-example:
+    docker:
+      - image: 'cimg/base:stable'
+    steps:
+      - checkout
+      - node/install:
+          install-yarn: true
+          node-version: latest
+      - run: node --version
   build-and-test:
     executor:
       name: node/default
     steps:
       - checkout
       - setup_remote_docker
-      - node/install-packages
       - run: npm run test
 workflows:
   build-and-test:
     jobs:
+      - install-node-example
       - build-and-test
