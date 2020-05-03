@@ -1,7 +1,12 @@
 import { ChainID } from "..";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { Contract, Wallet } from "ethers";
-import { defaultAbiCoder, BigNumberish } from "ethers/utils";
+import {
+  defaultAbiCoder,
+  BigNumberish,
+  arrayify,
+  keccak256,
+} from "ethers/utils";
 
 export interface ForwardParams {
   to: string;
@@ -18,7 +23,7 @@ export interface ForwardParams {
 export interface DeploymentParams {
   to: string;
   signer: string;
-  data: string;
+  initCode: string;
   replayProtection: string;
   replayProtectionAuthority: string;
   chainId: number;
@@ -36,6 +41,11 @@ export interface ProxyCallData {
   callData: string;
 }
 
+/**
+ * Provides common functionality for the RelayHub and the ProxyAccounts.
+ * Possible to extend it with additional functionality if another
+ * msg.sender solution emerges.
+ */
 export abstract class Forwarder<T> {
   constructor(
     protected readonly chainID: ChainID,
@@ -82,10 +92,49 @@ export abstract class Forwarder<T> {
   }
 
   /**
-   * Sign a meta-transaction and return the forward parameters
-   * @param data Data required to sign the meta-transaction
+   * Takes care of replay protection and signs a meta-transaction.
+   * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
    */
-  public abstract async signMetaTransaction(data: T): Promise<ForwardParams>;
+  public async signMetaTransaction(data: T) {
+    const forwarderAddr = await this.getForwarderAddress();
+
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+    const encodedCallData = this.getEncodedCallData(data);
+    const encodedMetaTx = this.encodeMetaTransactionToSign(
+      encodedCallData,
+      encodedReplayProtection,
+      this.replayProtectionAuthority.getAddress(),
+      forwarderAddr
+    );
+
+    const signature = await this.signer.signMessage(
+      arrayify(keccak256(encodedMetaTx))
+    );
+
+    const params = this.getForwardParams(
+      forwarderAddr,
+      data,
+      encodedReplayProtection,
+      signature
+    );
+
+    return params;
+  }
+
+  /**
+   * Fetches the forward parameters. Used when signing a new
+   * meta-transaction.
+   * @param to Forwarder address
+   * @param data Target, value and calldata
+   * @param replayProtection Encoded replay protection
+   * @param signature Signature to authorise meta-transaction
+   */
+  protected abstract getForwardParams(
+    to: string,
+    data: T,
+    replayProtection: string,
+    signature: string
+  ): ForwardParams;
 
   /**
    * Encodes the forward function and its arguments such that
@@ -100,12 +149,40 @@ export abstract class Forwarder<T> {
    * Authorises the deployment of a smart contract with a deterministic address
    * @param initCode Bytecode of contract
    */
-  public abstract async signMetaDeployment(
-    initCode: string
-  ): Promise<DeploymentParams>;
+  /**
+   * Signs a meta-transaction to deploy a contract via CREATE2.
+   * Takes care of replay protection.
+   * @param initCode Bytecode for the smart contract
+   */
+  public async signMetaDeployment(initCode: string) {
+    const forwarderAddr = await this.getForwarderAddress();
+
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+    const encodedMetaTx = this.encodeMetaTransactionToSign(
+      initCode,
+      encodedReplayProtection,
+      this.replayProtectionAuthority.getAddress(),
+      forwarderAddr
+    );
+    const signature = await this.signer.signMessage(
+      arrayify(keccak256(encodedMetaTx))
+    );
+
+    const params: DeploymentParams = {
+      to: forwarderAddr,
+      signer: this.signer.address,
+      initCode,
+      replayProtection: encodedReplayProtection,
+      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
+      chainId: this.chainID,
+      signature: signature,
+    };
+
+    return params;
+  }
 
   /**
    * The address that will appear in the msg.sender of target contract
    */
-  public abstract async getOnchainAddress(): Promise<string>;
+  public abstract async getForwarderAddress(): Promise<string>;
 }

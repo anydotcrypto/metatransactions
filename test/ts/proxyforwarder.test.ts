@@ -371,7 +371,7 @@ describe("Proxy Forwarder", () => {
 
     expect(deploymentParams.to).to.eq(proxyAccount.address.toLowerCase());
     expect(deploymentParams.signer).to.eq(admin.address);
-    expect(deploymentParams.data).to.eq(initCode);
+    expect(deploymentParams.initCode).to.eq(initCode);
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0")); // Picks a randon number greater than 6174
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
@@ -384,7 +384,7 @@ describe("Proxy Forwarder", () => {
 
     // All deployments are performed via the proxy account directly.
     const tx = await proxyAccount.deployContract(
-      deploymentParams.data,
+      deploymentParams.initCode,
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
       deploymentParams.signature

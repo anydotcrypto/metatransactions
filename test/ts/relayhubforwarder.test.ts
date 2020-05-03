@@ -284,7 +284,7 @@ describe("RelayHub Forwarder", () => {
 
     expect(deploymentParams.to).to.eq(relayHub.address);
     expect(deploymentParams.signer).to.eq(admin.address);
-    expect(deploymentParams.data).to.eq(initCode);
+    expect(deploymentParams.initCode).to.eq(initCode);
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1"); // Picks a randon number greater than 6174
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
@@ -294,7 +294,7 @@ describe("RelayHub Forwarder", () => {
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 
     const tx = await relayHub.deployContract(
-      deploymentParams.data,
+      deploymentParams.initCode,
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
       deploymentParams.signer,

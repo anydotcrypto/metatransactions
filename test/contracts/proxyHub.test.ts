@@ -317,7 +317,7 @@ describe("ProxyAccountFactoryProxy", () => {
       await proxyAccount
         .connect(sender)
         .deployContract(
-          params.data,
+          params.initCode,
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signature
@@ -382,7 +382,7 @@ describe("ProxyAccountFactoryProxy", () => {
       const deployed = proxyAccount
         .connect(sender)
         .deployContract(
-          params.data,
+          params.initCode,
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signature

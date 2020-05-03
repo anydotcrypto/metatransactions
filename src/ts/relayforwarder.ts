@@ -14,9 +14,6 @@ import {
  * replay protection. All contracts must support the msgSender() standard.
  */
 export class RelayHubForwarder extends Forwarder<RelayCallData> {
-  public async getOnchainAddress(): Promise<string> {
-    return this.signer.address;
-  }
   /**
    * Sets up the RelayHub Forwarder that relies on the msgSender() standard.
    * It can only be used for a single wallet.
@@ -46,39 +43,37 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
   }
 
   /**
-   * Easy method for signing a meta-transaction. Takes care of replay protection.]
-   * @param data target: contractAddress, callData
+   * Fetch forward parameters
+   * @param to RelayHub contract
+   * @param data Target contract, value and calldata
+   * @param replayProtection Encoded Replay Protection
+   * @param replayProtectionAuthority Replay Protection Authority
+   * @param signature Signature
    */
-  public async signMetaTransaction(data: RelayCallData) {
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-
-    const encodedCallData = this.getEncodedCallData(data);
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      encodedCallData,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
-      this.forwarder.address
-    );
-
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const params: ForwardParams = {
-      to: this.forwarder.address,
+  protected getForwardParams(
+    to: string,
+    data: RelayCallData,
+    replayProtection: string,
+    signature: string
+  ): ForwardParams {
+    return {
+      to,
       signer: this.signer.address,
       target: data.target,
       value: "0",
       data: data.callData,
-      replayProtection: encodedReplayProtection,
+      replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,
-      signature: signature,
+      signature,
     };
-
-    return params;
   }
 
+  /**
+   * Encodes the meta-transaction such that it can be included
+   * in the data field of an Ethereum Transaction
+   * @param params Forward Parameters
+   */
   public async encodeSignedMetaTransaction(
     params: ForwardParams
   ): Promise<string> {
@@ -93,34 +88,9 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
   }
 
   /**
-   * Easy method for deploying a contract via meta-transaction.
-   * Takes care of replay protection.
-   * @param initCode Bytecode for the smart contract
+   * Helper function when signing a new meta-transaction
    */
-  public async signMetaDeployment(initCode: string) {
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      initCode,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
-      this.forwarder.address
-    );
-
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const params: DeploymentParams = {
-      to: this.forwarder.address,
-      signer: this.signer.address,
-      data: initCode,
-      replayProtection: encodedReplayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: this.chainID,
-      signature: signature,
-    };
-
-    return params;
+  public async getForwarderAddress(): Promise<string> {
+    return this.forwarder.address;
   }
 }

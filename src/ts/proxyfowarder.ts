@@ -1,23 +1,14 @@
-import {
-  keccak256,
-  arrayify,
-  defaultAbiCoder,
-  solidityKeccak256,
-} from "ethers/utils";
+import { keccak256, defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
 import { ReplayProtectionAuthority } from "./replayprotectionauthority";
 import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "..";
 import { ForwardParams, Forwarder, ProxyCallData } from "./forwarder";
-import { DeploymentParams } from "./forwarder";
 
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
 export class ProxyForwarder extends Forwarder<ProxyCallData> {
-  public getOnchainAddress(): Promise<string> {
-    throw new Error("Method not implemented.");
-  }
   /**
    * All meta-transactions are sent via an proxy contract.
    * @param chainID Chain ID
@@ -70,43 +61,6 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Takes care of replay protection and signs a meta-transaction.
-   * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
-   */
-  public async signMetaTransaction(data: ProxyCallData) {
-    const proxyAddr = await this.getProxyAddress();
-
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-
-    const encodedCallData = this.getEncodedCallData(data);
-
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      encodedCallData,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
-      proxyAddr
-    );
-
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const params: ForwardParams = {
-      to: proxyAddr,
-      signer: this.signer.address,
-      target: data.target,
-      value: data.value.toString(),
-      data: data.callData,
-      replayProtection: encodedReplayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: this.chainID,
-      signature: signature,
-    };
-
-    return params;
-  }
-
-  /**
    * ProxyAccount address for this signer
    * Caution: Contract may not be deployed yet.
    */
@@ -140,37 +94,38 @@ export class ProxyForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Signs a meta-transaction to deploy a contract via CREATE2.
-   * Takes care of replay protection.
-   * @param initCode Bytecode for the smart contract
+   * Fetch forward parameters
+   * @param to ProxyAccount contract
+   * @param data Target contract, value and calldata
+   * @param replayProtection Encoded Replay Protection
+   * @param replayProtectionAuthority Replay Protection Authority
+   * @param signature Signature
    */
-  public async signMetaDeployment(initCode: string) {
-    const proxyAddr = await this.getProxyAddress();
-
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      initCode,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
-      proxyAddr
-    );
-
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const params: DeploymentParams = {
-      to: proxyAddr,
+  protected getForwardParams(
+    to: string,
+    data: ProxyCallData,
+    replayProtection: string,
+    signature: string
+  ): ForwardParams {
+    return {
+      to,
       signer: this.signer.address,
-      data: initCode,
-      replayProtection: encodedReplayProtection,
+      target: data.target,
+      value: data.value.toString(),
+      data: data.callData,
+      replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,
-      signature: signature,
+      signature,
     };
+  }
 
-    return params;
+  /**
+   * Used in the meta-transaction function to fetch
+   * the forwarder address.
+   */
+  public getForwarderAddress(): Promise<string> {
+    return this.getProxyAddress();
   }
 
   /**
