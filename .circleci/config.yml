@@ -9,9 +9,10 @@ jobs:
       - checkout
       - node/with-cache:
           steps:
+            - setup_remote_docker
             - run: npm install
             - run: npm run build && npm run test
 workflows:
-    build-and-test:
-      jobs:
-        - build-and-test
+  build-and-test:
+    jobs:
+      - build-and-test
