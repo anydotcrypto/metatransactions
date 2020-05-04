@@ -21,7 +21,7 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
     replayProtectionType: ReplayProtectionType,
     signer: Wallet
   ): Promise<RelayHubForwarder> {
-    const addr = this.getDeployedForwarderAddress(chainid);
+    const addr = this.getDeployedRelayHubAddress(chainid);
 
     const relayHub = new RelayHubFactory(signer).attach(addr);
 
@@ -37,7 +37,7 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
    * Pre-deployed contracts for easy of use
    * @param chainid Mainnet or Ropsten
    */
-  public getDeployedForwarderAddress(chainid: ChainID): string {
+  public getDeployedRelayHubAddress(chainid: ChainID): string {
     if (chainid == ChainID.MAINNET) {
       return "0x7915DCbe8E2b132832c63E0704D9EBBbD5800dd8" as string;
     }

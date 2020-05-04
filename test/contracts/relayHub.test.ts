@@ -51,7 +51,7 @@ async function createRelayHub(
   const spiedForwarderFactory = spy(forwarderFactory);
   when(
     // @ts-ignore
-    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
+    spiedForwarderFactory.getDeployedRelayHubAddress(ChainID.MAINNET)
   ).thenReturn(relayHub.address);
 
   return {

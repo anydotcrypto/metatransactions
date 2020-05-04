@@ -55,7 +55,7 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
   const spiedForwarderFactory = spy(forwarderFactory);
   when(
     // @ts-ignore
-    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
+    spiedForwarderFactory.getDeployedRelayHubAddress(ChainID.MAINNET)
   ).thenReturn(relayHub.address);
 
   return {

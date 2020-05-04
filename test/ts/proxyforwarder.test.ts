@@ -51,7 +51,7 @@ async function createHubs(
 
   when(
     // @ts-ignore
-    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
+    spiedForwarderFactory.getProxyAccountDeployerAddress(ChainID.MAINNET)
   ).thenReturn(proxyDeployer.address);
 
   return {
@@ -87,10 +87,10 @@ describe("Proxy Forwarder", () => {
 
     const encoded = await proxyForwarder.createProxyContract();
 
-    await user1.sendTransaction({ to: proxyDeployer.address, data: encoded });
+    await user1.sendTransaction({ to: encoded.to, data: encoded.callData });
 
     const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
-    const computedProxyAddress = await proxyForwarder.getProxyAddress();
+    const computedProxyAddress = await proxyForwarder.getAddress();
     expect(computedProxyAddress).to.eq(proxyAccountAddress.toLowerCase());
   }).timeout(50000);
 
@@ -130,7 +130,7 @@ describe("Proxy Forwarder", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getProxyAddress(),
+      await proxyForwarder.getAddress(),
       "Proxy account address"
     );
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
@@ -240,7 +240,7 @@ describe("Proxy Forwarder", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getProxyAddress(),
+      await proxyForwarder.getAddress(),
       "Proxy account address"
     );
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
@@ -300,7 +300,7 @@ describe("Proxy Forwarder", () => {
         expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
         expect(forwardParams.data).to.eq(callData, "Calldata");
         expect(forwardParams.to).to.eq(
-          await proxyForwarder.getProxyAddress(),
+          await proxyForwarder.getAddress(),
           "Proxy account address"
         );
         expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
@@ -325,7 +325,7 @@ describe("Proxy Forwarder", () => {
     }
   }).timeout(500000);
 
-  it("Tries to re-deploy the same proxy contract twice and fails.", async () => {
+  it("Deploys proxy contract and then checks proxyAccountForwarder.isProxyContractDeployed().", async () => {
     const {
       proxyDeployer,
       admin,
@@ -340,24 +340,15 @@ describe("Proxy Forwarder", () => {
     );
 
     const encoded = await forwarder.createProxyContract();
-    await user1.sendTransaction({ to: proxyDeployer.address, data: encoded });
+    await user1.sendTransaction({ to: encoded.to, data: encoded.callData });
 
     const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
 
-    expect(await forwarder.getProxyAddress()).to.eq(
+    expect(await forwarder.getAddress()).to.eq(
       proxyAccountAddress.toLowerCase()
     );
 
-    // Try to re-deploy via the contract directly.
-    await expect(proxyDeployer.connect(admin).createProxyAccount(admin.address))
-      .to.be.reverted;
-
-    // Try to re-deploy via the library. Caught before sending transaction.
-    return expect(
-      forwarder.createProxyContract()
-    ).to.be.eventually.rejectedWith(
-      "ProxyAccount for " + admin.address + " already exists."
-    );
+    expect(await forwarder.isProxyContractDeployed()).to.be.true;
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {

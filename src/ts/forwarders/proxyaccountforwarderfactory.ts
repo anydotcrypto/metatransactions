@@ -21,7 +21,9 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
     replayProtectionType: ReplayProtectionType,
     signer: Wallet
   ): Promise<ProxyAccountForwarder> {
-    const proxyAccountDeployerAddr = this.getDeployedForwarderAddress(chainid);
+    const proxyAccountDeployerAddr = this.getProxyAccountDeployerAddress(
+      chainid
+    );
 
     const proxyAccountDeployer = new ProxyAccountDeployerFactory(signer).attach(
       proxyAccountDeployerAddr
@@ -41,7 +43,12 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
     );
   }
 
-  public getDeployedForwarderAddress(chainid: ChainID): string {
+  /**
+   * Fetches address of the deployed ProxyAccountDeployer.
+   * It is responsible for creating proxy account factorties.
+   * @param chainid Mainnet or Ropsten
+   */
+  public getProxyAccountDeployerAddress(chainid: ChainID): string {
     if (chainid == ChainID.MAINNET) {
       return "0x894CEd16b2710B90763e7daa83829fec7Ebd31E9" as string;
     }

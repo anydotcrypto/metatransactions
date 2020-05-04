@@ -33,12 +33,6 @@ export abstract class ForwarderFactory<D> {
   ): Promise<D>;
 
   /**
-   * Fetch address of the forwarder
-   * @param chainid MAINNET or ROPSTEN
-   */
-  public abstract getDeployedForwarderAddress(chainid: ChainID): string;
-
-  /**
    * Fetch a pre-configured replay protection
    * @param signer Signer's wallet
    * @param forwarderAddress Forwarder address

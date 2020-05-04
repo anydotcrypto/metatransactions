@@ -9,6 +9,10 @@ import {
   DeploymentParams,
 } from "./forwarder";
 
+export interface CreateProxyData {
+  to: string;
+  callData: string;
+}
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
@@ -44,41 +48,33 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Returns the encoded calldata for creating a proxy contract
-   * No need for ForwardParams as no signature is required in ProxyAccountDeployer
+   * Checks if the ProxyContract is already deployed.
+   * @returns TRUE if deployed, FALSE if not deployed.
    */
-  public async createProxyContract() {
+  public async isProxyContractDeployed(): Promise<boolean> {
     const deployed = await this.proxyDeployer
       .connect(this.signer)
       .accounts(this.signer.address);
 
     // Does the user have a proxy contract?
     if (deployed === "0x0000000000000000000000000000000000000000") {
-      const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
-        [this.signer.address]
-      );
-
-      return callData;
+      return false;
     }
 
-    throw new Error(
-      "ProxyAccount for " + this.signer.address + " already exists."
-    );
+    return true;
   }
-
   /**
-   * ProxyAccount address for this signer
-   * Caution: Contract may not be deployed yet.
+   * Returns the encoded calldata for creating a proxy contract
+   * No need for ForwardParams as no signature is required in ProxyAccountDeployer
+   * @returns The proxy deployer address and the calldata for creating proxy account
+   * @throws If the proxy account already exists
    */
-  public async getProxyAddress() {
-    if (!this.baseAccount) {
-      this.baseAccount = await this.proxyDeployer.baseAccount();
-    }
-    return ProxyAccountForwarder.buildCreate2Address(
-      this.proxyDeployer.address,
-      this.signer.address,
-      this.baseAccount
+  public async createProxyContract(): Promise<CreateProxyData> {
+    const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
+      [this.signer.address]
     );
+
+    return { to: this.proxyDeployer.address, callData };
   }
 
   /**
@@ -151,8 +147,15 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * Used in the meta-transaction function to fetch
    * the forwarder address.
    */
-  public getAddress(): Promise<string> {
-    return this.getProxyAddress();
+  public async getAddress(): Promise<string> {
+    if (!this.baseAccount) {
+      this.baseAccount = await this.proxyDeployer.baseAccount();
+    }
+    return ProxyAccountForwarder.buildCreate2Address(
+      this.proxyDeployer.address,
+      this.signer.address,
+      this.baseAccount
+    );
   }
 
   /**

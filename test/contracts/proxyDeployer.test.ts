@@ -87,7 +87,7 @@ async function createProxyAccountDeployer(
   const spiedForwarderFactory = spy(proxyAccountForwarderFactory);
   when(
     // @ts-ignore
-    spiedForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
+    spiedForwarderFactory.getProxyAccountDeployerAddress(ChainID.MAINNET)
   ).thenReturn(proxyDeployer.address);
 
   return {
