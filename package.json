@@ -21,7 +21,7 @@
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run runtest -- --timeout='30000'",
     "clean": "rm -r ./dist && rm -r ./build",
-    "prepublish": "npm run build"
+    "prepublish": "npm run clean && npm run build"
   },
   "devDependencies": {
     "@pisa-research/utils": "^0.1.39",
