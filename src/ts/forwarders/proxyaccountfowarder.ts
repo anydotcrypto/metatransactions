@@ -118,7 +118,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Fetch forward parameters
+   * Fetch forward parameters.
    * @param to ProxyAccount contract
    * @param data Target contract, value and calldata
    * @param replayProtection Encoded Replay Protection
@@ -145,7 +145,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Computes the proxy contract account.
+   * Fetches the proxy contract account address.
    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
@@ -162,7 +162,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Computes the proxy contract account.
+   * Builds the proxy contract address.
    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
