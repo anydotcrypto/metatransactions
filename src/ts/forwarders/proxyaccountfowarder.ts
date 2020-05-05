@@ -8,6 +8,7 @@ import {
   ProxyCallData,
   DeploymentParams,
 } from "./forwarder";
+import { Create2Options, getCreate2Address } from "ethers/utils/address";
 
 export interface CreateProxyData {
   to: string;
@@ -144,14 +145,16 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
   }
 
   /**
-   * Used in the meta-transaction function to fetch
-   * the forwarder address.
+   * Computes the proxy contract account.
+   * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
+   * @param signersAddress Signer's address
+   * @param cloneAddress Contract to clone address
    */
   public async getAddress(): Promise<string> {
     if (!this.baseAccount) {
       this.baseAccount = await this.proxyDeployer.baseAccount();
     }
-    return ProxyAccountForwarder.buildCreate2Address(
+    return ProxyAccountForwarder.buildProxyAccountAddress(
       this.proxyDeployer.address,
       this.signer.address,
       this.baseAccount
@@ -160,30 +163,30 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
 
   /**
    * Computes the proxy contract account.
-   * Thanks to _prestwich for his pseudocode, got it to work!
    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
    */
-  public static buildCreate2Address(
+  public static buildProxyAccountAddress(
     creatorAddress: string,
     signersAddress: string,
-    cloneAddress: string
-  ) {
+    baseAccount: string
+  ): string {
     const saltHex = solidityKeccak256(["address"], [signersAddress]);
     const byteCodeHash = solidityKeccak256(
       ["bytes", "bytes20", "bytes"],
       [
         "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
-        cloneAddress,
+        baseAccount,
         "0x5af43d82803e903d91602b57fd5bf3",
       ]
     );
+    const options: Create2Options = {
+      from: creatorAddress,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
 
-    return `0x${keccak256(
-      `0x${["ff", creatorAddress, saltHex, byteCodeHash]
-        .map((x) => x.replace(/0x/, ""))
-        .join("")}`
-    ).slice(-40)}`;
+    return getCreate2Address(options);
   }
 }

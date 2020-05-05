@@ -363,17 +363,10 @@ describe("RelayHub Forwarder", () => {
     expect(receipt.status).to.eq(1);
 
     // Compute deterministic address
-    const hByteCode = arrayify(keccak256(initCode));
-    const encodeToSalt = defaultAbiCoder.encode(
-      ["address", "bytes"],
-      [admin.address, deploymentParams.replayProtection]
+    const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
+      deploymentParams
     );
-    const salt = arrayify(keccak256(encodeToSalt));
 
-    // Fetch the proxy on-chain instance
-    const msgSenderExampleAddress = await relayHub
-      .connect(admin)
-      .computeAddress(salt, hByteCode);
     const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
       msgSenderExampleAddress
     );

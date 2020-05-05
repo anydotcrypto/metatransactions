@@ -6,7 +6,10 @@ import {
   BigNumberish,
   arrayify,
   keccak256,
+  solidityKeccak256,
+  getCreate2Address,
 } from "ethers/utils";
+import { Create2Options } from "ethers/utils/address";
 
 export interface ForwardParams {
   to: string;
@@ -163,6 +166,7 @@ export abstract class Forwarder<T> {
       this.replayProtectionAuthority.getAddress(),
       forwarderAddr
     );
+
     const signature = await this.signer.signMessage(
       arrayify(keccak256(encodedMetaTx))
     );
@@ -183,6 +187,28 @@ export abstract class Forwarder<T> {
   public abstract async encodeSignedMetaDeployment(
     params: DeploymentParams
   ): Promise<string>;
+
+  /**
+   * Computes the deterministic address for a deployed contract
+   * @param params Meta-deployment parameters
+   */
+  public buildDeployedContractAddress(params: DeploymentParams): string {
+    const byteCodeHash = solidityKeccak256(["bytes"], [params.initCode]);
+    const saltHex = keccak256(
+      defaultAbiCoder.encode(
+        ["address", "bytes"],
+        [params.signer, params.replayProtection]
+      )
+    );
+
+    const options: Create2Options = {
+      from: params.to,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
+
+    return getCreate2Address(options);
+  }
 
   /**
    * The address that will appear in the msg.sender of target contract

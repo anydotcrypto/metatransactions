@@ -10,6 +10,7 @@ import {
   defaultAbiCoder,
   BigNumber,
   parseEther,
+  solidityKeccak256,
 } from "ethers/utils";
 
 import Doppelganger from "ethereum-doppelganger";
@@ -25,11 +26,11 @@ import {
   ProxyAccountForwarderFactory,
   ChainID,
   ReplayProtectionType,
+  ProxyAccountForwarder,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyaccountfowarder";
-import { ForwardParams } from "../../src/ts/forwarders/forwarder";
+import { ForwardParams, Forwarder } from "../../src/ts/forwarders/forwarder";
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -118,16 +119,14 @@ describe("ProxyAccountFactoryProxy", () => {
         .accounts(sender.address);
 
       const baseAddress = await proxyDeployer.baseAccount();
-      const builtAddress = ProxyAccountForwarder.buildCreate2Address(
+      const builtAddress = ProxyAccountForwarder.buildProxyAccountAddress(
         proxyDeployer.address,
         sender.address,
         baseAddress
       );
 
       // Computed offchain
-      expect(proxyAddress.toLowerCase()).to.eq(builtAddress);
-      // Expected deployed cotnract
-      expect(proxyAddress).to.eq("0xAcC70E67808E3AAEFa90077F3d92f80c90A7988E");
+      expect(proxyAddress).to.eq(builtAddress);
     }
   );
 

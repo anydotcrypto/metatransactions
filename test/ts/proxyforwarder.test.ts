@@ -77,7 +77,7 @@ describe("Proxy Forwarder", () => {
       new MultiNonce(
         10,
         user1,
-        ProxyAccountForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
           user1.address,
           baseAccount
@@ -91,7 +91,7 @@ describe("Proxy Forwarder", () => {
 
     const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
     const computedProxyAddress = await proxyForwarder.getAddress();
-    expect(computedProxyAddress).to.eq(proxyAccountAddress.toLowerCase());
+    expect(computedProxyAddress).to.eq(proxyAccountAddress);
   }).timeout(50000);
 
   it("Sign a single meta-transaction with multinonce", async () => {
@@ -107,7 +107,7 @@ describe("Proxy Forwarder", () => {
       new MultiNonce(
         10,
         admin,
-        ProxyAccountForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
           admin.address,
           baseAccount
@@ -168,7 +168,7 @@ describe("Proxy Forwarder", () => {
       new MultiNonce(
         noQueues,
         user1,
-        ProxyAccountForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
           user1.address,
           baseAccount
@@ -201,7 +201,7 @@ describe("Proxy Forwarder", () => {
         msgSenderExample.interface.events.WhoIsSender.name
       )
       .withArgs(addr);
-    expect(addr.toLowerCase()).to.eq(forwardParams.to.toLowerCase());
+    expect(addr).eq(forwardParams.to);
   }).timeout(50000);
 
   it("Sign a single meta-transaction with bitflip", async () => {
@@ -217,7 +217,7 @@ describe("Proxy Forwarder", () => {
       admin,
       new BitFlip(
         admin,
-        ProxyAccountForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
           admin.address,
           baseAccount
@@ -275,7 +275,7 @@ describe("Proxy Forwarder", () => {
       user1,
       new BitFlip(
         user1,
-        ProxyAccountForwarder.buildCreate2Address(
+        ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
           user1.address,
           baseAccount
@@ -344,9 +344,7 @@ describe("Proxy Forwarder", () => {
 
     const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
 
-    expect(await forwarder.getAddress()).to.eq(
-      proxyAccountAddress.toLowerCase()
-    );
+    expect(await forwarder.getAddress()).to.eq(proxyAccountAddress);
 
     expect(await forwarder.isProxyContractDeployed()).to.be.true;
   }).timeout(50000);
@@ -380,7 +378,7 @@ describe("Proxy Forwarder", () => {
       deploymentParams.replayProtection
     );
 
-    expect(deploymentParams.to).to.eq(proxyAccount.address.toLowerCase());
+    expect(deploymentParams.to).to.eq(proxyAccount.address);
     expect(deploymentParams.signer).to.eq(admin.address);
     expect(deploymentParams.initCode).to.eq(initCode);
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0")); // Picks a randon number greater than 6174
@@ -405,5 +403,23 @@ describe("Proxy Forwarder", () => {
 
     // Successfully deployed
     expect(receipt.status).to.eq(1);
+
+    // Compute deterministic address
+    const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
+      deploymentParams
+    );
+
+    const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
+      msgSenderExampleAddress
+    );
+
+    // Try executing a function - it should exist and work
+    const msgSenderTx = msgSenderExample.connect(admin).test();
+    await expect(msgSenderTx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(admin.address);
   }).timeout(50000);
 });

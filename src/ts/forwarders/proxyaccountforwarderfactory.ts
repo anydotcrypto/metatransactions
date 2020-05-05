@@ -29,7 +29,7 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
       proxyAccountDeployerAddr
     );
     const baseAccount = await proxyAccountDeployer.baseAccount();
-    const proxyAddress = ProxyAccountForwarder.buildCreate2Address(
+    const proxyAddress = ProxyAccountForwarder.buildProxyAccountAddress(
       proxyAccountDeployer.address,
       signer.address,
       baseAccount
