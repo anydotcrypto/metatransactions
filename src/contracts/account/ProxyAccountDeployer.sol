@@ -45,8 +45,7 @@ contract ProxyAccount is ReplayProtection {
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature));
 
-        // No need to check _target account since it will jump into the signer's proxy account first.
-        // e.g. we can never perform a .call() from ProxyAccountDeployer directly.
+        // Call out to the target contract
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));
         require(success, "Forwarding call failed.");
     }
