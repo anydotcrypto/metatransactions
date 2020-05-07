@@ -5,7 +5,6 @@ jobs:
       - image: circleci/node:12.16.0
     steps:
       - checkout
-      - run: node --version
       - setup_remote_docker
       - run: npm install
       - run: npm run test
