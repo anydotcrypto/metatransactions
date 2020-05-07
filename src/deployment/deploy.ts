@@ -22,7 +22,7 @@ export const ADMIN_MNEMONIC =
  */
 async function setup() {
   const infuraProvider = new ethers.providers.InfuraProvider(
-    "mainnet",
+    "ropsten",
     "7333c8bcd07b4a179b0b0a958778762b"
   );
 
