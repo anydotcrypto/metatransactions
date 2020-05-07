@@ -1,5 +1,5 @@
 import { ChainID } from "../..";
-import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { Wallet } from "ethers";
 import {
   defaultAbiCoder,

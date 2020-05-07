@@ -1,5 +1,5 @@
 import { Wallet } from "ethers";
-import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { MultiNonceReplayProtection, BitFlipReplayProtection } from "../..";
 
 export enum ReplayProtectionType {

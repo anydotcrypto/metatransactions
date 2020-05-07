@@ -19,7 +19,7 @@ import { Wallet } from "ethers/wallet";
 import {
   ChainID,
   ReplayProtectionType,
-} from "../../src/ts/forwarders/forwarderfactory";
+} from "../../src/ts/forwarders/forwarderFactory";
 
 const expect = chai.expect;
 chai.use(solidity);

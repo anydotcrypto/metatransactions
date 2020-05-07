@@ -91,7 +91,7 @@ contract ProxyAccountDeployer {
      * Creates base Account for contracts
      */
     constructor() public {
-        baseAccount = address(new ProxyAccount());
+        baseAccount = address(new ProxyAccount{ salt : "v0.1.0" }());
         ProxyAccount(baseAccount).init(address(this));
     }
 

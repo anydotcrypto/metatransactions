@@ -1,6 +1,6 @@
 import { defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { RelayHub, ChainID, RelayHubFactory } from "../..";
 import {
   ForwardParams,

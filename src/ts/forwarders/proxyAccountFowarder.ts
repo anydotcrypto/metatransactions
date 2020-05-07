@@ -1,6 +1,6 @@
 import { defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "../..";
 import {
   ForwardParams,

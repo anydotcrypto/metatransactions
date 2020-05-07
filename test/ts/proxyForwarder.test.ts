@@ -27,7 +27,7 @@ import {
 import { AddressZero } from "ethers/constants";
 import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
 import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
-import { MultiSender } from "../../src/ts/multisend/batchTx";
+import { MultiSender } from "../../src/ts/multiSend/batchTx";
 import { Create2Options } from "ethers/utils/address";
 
 const expect = chai.expect;

@@ -16,12 +16,14 @@
     "build-execute": "npm run build && npm run execute",
     "build-just": "waffle waffle.json",
     "build": "waffle waffle.json && npm run build-types",
-    "build-types": "typechain --target ethers --outDir ./src/typedContracts ./build/**/*.json && cp ./build/* ./src/typedContracts && tsc -p tsconfig.json && cp -r ./src/typedContracts/*.d.ts ./dist/typedContracts && cp ./build/* ./dist/typedContracts && cp -r ./src/contracts ./dist/contracts",
+    "build-types": "typechain --target ethers --outDir ./src/typedContracts ./build/**/*.json && cp ./build/* ./src/typedContracts",
+    "build-ts": "tsc -p tsconfig.json",
+    "publish-contracts": "cp -r ./src/typedContracts/*.d.ts ./dist/typedContracts && cp ./build/* ./dist/typedContracts && cp -r ./src/contracts ./dist/contracts",
     "execute": "ts-node src/deployment/deploy.ts",
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run build && npm run runtest -- --timeout='30000'",
     "clean": "rm -r ./dist && rm -r ./build",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build && npm run build-ts && npm run publish-contracts"
   },
   "devDependencies": {
     "@types/chai": "^4.2.7",
