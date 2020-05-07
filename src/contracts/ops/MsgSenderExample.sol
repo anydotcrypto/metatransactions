@@ -4,6 +4,7 @@ import "../account/MsgSender.sol";
 
 contract MsgSenderExample is MsgSender {
 
+    mapping(address => bool) public sentTest;
     event WhoIsSender(address signer);
 
     constructor(address _relayHub) public {
@@ -12,6 +13,7 @@ contract MsgSenderExample is MsgSender {
 
     function test() public {
         address sender = _msgSender();
+        sentTest[sender] = true;
         emit WhoIsSender(sender);
     }
 

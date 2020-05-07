@@ -1,25 +1,24 @@
-import { keccak256, defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
+import { defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { ReplayProtectionAuthority } from "../replayprotection/replayprotectionauthority";
+import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
 import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "../..";
 import {
   ForwardParams,
   Forwarder,
-  ProxyCallData,
+  ProxyAccountCallData,
   DeploymentParams,
+  EncodedTx,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
+import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
 
-export interface CreateProxyData {
-  to: string;
-  callData: string;
-}
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
+export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   private baseAccount: string;
+  private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.
    * @param chainID Chain ID
@@ -29,22 +28,25 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    */
   constructor(
     chainID: ChainID,
-    private readonly proxyDeployer: ProxyAccountDeployer,
+    proxyDeployerAddress: string,
     signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
     super(chainID, signer, replayProtectionAuthority);
+    this.proxyDeployer = new ProxyAccountDeployerFactory(signer).attach(
+      proxyDeployerAddress
+    );
   }
 
   /**
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
-  protected getEncodedCallData(data: ProxyCallData) {
+  protected getEncodedCallData(data: ProxyAccountCallData) {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["address", "uint", "bytes"],
-      [data.target, data.value, data.callData]
+      [data.to, data.value, data.data]
     );
   }
 
@@ -52,17 +54,10 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * Checks if the ProxyContract is already deployed.
    * @returns TRUE if deployed, FALSE if not deployed.
    */
-  public async isProxyContractDeployed(): Promise<boolean> {
-    const deployed = await this.proxyDeployer
-      .connect(this.signer)
-      .accounts(this.signer.address);
-
-    // Does the user have a proxy contract?
-    if (deployed === "0x0000000000000000000000000000000000000000") {
-      return false;
-    }
-
-    return true;
+  public async isContractDeployed(): Promise<boolean> {
+    return (
+      (await this.signer.provider.getCode(await this.getAddress())) !== "0x"
+    );
   }
   /**
    * Returns the encoded calldata for creating a proxy contract
@@ -70,12 +65,13 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * @returns The proxy deployer address and the calldata for creating proxy account
    * @throws If the proxy account already exists
    */
-  public async createProxyContract(): Promise<CreateProxyData> {
+  public async createProxyContract(): Promise<EncodedTx> {
     const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
       [this.signer.address]
     );
 
-    return { to: this.proxyDeployer.address, callData };
+    // 115k gas inc the transaction cost.
+    return { to: this.proxyDeployer.address, data: callData, gas: 115000 };
   }
 
   /**
@@ -127,16 +123,16 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    */
   protected getForwardParams(
     to: string,
-    data: ProxyCallData,
+    data: ProxyAccountCallData,
     replayProtection: string,
     signature: string
   ): ForwardParams {
     return {
       to,
       signer: this.signer.address,
-      target: data.target,
+      target: data.to,
       value: data.value.toString(),
-      data: data.callData,
+      data: data.data,
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,
@@ -151,14 +147,23 @@ export class ProxyAccountForwarder extends Forwarder<ProxyCallData> {
    * @param cloneAddress Contract to clone address
    */
   public async getAddress(): Promise<string> {
-    if (!this.baseAccount) {
-      this.baseAccount = await this.proxyDeployer.baseAccount();
-    }
     return ProxyAccountForwarder.buildProxyAccountAddress(
       this.proxyDeployer.address,
       this.signer.address,
-      this.baseAccount
+      await this.getBaseAccount()
     );
+  }
+
+  /**
+   * Fetch the base account from the Proxy Deployer
+   * and store it locally.
+   */
+  private async getBaseAccount(): Promise<string> {
+    if (!this.baseAccount) {
+      this.baseAccount = await this.proxyDeployer.baseAccount();
+    }
+
+    return this.baseAccount;
   }
 
   /**

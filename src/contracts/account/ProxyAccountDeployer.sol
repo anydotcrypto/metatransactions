@@ -9,7 +9,7 @@ import "./ReplayProtection.sol";
  */
 contract ProxyAccount is ReplayProtection {
 
-    address owner;
+    address public owner;
     event Deployed(address owner, address addr);
 
     /**
@@ -73,17 +73,6 @@ contract ProxyAccount is ReplayProtection {
     }
 
     /**
-     * @dev Returns the address where a contract will be stored if deployed via {deploy}. Any change in the
-     * `bytecodeHash` or `salt` will result in a new destination address.
-     */
-    function computeAddress(bytes32 salt, bytes32 bytecodeHash) public view returns (address) {
-        bytes32 _data = keccak256(
-            abi.encodePacked(bytes1(0xff), address(this), salt, bytecodeHash)
-        );
-        return address(bytes20(_data << 96));
-    }
-
-    /**
      * Receives ETH
      */
     receive() external payable {}
@@ -94,11 +83,8 @@ contract ProxyAccount is ReplayProtection {
  * Responsible for deploying new proxy accounts via CREATE2
  * Every user has their own proxy account.
  */
-contract ProxyAccountDeployer is ReplayProtection {
+contract ProxyAccountDeployer {
 
-    // TOOD:We can remove map once we can deterministically compute
-    // address and verify that it exists on-chain.
-    mapping(address => address payable) public accounts;
     address payable public baseAccount;
 
     /**
@@ -115,11 +101,8 @@ contract ProxyAccountDeployer is ReplayProtection {
      * @param _signer User's signing key
      */
     function createProxyAccount(address _signer) public {
-        require(accounts[_signer] == address(0), "Cannot install more than one account per signer");
         bytes32 salt = keccak256(abi.encodePacked(_signer));
         address payable clone = createClone(salt);
-        accounts[_signer] = clone;
-        // Initialize it with signer's address
         ProxyAccount(clone).init(_signer);
     }
 

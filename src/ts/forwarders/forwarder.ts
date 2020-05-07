@@ -1,6 +1,6 @@
 import { ChainID } from "../..";
-import { ReplayProtectionAuthority } from "../replayprotection/replayprotectionauthority";
-import { Contract, Wallet } from "ethers";
+import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { Wallet } from "ethers";
 import {
   defaultAbiCoder,
   BigNumberish,
@@ -10,6 +10,12 @@ import {
   getCreate2Address,
 } from "ethers/utils";
 import { Create2Options } from "ethers/utils/address";
+
+export interface EncodedTx {
+  to: string;
+  data: string;
+  gas: number;
+}
 
 export interface ForwardParams {
   to: string;
@@ -33,15 +39,13 @@ export interface DeploymentParams {
   signature: string;
 }
 
-export interface RelayCallData {
-  target: string;
-  callData: string;
+export interface RelayHubCallData {
+  to: string;
+  data: string;
 }
 
-export interface ProxyCallData {
-  target: string;
+export interface ProxyAccountCallData extends RelayHubCallData {
   value: BigNumberish;
-  callData: string;
 }
 
 /**

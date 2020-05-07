@@ -1,9 +1,9 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Wallet } from "ethers";
-import { ReplayProtectionAuthority } from "./replayprotectionauthority";
+import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 
-export class MultiNonce extends ReplayProtectionAuthority {
+export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
   private index: BigNumber;
   // Cannot use BigNumber as the mapping index.
   // So we used string.

@@ -5,7 +5,8 @@ import {
   ProxyAccountForwarder,
 } from "../..";
 import { Wallet } from "ethers";
-import { ForwarderFactory } from "./forwarderfactory";
+import { ForwarderFactory } from "./forwarderFactory";
+import { MAINNET_PROXYDEPLOYER, ROPSTEN_PROXYDEPLOYER } from "../config";
 
 export class ProxyAccountForwarderFactory extends ForwarderFactory<
   ProxyAccountForwarder
@@ -37,7 +38,7 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
 
     return new ProxyAccountForwarder(
       chainid,
-      proxyAccountDeployer,
+      proxyAccountDeployerAddr,
       signer,
       this.getReplayProtection(signer, proxyAddress, replayProtectionType)
     );
@@ -50,15 +51,15 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
    */
   public getProxyAccountDeployerAddress(chainid: ChainID): string {
     if (chainid == ChainID.MAINNET) {
-      return "0x894CEd16b2710B90763e7daa83829fec7Ebd31E9" as string;
+      return MAINNET_PROXYDEPLOYER;
     }
 
     if (chainid == ChainID.ROPSTEN) {
-      return "0xc9d6292CA60605CB2d443a5395737a307E417E53" as string;
+      return ROPSTEN_PROXYDEPLOYER;
     }
 
     throw new Error(
-      "Please specify a valid ChainID for the ProxyAccountForwarder"
+      "Please specify ChainID.MAINNET or ChainID.ROPSTEN for the ProxyDeployer contract"
     );
   }
 }

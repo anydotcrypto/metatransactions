@@ -17,9 +17,8 @@ import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
   ChainID,
-  ForwarderType,
   ReplayProtectionType,
-} from "../../src/ts/forwarders/forwarderfactory";
+} from "../../src/ts/forwarders/forwarderFactory";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -58,12 +57,12 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
 
   when(
     // @ts-ignore
-    spiedRelayHubForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
+    spiedRelayHubForwarderFactory.getDeployedRelayHubAddress(ChainID.MAINNET)
   ).thenReturn(relayHub.address);
 
   when(
     // @ts-ignore
-    spiedProxyForwarderFactory.getDeployedForwarderAddress(ChainID.MAINNET)
+    spiedProxyForwarderFactory.getProxyAccountDeployerAddress(ChainID.MAINNET)
   ).thenReturn(proxyDeployer.address);
 
   return {
@@ -122,16 +121,6 @@ describe("Forwarder Factory", () => {
     expect(ChainID.ROPSTEN).to.eq(3);
   }).timeout(50000);
 
-  it("There is no hard-coded address for a proxy account and getHubAddress() should throw an error.", async () => {
-    expect(
-      // @ts-ignore
-      ForwarderFactory.getForwarderAddress.bind(
-        ChainID.MAINNET,
-        ForwarderType.PROXYACCOUNT
-      )
-    ).to.throw("Please specify a valid ChainID and ContractType");
-  }).timeout(50000);
-
   it("Create the RelayForwarder with Nonce ", async () => {
     const {
       relayHub,
@@ -148,8 +137,8 @@ describe("Forwarder Factory", () => {
 
     for (let i = 0; i < 10; i++) {
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
-        callData,
+        to: msgSenderExample.address,
+        data: callData,
       });
 
       const decodedReplayProtection = defaultAbiCoder.decode(
@@ -193,8 +182,8 @@ describe("Forwarder Factory", () => {
 
     for (let i = 0; i < 10; i++) {
       const forwardParams = await relayForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
-        callData,
+        to: msgSenderExample.address,
+        data: callData,
       });
 
       const decodedReplayProtection = defaultAbiCoder.decode(
@@ -237,8 +226,8 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwardParams = await relayForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
-      callData,
+      to: msgSenderExample.address,
+      data: callData,
     });
 
     const decodedReplayProtection = defaultAbiCoder.decode(
@@ -280,9 +269,9 @@ describe("Forwarder Factory", () => {
 
     for (let i = 0; i < 10; i++) {
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         value: new BigNumber("10"),
-        callData,
+        data: callData,
       });
 
       const decodedReplayProtection = defaultAbiCoder.decode(
@@ -292,7 +281,7 @@ describe("Forwarder Factory", () => {
       expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
       expect(forwardParams.data).to.eq(callData, "Calldata");
       expect(forwardParams.to).to.eq(
-        await proxyForwarder.getProxyAddress(),
+        await proxyForwarder.getAddress(),
         "Proxy account address"
       );
       expect(decodedReplayProtection[0]).to.eq(new BigNumber(0), "Nonce1");
@@ -331,9 +320,9 @@ describe("Forwarder Factory", () => {
 
     for (let i = 0; i < 10; i++) {
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         value: new BigNumber("10"),
-        callData,
+        data: callData,
       });
 
       const decodedReplayProtection = defaultAbiCoder.decode(
@@ -343,7 +332,7 @@ describe("Forwarder Factory", () => {
       expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
       expect(forwardParams.data).to.eq(callData, "Calldata");
       expect(forwardParams.to).to.eq(
-        await proxyForwarder.getProxyAddress(),
+        await proxyForwarder.getAddress(),
         "Proxy account address"
       );
       expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
@@ -381,9 +370,9 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
-      callData,
+      data: callData,
     });
 
     const decodedReplayProtection = defaultAbiCoder.decode(
@@ -393,7 +382,7 @@ describe("Forwarder Factory", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getProxyAddress(),
+      await proxyForwarder.getAddress(),
       "Proxy account address"
     );
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;

@@ -30,7 +30,8 @@ import {
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { ForwardParams, Forwarder } from "../../src/ts/forwarders/forwarder";
+import { ForwardParams } from "../../src/ts/forwarders/forwarder";
+import { Create2Options, getCreate2Address } from "ethers/utils/address";
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -114,15 +115,27 @@ describe("ProxyAccountFactoryProxy", () => {
       );
 
       await proxyDeployer.connect(sender).createProxyAccount(sender.address);
-      const proxyAddress = await proxyDeployer
-        .connect(sender)
-        .accounts(sender.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [sender.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
 
-      const baseAddress = await proxyDeployer.baseAccount();
       const builtAddress = ProxyAccountForwarder.buildProxyAccountAddress(
         proxyDeployer.address,
         sender.address,
-        baseAddress
+        baseAccount
       );
 
       // Computed offchain
@@ -161,9 +174,22 @@ describe("ProxyAccountFactoryProxy", () => {
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
-      const proxyAddress = await proxyDeployer
-        .connect(sender)
-        .accounts(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
 
       const proxyAccountFactory = new ProxyAccountFactory(owner);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
@@ -174,9 +200,9 @@ describe("ProxyAccountFactoryProxy", () => {
       );
 
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
-        callData: msgSenderCall,
+        data: msgSenderCall,
       });
 
       const tx = proxyAccount
@@ -217,9 +243,9 @@ describe("ProxyAccountFactoryProxy", () => {
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
-        callData: msgSenderCall,
+        data: msgSenderCall,
       });
 
       const tx = sender.sendTransaction({
@@ -253,11 +279,26 @@ describe("ProxyAccountFactoryProxy", () => {
       );
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
-      const proxyAddress = await proxyDeployer.accounts(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
-        callData: msgSenderCall,
+        data: msgSenderCall,
       });
 
       const tx = sender.sendTransaction({
@@ -287,11 +328,24 @@ describe("ProxyAccountFactoryProxy", () => {
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
-      const proxyAccountAddr = await proxyDeployer
-        .connect(sender)
-        .accounts(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const proxyOptions: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(proxyOptions);
       const proxyAccountFactory = new ProxyAccountFactory(sender);
-      const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
+      const proxyAccount = proxyAccountFactory.attach(proxyAddress);
 
       const forwarder = await proxyAccountForwarderFactory.createNew(
         ChainID.MAINNET,
@@ -322,10 +376,13 @@ describe("ProxyAccountFactoryProxy", () => {
       );
       const salt = arrayify(keccak256(encodeToSalt));
 
+      const options: Create2Options = {
+        from: params.to,
+        salt: salt,
+        initCodeHash: hByteCode,
+      };
       // Fetch the proxy on-chain instance
-      const msgSenderExampleAddress = await proxyAccount
-        .connect(sender)
-        .computeAddress(salt, hByteCode);
+      const msgSenderExampleAddress = getCreate2Address(options);
       const msgSenderExampleCon = msgSenderFactory.attach(
         msgSenderExampleAddress
       );
@@ -355,11 +412,6 @@ describe("ProxyAccountFactoryProxy", () => {
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
-      const proxyAccountAddr = await proxyDeployer
-        .connect(sender)
-        .accounts(owner.address);
-      const proxyAccountFactory = new ProxyAccountFactory(sender);
-      const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
 
       const forwarder = await proxyAccountForwarderFactory.createNew(
         ChainID.MAINNET,
@@ -389,10 +441,13 @@ describe("ProxyAccountFactoryProxy", () => {
       );
       const salt = arrayify(keccak256(encodeToSalt));
 
+      const options: Create2Options = {
+        from: params.to,
+        salt: salt,
+        initCodeHash: hByteCode,
+      };
       // Fetch the proxy on-chain instance
-      const msgSenderExampleAddress = await proxyAccount
-        .connect(sender)
-        .computeAddress(salt, hByteCode);
+      const msgSenderExampleAddress = getCreate2Address(options);
       const msgSenderExampleCon = msgSenderFactory.attach(
         msgSenderExampleAddress
       );
@@ -422,12 +477,25 @@ describe("ProxyAccountFactoryProxy", () => {
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
-      const proxyAccountAddr = await proxyDeployer
-        .connect(sender)
-        .accounts(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
 
       const proxyAccountFactory = new ProxyAccountFactory(sender);
-      const proxyAccount = proxyAccountFactory.attach(proxyAccountAddr);
+      const proxyAccount = proxyAccountFactory.attach(proxyAddress);
 
       const forwarder = await proxyAccountForwarderFactory.createNew(
         ChainID.MAINNET,

@@ -1,10 +1,10 @@
 import { defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { ReplayProtectionAuthority } from "../replayprotection/replayprotectionauthority";
-import { RelayHub, ChainID } from "../..";
+import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { RelayHub, ChainID, RelayHubFactory } from "../..";
 import {
   ForwardParams,
-  RelayCallData,
+  RelayHubCallData,
   Forwarder,
   DeploymentParams,
 } from "./forwarder";
@@ -13,7 +13,8 @@ import {
  * A single library for approving meta-transactions and its associated
  * replay protection. All contracts must support the msgSender() standard.
  */
-export class RelayHubForwarder extends Forwarder<RelayCallData> {
+export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
+  private relayHub: RelayHub;
   /**
    * Sets up the RelayHub Forwarder that relies on the msgSender() standard.
    * It can only be used for a single wallet.
@@ -24,22 +25,20 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
    */
   constructor(
     chainID: ChainID,
-    private readonly relayHub: RelayHub,
+    relayHubAddress: string,
     signer: Wallet,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
     super(chainID, signer, replayProtectionAuthority);
+    this.relayHub = new RelayHubFactory(signer).attach(relayHubAddress);
   }
 
   /**
    * Standard encoding for contract call data
    * @param data Target contract and the desired calldata
    */
-  protected getEncodedCallData(data: RelayCallData) {
-    return defaultAbiCoder.encode(
-      ["address", "bytes"],
-      [data.target, data.callData]
-    );
+  protected getEncodedCallData(data: RelayHubCallData) {
+    return defaultAbiCoder.encode(["address", "bytes"], [data.to, data.data]);
   }
 
   /**
@@ -52,16 +51,16 @@ export class RelayHubForwarder extends Forwarder<RelayCallData> {
    */
   protected getForwardParams(
     to: string,
-    data: RelayCallData,
+    data: RelayHubCallData,
     replayProtection: string,
     signature: string
   ): ForwardParams {
     return {
       to,
       signer: this.signer.address,
-      target: data.target,
+      target: data.to,
       value: "0",
-      data: data.callData,
+      data: data.data,
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,

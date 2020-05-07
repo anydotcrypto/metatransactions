@@ -2,14 +2,14 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, defaultAbiCoder, arrayify, keccak256 } from "ethers/utils";
+import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   RelayHubFactory,
   MsgSenderExampleFactory,
-  BitFlip,
-  MultiNonce,
   ProxyAccountDeployerFactory,
   RelayHubForwarderFactory,
+  MultiNonceReplayProtection,
+  BitFlipReplayProtection,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -18,9 +18,12 @@ import { Wallet } from "ethers/wallet";
 import {
   ChainID,
   ReplayProtectionType,
-} from "../../src/ts/forwarders/forwarderfactory";
-import { Forwarder, ProxyCallData } from "../../src/ts/forwarders/forwarder";
-import { RelayHubForwarder } from "../../src/ts/forwarders/relayforwarder";
+} from "../../src/ts/forwarders/forwarderFactory";
+import {
+  Forwarder,
+  ProxyAccountCallData,
+} from "../../src/ts/forwarders/forwarder";
+import { RelayHubForwarder } from "../../src/ts/forwarders/relayHubForwarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -87,8 +90,8 @@ describe("RelayHub Forwarder", () => {
     );
 
     const forwardParams = await forwarder.signMetaTransaction({
-      target: msgSenderExample.address,
-      callData,
+      to: msgSenderExample.address,
+      data: callData,
     });
 
     const decodedReplayProtection = defaultAbiCoder.decode(
@@ -134,8 +137,8 @@ describe("RelayHub Forwarder", () => {
       admin
     );
     const forwardParams = await forwarder.signMetaTransaction({
-      target: msgSenderExample.address,
-      callData,
+      to: msgSenderExample.address,
+      data: callData,
     });
 
     const decodedReplayProtection = defaultAbiCoder.decode(
@@ -171,15 +174,15 @@ describe("RelayHub Forwarder", () => {
     const noQueues = 10;
     const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
-      relayHub,
+      relayHub.address,
       user1,
-      new MultiNonce(noQueues, user1, relayHub.address)
+      new MultiNonceReplayProtection(noQueues, user1, relayHub.address)
     );
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
-      callData,
+      to: msgSenderExample.address,
+      data: callData,
     });
 
     const encoded = await proxyForwarder.encodeSignedMetaTransaction(
@@ -204,9 +207,9 @@ describe("RelayHub Forwarder", () => {
 
     const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
-      relayHub,
+      relayHub.address,
       user2,
-      new BitFlip(user2, relayHub.address)
+      new BitFlipReplayProtection(user2, relayHub.address)
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
@@ -214,8 +217,8 @@ describe("RelayHub Forwarder", () => {
     for (let j = 0; j < 10; j++) {
       for (let i = 0; i < 256; i++) {
         const forwardParams = await proxyForwarder.signMetaTransaction({
-          target: msgSenderExample.address,
-          callData,
+          to: msgSenderExample.address,
+          data: callData,
         });
 
         const decodedReplayProtection = defaultAbiCoder.decode(
@@ -245,13 +248,13 @@ describe("RelayHub Forwarder", () => {
   }).timeout(500000);
 
   // TODO: Should we throw an error here? Or let it gracefully set to 0.
-  it("ForwarderFactory ignores value for the RelayHub if the types are mixed up (ProxyCallData instead of RelayCallData) the types are mixed up accidently.", async () => {
+  it("ForwarderFactory ignores value for the RelayHub if the types are mixed up (ProxyAccountCallData instead of RelayHubCallData) the types are mixed up accidently.", async () => {
     const { admin, msgSenderExample, forwarderFactory } = await loadFixture(
       createHubs
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
-    const forwarder: Forwarder<ProxyCallData> = await forwarderFactory.createNew(
+    const forwarder: Forwarder<ProxyAccountCallData> = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -259,9 +262,9 @@ describe("RelayHub Forwarder", () => {
 
     //@ts-ignore
     const encoded = forwarder.getEncodedCallData({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
-      callData,
+      data: callData,
     });
 
     const decode = defaultAbiCoder.decode(["address", "bytes"], encoded);

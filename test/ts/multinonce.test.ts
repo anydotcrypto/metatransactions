@@ -8,7 +8,7 @@ import { when, anything, spy } from "ts-mockito";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { MultiNonce } from "../../src/ts/replayprotection/multinonce";
+import { MultiNonceReplayProtection } from "../../src/ts/replayprotection/multiNonce";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -31,7 +31,11 @@ describe("Multinonce Module", () => {
   it("Replace-by-nonce (single queue) increments as expected", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const multinonce = new MultiNonce(1, admin, relayHub.address);
+    const multinonce = new MultiNonceReplayProtection(
+      1,
+      admin,
+      relayHub.address
+    );
 
     const encodedReplayProtection = await multinonce.getEncodedReplayProtection();
 
@@ -47,7 +51,11 @@ describe("Multinonce Module", () => {
   it("Single queue nonce increments sequentially as expected", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const multinonce = new MultiNonce(1, admin, relayHub.address);
+    const multinonce = new MultiNonceReplayProtection(
+      1,
+      admin,
+      relayHub.address
+    );
 
     for (let i = 0; i < 25; i++) {
       const encodedReplayProtection = await multinonce.getEncodedReplayProtection();
@@ -65,7 +73,11 @@ describe("Multinonce Module", () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
     const NO_OF_QUEUES = 5;
-    const multinonce = new MultiNonce(NO_OF_QUEUES, admin, relayHub.address);
+    const multinonce = new MultiNonceReplayProtection(
+      NO_OF_QUEUES,
+      admin,
+      relayHub.address
+    );
 
     // We'll have 10 queue (concurrent transactions)
     // Under the hood, it authorises a transaction for each queue in turn.
@@ -89,8 +101,12 @@ describe("Multinonce Module", () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
     const NO_OF_QUEUES = 5;
 
-    const multinonce = new MultiNonce(NO_OF_QUEUES, admin, relayHub.address);
-    const spiedMultinonce: MultiNonce = spy(multinonce);
+    const multinonce = new MultiNonceReplayProtection(
+      NO_OF_QUEUES,
+      admin,
+      relayHub.address
+    );
+    const spiedMultinonce: MultiNonceReplayProtection = spy(multinonce);
 
     when(
       // @ts-ignore:
@@ -116,8 +132,12 @@ describe("Multinonce Module", () => {
   it("Send concurrent requests and the lock should ensure nonce incremented as expected", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
     const NO_OF_QUEUES = 100;
-    const multinonce = new MultiNonce(NO_OF_QUEUES, admin, relayHub.address);
-    const spiedMultinonce: MultiNonce = spy(multinonce);
+    const multinonce = new MultiNonceReplayProtection(
+      NO_OF_QUEUES,
+      admin,
+      relayHub.address
+    );
+    const spiedMultinonce: MultiNonceReplayProtection = spy(multinonce);
 
     when(
       // @ts-ignore:

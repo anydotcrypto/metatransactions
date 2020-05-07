@@ -15,20 +15,19 @@ export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 export { ReplayProtection } from "./typedContracts/ReplayProtection";
 export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
-export { ProxyAccountForwarder } from "./ts/forwarders/proxyaccountfowarder";
-export { RelayHubForwarder } from "./ts/forwarders/relayforwarder";
+export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
+export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
 
-export { MultiNonce } from "./ts/replayprotection/multinonce";
-export { BitFlip } from "./ts/replayprotection/bitflip";
+export { MultiNonceReplayProtection } from "./ts/replayprotection/multiNonce";
+export { BitFlipReplayProtection } from "./ts/replayprotection/bitFlip";
 export {
   ForwarderFactory,
   ChainID,
-  ForwarderType,
   ReplayProtectionType,
-} from "./ts/forwarders/forwarderfactory";
+} from "./ts/forwarders/forwarderFactory";
 
-export { ProxyAccountForwarderFactory } from "./ts/forwarders/proxyaccountforwarderfactory";
-export { RelayHubForwarderFactory } from "./ts/forwarders/relayforwarderfactory";
+export { ProxyAccountForwarderFactory } from "./ts/forwarders/proxyAccountForwarderFactory";
+export { RelayHubForwarderFactory } from "./ts/forwarders/relayHubForwarderFactory";
 
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };

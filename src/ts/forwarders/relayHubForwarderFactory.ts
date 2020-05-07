@@ -3,9 +3,9 @@ import {
   ChainID,
   ReplayProtectionType,
   RelayHubForwarder,
-  RelayHubFactory,
 } from "../..";
 import { Wallet } from "ethers";
+import { ROPSTEN_RELAYHUB, MAINNET_RELAYHUB } from "../config";
 
 export class RelayHubForwarderFactory extends ForwarderFactory<
   RelayHubForwarder
@@ -21,15 +21,13 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
     replayProtectionType: ReplayProtectionType,
     signer: Wallet
   ): Promise<RelayHubForwarder> {
-    const addr = this.getDeployedRelayHubAddress(chainid);
-
-    const relayHub = new RelayHubFactory(signer).attach(addr);
+    const relayHubAddress = this.getDeployedRelayHubAddress(chainid);
 
     return new RelayHubForwarder(
       chainid,
-      relayHub,
+      relayHubAddress,
       signer,
-      this.getReplayProtection(signer, relayHub.address, replayProtectionType)
+      this.getReplayProtection(signer, relayHubAddress, replayProtectionType)
     );
   }
 
@@ -39,15 +37,15 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
    */
   public getDeployedRelayHubAddress(chainid: ChainID): string {
     if (chainid == ChainID.MAINNET) {
-      return "0x7915DCbe8E2b132832c63E0704D9EBBbD5800dd8" as string;
+      return MAINNET_RELAYHUB;
     }
 
     if (chainid == ChainID.ROPSTEN) {
-      return "0xdFaed94BCDbe2Ca6399F78621925AD1D5b851750" as string;
+      return ROPSTEN_RELAYHUB;
     }
 
     throw new Error(
-      "Please specify a valid ChainID for the ProxyAccountForwarder"
+      "Please specify ChainID.MAINNET or ChainID.ROPSTEN for the RelayHub contract"
     );
   }
 }

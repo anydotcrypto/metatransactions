@@ -1,12 +1,6 @@
 import { Wallet } from "ethers";
-import { ReplayProtectionAuthority } from "../replayprotection/replayprotectionauthority";
-import { MultiNonce, BitFlip } from "../..";
-
-export enum ForwarderType {
-  RELAYHUB,
-  PROXYACCOUNT,
-  PROXYACCOUNTDEPLOYER,
-}
+import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { MultiNonceReplayProtection, BitFlipReplayProtection } from "../..";
 
 export enum ReplayProtectionType {
   BITFLIP,
@@ -44,13 +38,13 @@ export abstract class ForwarderFactory<D> {
     replayProtectionType: ReplayProtectionType
   ): ReplayProtectionAuthority {
     if (replayProtectionType == ReplayProtectionType.MULTINONCE) {
-      return new MultiNonce(30, signer, forwarderAddress);
+      return new MultiNonceReplayProtection(30, signer, forwarderAddress);
     }
 
     if (replayProtectionType == ReplayProtectionType.BITFLIP) {
-      return new BitFlip(signer, forwarderAddress);
+      return new BitFlipReplayProtection(signer, forwarderAddress);
     }
 
-    return new MultiNonce(1, signer, forwarderAddress);
+    return new MultiNonceReplayProtection(1, signer, forwarderAddress);
   }
 }

@@ -67,17 +67,4 @@ contract RelayHub is ReplayProtection {
 
         emit Deployed(_signer, deployed);
     }
-
-        /**
-     * @dev Returns the address where a contract will be stored if deployed via {deploy}. Any change in the
-     * `bytecodeHash` or `salt` will result in a new destination address.
-     */
-    function computeAddress(bytes32 salt, bytes32 bytecodeHash) public view returns (address) {
-        bytes32 _data = keccak256(
-            abi.encodePacked(bytes1(0xff), address(this), salt, bytecodeHash)
-        );
-        return address(bytes20(_data << 96));
-    }
-
-
 }

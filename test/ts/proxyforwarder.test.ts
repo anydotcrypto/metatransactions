@@ -2,14 +2,19 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, defaultAbiCoder } from "ethers/utils";
+import {
+  BigNumber,
+  defaultAbiCoder,
+  solidityKeccak256,
+  getCreate2Address,
+} from "ethers/utils";
 import {
   ProxyAccountDeployerFactory,
   MsgSenderExampleFactory,
   ProxyAccountFactory,
-  MultiNonce,
-  BitFlip,
   ProxyAccountForwarderFactory,
+  MultiNonceReplayProtection,
+  BitFlipReplayProtection,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -18,9 +23,12 @@ import { Wallet } from "ethers/wallet";
 import {
   ChainID,
   ReplayProtectionType,
-} from "../../src/ts/forwarders/forwarderfactory";
+} from "../../src/ts/forwarders/forwarderFactory";
 import { AddressZero } from "ethers/constants";
-import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyaccountfowarder";
+import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
+import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
+import { MultiSender } from "../../src/ts/multisend/batchTx";
+import { Create2Options } from "ethers/utils/address";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -46,6 +54,8 @@ async function createHubs(
     AddressZero
   );
 
+  const multiSend = await new MultiSendFactory(admin).deploy();
+
   const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
   const spiedForwarderFactory = spy(proxyAccountForwarderFactory);
 
@@ -56,6 +66,7 @@ async function createHubs(
 
   return {
     proxyDeployer,
+    multiSend,
     admin,
     user1,
     user2,
@@ -72,9 +83,9 @@ describe("Proxy Forwarder", () => {
     const baseAccount = await proxyDeployer.baseAccount();
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyDeployer,
-      admin,
-      new MultiNonce(
+      proxyDeployer.address,
+      user1,
+      new MultiNonceReplayProtection(
         10,
         user1,
         ProxyAccountForwarder.buildProxyAccountAddress(
@@ -87,11 +98,20 @@ describe("Proxy Forwarder", () => {
 
     const encoded = await proxyForwarder.createProxyContract();
 
-    await user1.sendTransaction({ to: encoded.to, data: encoded.callData });
+    const tx = await user1.sendTransaction({
+      to: encoded.to,
+      data: encoded.data,
+    });
+    const receipt = await tx.wait(1);
 
-    const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
+    expect(new BigNumber(encoded.gas).gt(receipt.gasUsed!)).to.be.true;
     const computedProxyAddress = await proxyForwarder.getAddress();
-    expect(computedProxyAddress).to.eq(proxyAccountAddress);
+    const proxyAccountContract = new ProxyAccountFactory(user1).attach(
+      computedProxyAddress
+    );
+
+    const proxyAccountOwner = await proxyAccountContract.owner();
+    expect(proxyAccountOwner).to.eq(user1.address);
   }).timeout(50000);
 
   it("Sign a single meta-transaction with multinonce", async () => {
@@ -102,9 +122,9 @@ describe("Proxy Forwarder", () => {
     const baseAccount = await proxyDeployer.baseAccount();
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyDeployer,
+      proxyDeployer.address,
       admin,
-      new MultiNonce(
+      new MultiNonceReplayProtection(
         10,
         admin,
         ProxyAccountForwarder.buildProxyAccountAddress(
@@ -118,9 +138,9 @@ describe("Proxy Forwarder", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
-      callData,
+      data: callData,
     });
 
     const decodedReplayProtection = defaultAbiCoder.decode(
@@ -163,9 +183,9 @@ describe("Proxy Forwarder", () => {
     const noQueues = 10;
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyDeployer,
+      proxyDeployer.address,
       user1,
-      new MultiNonce(
+      new MultiNonceReplayProtection(
         noQueues,
         user1,
         ProxyAccountForwarder.buildProxyAccountAddress(
@@ -178,9 +198,9 @@ describe("Proxy Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber(0),
-      callData,
+      data: callData,
     });
 
     const encoded = await proxyForwarder.encodeSignedMetaTransaction(
@@ -188,20 +208,34 @@ describe("Proxy Forwarder", () => {
     );
 
     await proxyDeployer.createProxyAccount(user1.address);
+    const saltHex = solidityKeccak256(["address"], [user1.address]);
+    const byteCodeHash = solidityKeccak256(
+      ["bytes", "bytes20", "bytes"],
+      [
+        "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+        baseAccount,
+        "0x5af43d82803e903d91602b57fd5bf3",
+      ]
+    );
+    const options: Create2Options = {
+      from: proxyDeployer.address,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
+    const proxyAddress = getCreate2Address(options);
+
     const tx = user1.sendTransaction({
       to: forwardParams.to,
       data: encoded,
     });
-
-    const addr = await proxyDeployer.accounts(user1.address);
 
     await expect(tx)
       .to.emit(
         msgSenderExample,
         msgSenderExample.interface.events.WhoIsSender.name
       )
-      .withArgs(addr);
-    expect(addr).eq(forwardParams.to);
+      .withArgs(proxyAddress);
+    expect(proxyAddress).eq(forwardParams.to);
   }).timeout(50000);
 
   it("Sign a single meta-transaction with bitflip", async () => {
@@ -213,9 +247,9 @@ describe("Proxy Forwarder", () => {
 
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyDeployer,
+      proxyDeployer.address,
       admin,
-      new BitFlip(
+      new BitFlipReplayProtection(
         admin,
         ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
@@ -228,9 +262,9 @@ describe("Proxy Forwarder", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
-      callData,
+      data: callData,
     });
 
     const decodedReplayProtection = defaultAbiCoder.decode(
@@ -271,9 +305,9 @@ describe("Proxy Forwarder", () => {
     const baseAccount = await proxyDeployer.baseAccount();
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
-      proxyDeployer,
+      proxyDeployer.address,
       user1,
-      new BitFlip(
+      new BitFlipReplayProtection(
         user1,
         ProxyAccountForwarder.buildProxyAccountAddress(
           proxyDeployer.address,
@@ -288,9 +322,9 @@ describe("Proxy Forwarder", () => {
     for (let j = 0; j < 10; j++) {
       for (let i = 0; i < 256; i++) {
         const forwardParams = await proxyForwarder.signMetaTransaction({
-          target: msgSenderExample.address,
+          to: msgSenderExample.address,
           value: new BigNumber(i + j),
-          callData,
+          data: callData,
         });
 
         const decodedReplayProtection = defaultAbiCoder.decode(
@@ -336,17 +370,32 @@ describe("Proxy Forwarder", () => {
     const forwarder = await proxyAccountForwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
-      admin
+      user1
     );
 
     const encoded = await forwarder.createProxyContract();
-    await user1.sendTransaction({ to: encoded.to, data: encoded.callData });
+    await admin.sendTransaction({ to: encoded.to, data: encoded.data });
 
-    const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
+    const baseAccount = await proxyDeployer.baseAccount();
+    const saltHex = solidityKeccak256(["address"], [user1.address]);
+    const byteCodeHash = solidityKeccak256(
+      ["bytes", "bytes20", "bytes"],
+      [
+        "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+        baseAccount,
+        "0x5af43d82803e903d91602b57fd5bf3",
+      ]
+    );
+    const options: Create2Options = {
+      from: proxyDeployer.address,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
+    const proxyAddress = getCreate2Address(options);
 
-    expect(await forwarder.getAddress()).to.eq(proxyAccountAddress);
+    expect(await forwarder.getAddress()).to.eq(proxyAddress);
 
-    expect(await forwarder.isProxyContractDeployed()).to.be.true;
+    expect(await forwarder.isContractDeployed()).to.be.true;
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
@@ -369,10 +418,24 @@ describe("Proxy Forwarder", () => {
     const deploymentParams = await forwarder.signMetaDeployment(initCode);
 
     await proxyDeployer.connect(admin).createProxyAccount(admin.address);
-    const proxyAccountAddress = await proxyDeployer.accounts(admin.address);
-    const proxyAccount = new ProxyAccountFactory(admin).attach(
-      proxyAccountAddress
+    const baseAccount = await proxyDeployer.baseAccount();
+    const saltHex = solidityKeccak256(["address"], [admin.address]);
+    const byteCodeHash = solidityKeccak256(
+      ["bytes", "bytes20", "bytes"],
+      [
+        "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+        baseAccount,
+        "0x5af43d82803e903d91602b57fd5bf3",
+      ]
     );
+    const options: Create2Options = {
+      from: proxyDeployer.address,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
+    const proxyAddress = getCreate2Address(options);
+
+    const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
       deploymentParams.replayProtection
@@ -388,8 +451,6 @@ describe("Proxy Forwarder", () => {
       "Built-in replay protection"
     );
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
-    const onchainID = await proxyDeployer.getChainID();
-    expect(deploymentParams.chainId).to.eq(onchainID);
 
     // All deployments are performed via the proxy account directly.
     const tx = await proxyAccount.deployContract(
@@ -421,5 +482,80 @@ describe("Proxy Forwarder", () => {
         msgSenderExample.interface.events.WhoIsSender.name
       )
       .withArgs(admin.address);
+  }).timeout(50000);
+
+  it("Deploy a new meta-contract and a meta-tx with MultiSend", async () => {
+    const {
+      proxyDeployer,
+      multiSend,
+      admin,
+      proxyAccountForwarderFactory,
+      msgSenderExample,
+    } = await loadFixture(createHubs);
+
+    const forwarder = await proxyAccountForwarderFactory.createNew(
+      ChainID.MAINNET,
+      ReplayProtectionType.MULTINONCE,
+      admin
+    );
+
+    const multiSender = new MultiSender(multiSend);
+
+    // Sign meta-deployment
+    let encodedProxyDeployTx = await forwarder.createProxyContract();
+
+    // Sign the meta-tx
+    const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
+      []
+    );
+    const forwardParams = await forwarder.signMetaTransaction({
+      to: msgSenderExample.address,
+      value: new BigNumber("0"),
+      data: msgSenderExampleData,
+    });
+
+    const encodeForwardData = await forwarder.encodeSignedMetaTransaction(
+      forwardParams
+    );
+
+    const batch = [
+      {
+        to: encodedProxyDeployTx.to,
+        data: encodedProxyDeployTx.data,
+        revertIfFail: false,
+      },
+      { to: forwardParams.to, data: encodeForwardData, revertIfFail: false },
+    ];
+    const multiSendEncodedTx = await multiSender.batch(batch);
+
+    const tx = await admin.sendTransaction({
+      to: multiSendEncodedTx.to,
+      data: multiSendEncodedTx.data,
+      gasLimit: 5000000,
+    });
+
+    await tx.wait(1);
+
+    const baseAccount = await proxyDeployer.baseAccount();
+    const builtProxy = await forwarder.getAddress();
+    const saltHex = solidityKeccak256(["address"], [admin.address]);
+    const byteCodeHash = solidityKeccak256(
+      ["bytes", "bytes20", "bytes"],
+      [
+        "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+        baseAccount,
+        "0x5af43d82803e903d91602b57fd5bf3",
+      ]
+    );
+    const options = {
+      from: proxyDeployer.address,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
+    const proxyAddress = getCreate2Address(options);
+    expect(builtProxy).to.eq(proxyAddress);
+
+    const messageSent = await msgSenderExample.sentTest(builtProxy);
+    expect(messageSent).to.be.true;
   }).timeout(50000);
 });

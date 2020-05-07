@@ -1,6 +1,6 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Wallet } from "ethers";
-import { ReplayProtectionAuthority } from "./replayprotectionauthority";
+import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
@@ -11,7 +11,7 @@ import BN from "bn.js";
  * concurrent transactions (e.g. processing 1000 withdrawals, order
  * does not matter).
  */
-export class BitFlip extends ReplayProtectionAuthority {
+export class BitFlipReplayProtection extends ReplayProtectionAuthority {
   private index: BigNumber; // Keep track of bitmap index
   private bitmap: BigNumber;
   private readonly lock: Lock;

@@ -5,7 +5,7 @@ import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { BitFlip } from "../../src/ts/replayprotection/bitflip";
+import { BitFlipReplayProtection } from "../../src/ts/replayprotection/bitFlip";
 import BN from "bn.js";
 
 const expect = chai.expect;
@@ -29,7 +29,7 @@ describe("Bitflip Module", () => {
   it("Flip every bit", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const bitflip = new BitFlip(admin, relayHub.address);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     const bitmap = new BigNumber("0");
 
     let binary = "1";
@@ -47,7 +47,7 @@ describe("Bitflip Module", () => {
   it("1st bit is empty", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const bitflip = new BitFlip(admin, relayHub.address);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     let bitmap = new BigNumber("0");
 
     const bitToFlip = bitflip.findEmptyBit(bitmap);
@@ -58,7 +58,7 @@ describe("Bitflip Module", () => {
   it("11th bit is empty", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const bitflip = new BitFlip(admin, relayHub.address);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     let bitmap = new BigNumber("0");
 
     let binary = "1";
@@ -80,7 +80,7 @@ describe("Bitflip Module", () => {
   it("201th bit is empty", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const bitflip = new BitFlip(admin, relayHub.address);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     let bitmap = new BigNumber("0");
 
     let binary = "1";
@@ -104,7 +104,7 @@ describe("Bitflip Module", () => {
   it("1st, 10th bit, 200th bit is flipped. It will find the 2nd bit as empty", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const bitflip = new BitFlip(admin, relayHub.address);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     let bitmap = new BigNumber("0");
 
     bitmap = bitflip.flipBit(bitmap, new BigNumber("0"));
@@ -119,7 +119,7 @@ describe("Bitflip Module", () => {
   it("get bits to flip in sequence", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const bitflip = new BitFlip(admin, relayHub.address);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
 
     // Flip every bit
     // j = index of bitmap

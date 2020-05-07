@@ -87,8 +87,8 @@ describe("RelayHub Contract", () => {
         owner
       );
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       const tx = relayHub
@@ -129,8 +129,8 @@ describe("RelayHub Contract", () => {
 
       // Send off first transaction!
       let params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       let tx = relayHub
@@ -150,8 +150,8 @@ describe("RelayHub Contract", () => {
 
       // Send off second transaction!
       params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       tx = relayHub
@@ -310,8 +310,8 @@ describe("RelayHub Contract", () => {
 
       // Send off first transaction!
       let params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       let tx = relayHub
@@ -349,8 +349,8 @@ describe("RelayHub Contract", () => {
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       const tx = relayHub
@@ -520,8 +520,8 @@ describe("RelayHub Contract", () => {
         owner
       );
       const params1 = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       const tx1 = relayHub
@@ -540,8 +540,8 @@ describe("RelayHub Contract", () => {
         .withArgs(owner.address);
 
       const params2 = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
-        callData: msgSenderCall,
+        to: msgSenderCon.address,
+        data: msgSenderCall,
       });
 
       const tx2 = relayHub
