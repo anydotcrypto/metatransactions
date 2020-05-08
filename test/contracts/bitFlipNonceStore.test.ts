@@ -11,8 +11,7 @@ import {
 import { fnIt } from "@pisa-research/test-utils";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { BitFlipNonceStoreFactory } from "../../dist";
-import { BitFlipNonceStore } from "../../dist";
+import { BitFlipNonceStoreFactory, BitFlipNonceStore } from "../../src";
 
 const expect = chai.expect;
 chai.use(solidity);
