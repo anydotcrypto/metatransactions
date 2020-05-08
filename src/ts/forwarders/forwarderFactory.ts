@@ -20,11 +20,11 @@ export abstract class ForwarderFactory<D> {
    * @param replayProtectionType Replay Protection
    * @param signer Signer's wallet
    */
-  public abstract async createNew(
+  public abstract createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Wallet
-  ): Promise<D>;
+  ): D;
 
   /**
    * Fetch a pre-configured replay protection

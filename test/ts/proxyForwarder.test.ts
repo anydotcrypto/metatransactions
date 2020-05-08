@@ -15,8 +15,8 @@ import {
   ProxyAccountForwarderFactory,
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
+  ProxyAccountDeployer,
 } from "../../src";
-import { when, spy } from "ts-mockito";
 
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -29,6 +29,7 @@ import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowar
 import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 import { MultiSender } from "../../src/ts/multiSend/batchTx";
 import { Create2Options } from "ethers/utils/address";
+import { ethers } from "ethers";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -57,12 +58,6 @@ async function createHubs(
   const multiSend = await new MultiSendFactory(admin).deploy();
 
   const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
-  const spiedForwarderFactory = spy(proxyAccountForwarderFactory);
-
-  when(
-    // @ts-ignore
-    spiedForwarderFactory.getProxyAccountDeployerAddress(ChainID.MAINNET)
-  ).thenReturn(proxyDeployer.address);
 
   return {
     proxyDeployer,
@@ -81,19 +76,17 @@ describe("Proxy Forwarder", () => {
     const { proxyDeployer, admin, user1 } = await loadFixture(createHubs);
 
     const baseAccount = await proxyDeployer.baseAccount();
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      user1.address,
+      baseAccount
+    );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
       user1,
-      new MultiNonceReplayProtection(
-        10,
-        user1,
-        ProxyAccountForwarder.buildProxyAccountAddress(
-          proxyDeployer.address,
-          user1.address,
-          baseAccount
-        )
-      )
+      proxyAccountAddress,
+      new MultiNonceReplayProtection(10, user1, proxyAccountAddress)
     );
 
     const encoded = await proxyForwarder.createProxyContract();
@@ -105,7 +98,7 @@ describe("Proxy Forwarder", () => {
     const receipt = await tx.wait(1);
 
     expect(new BigNumber(encoded.gas).gt(receipt.gasUsed!)).to.be.true;
-    const computedProxyAddress = await proxyForwarder.getAddress();
+    const computedProxyAddress = proxyForwarder.address;
     const proxyAccountContract = new ProxyAccountFactory(user1).attach(
       computedProxyAddress
     );
@@ -120,19 +113,17 @@ describe("Proxy Forwarder", () => {
     );
 
     const baseAccount = await proxyDeployer.baseAccount();
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      admin.address,
+      baseAccount
+    );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
       admin,
-      new MultiNonceReplayProtection(
-        10,
-        admin,
-        ProxyAccountForwarder.buildProxyAccountAddress(
-          proxyDeployer.address,
-          admin.address,
-          baseAccount
-        )
-      )
+      proxyAccountAddress,
+      new MultiNonceReplayProtection(10, admin, proxyAccountAddress)
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
@@ -150,7 +141,7 @@ describe("Proxy Forwarder", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getAddress(),
+      proxyForwarder.address,
       "Proxy account address"
     );
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
@@ -181,19 +172,17 @@ describe("Proxy Forwarder", () => {
     const baseAccount = await proxyDeployer.baseAccount();
 
     const noQueues = 10;
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      user1.address,
+      baseAccount
+    );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
       user1,
-      new MultiNonceReplayProtection(
-        noQueues,
-        user1,
-        ProxyAccountForwarder.buildProxyAccountAddress(
-          proxyDeployer.address,
-          user1.address,
-          baseAccount
-        )
-      )
+      proxyAccountAddress,
+      new MultiNonceReplayProtection(noQueues, user1, proxyAccountAddress)
     );
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
@@ -244,19 +233,18 @@ describe("Proxy Forwarder", () => {
     );
 
     const baseAccount = await proxyDeployer.baseAccount();
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      admin.address,
+      baseAccount
+    );
 
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
       admin,
-      new BitFlipReplayProtection(
-        admin,
-        ProxyAccountForwarder.buildProxyAccountAddress(
-          proxyDeployer.address,
-          admin.address,
-          baseAccount
-        )
-      )
+      proxyAccountAddress,
+      new BitFlipReplayProtection(admin, proxyAccountAddress)
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
@@ -274,7 +262,7 @@ describe("Proxy Forwarder", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getAddress(),
+      proxyForwarder.address,
       "Proxy account address"
     );
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
@@ -303,18 +291,17 @@ describe("Proxy Forwarder", () => {
     );
 
     const baseAccount = await proxyDeployer.baseAccount();
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      user1.address,
+      baseAccount
+    );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
       user1,
-      new BitFlipReplayProtection(
-        user1,
-        ProxyAccountForwarder.buildProxyAccountAddress(
-          proxyDeployer.address,
-          user1.address,
-          baseAccount
-        )
-      )
+      proxyAccountAddress,
+      new BitFlipReplayProtection(user1, proxyAccountAddress)
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
@@ -334,7 +321,7 @@ describe("Proxy Forwarder", () => {
         expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
         expect(forwardParams.data).to.eq(callData, "Calldata");
         expect(forwardParams.to).to.eq(
-          await proxyForwarder.getAddress(),
+          proxyForwarder.address,
           "Proxy account address"
         );
         expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
@@ -359,19 +346,43 @@ describe("Proxy Forwarder", () => {
     }
   }).timeout(500000);
 
+  const createForwarder = async (
+    proxyDeployer: ProxyAccountDeployer,
+    user: ethers.Wallet,
+    replayProtectionType: ReplayProtectionType
+  ) => {
+    const baseAccount = await proxyDeployer.baseAccount();
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      user.address,
+      baseAccount
+    );
+    const replayProtection =
+      replayProtectionType === ReplayProtectionType.MULTINONCE
+        ? new MultiNonceReplayProtection(30, user, proxyAccountAddress)
+        : replayProtectionType === ReplayProtectionType.BITFLIP
+        ? new BitFlipReplayProtection(user, proxyAccountAddress)
+        : new MultiNonceReplayProtection(1, user, proxyAccountAddress);
+
+    const proxyForwarder = new ProxyAccountForwarder(
+      ChainID.MAINNET,
+      proxyDeployer.address,
+      user,
+      proxyAccountAddress,
+      replayProtection
+    );
+
+    return proxyForwarder;
+  };
+
   it("Deploys proxy contract and then checks proxyAccountForwarder.isProxyContractDeployed().", async () => {
     const {
       proxyDeployer,
       admin,
       user1,
-      proxyAccountForwarderFactory,
     } = await loadFixture(createHubs);
 
-    const forwarder = await proxyAccountForwarderFactory.createNew(
-      ChainID.MAINNET,
-      ReplayProtectionType.MULTINONCE,
-      user1
-    );
+    const forwarder = await createForwarder(proxyDeployer, user1, ReplayProtectionType.MULTINONCE);
 
     const encoded = await forwarder.createProxyContract();
     await admin.sendTransaction({ to: encoded.to, data: encoded.data });
@@ -393,7 +404,7 @@ describe("Proxy Forwarder", () => {
     };
     const proxyAddress = getCreate2Address(options);
 
-    expect(await forwarder.getAddress()).to.eq(proxyAddress);
+    expect(forwarder.address).to.eq(proxyAddress);
 
     expect(await forwarder.isContractDeployed()).to.be.true;
   }).timeout(50000);
@@ -402,14 +413,8 @@ describe("Proxy Forwarder", () => {
     const {
       proxyDeployer,
       admin,
-      proxyAccountForwarderFactory,
     } = await loadFixture(createHubs);
-
-    const forwarder = await proxyAccountForwarderFactory.createNew(
-      ChainID.MAINNET,
-      ReplayProtectionType.MULTINONCE,
-      admin
-    );
+    const forwarder = await createForwarder(proxyDeployer, admin, ReplayProtectionType.MULTINONCE);
 
     const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
       proxyDeployer.address
@@ -489,15 +494,10 @@ describe("Proxy Forwarder", () => {
       proxyDeployer,
       multiSend,
       admin,
-      proxyAccountForwarderFactory,
       msgSenderExample,
     } = await loadFixture(createHubs);
 
-    const forwarder = await proxyAccountForwarderFactory.createNew(
-      ChainID.MAINNET,
-      ReplayProtectionType.MULTINONCE,
-      admin
-    );
+    const forwarder = await createForwarder(proxyDeployer, admin, ReplayProtectionType.MULTINONCE);
 
     const multiSender = new MultiSender(multiSend);
 
@@ -537,7 +537,7 @@ describe("Proxy Forwarder", () => {
     await tx.wait(1);
 
     const baseAccount = await proxyDeployer.baseAccount();
-    const builtProxy = await forwarder.getAddress();
+    const builtProxy = forwarder.address;
     const saltHex = solidityKeccak256(["address"], [admin.address]);
     const byteCodeHash = solidityKeccak256(
       ["bytes", "bytes20", "bytes"],

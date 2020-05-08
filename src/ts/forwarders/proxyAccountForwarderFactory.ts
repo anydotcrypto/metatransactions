@@ -1,12 +1,10 @@
-import {
-  ReplayProtectionType,
-  ChainID,
-  ProxyAccountDeployerFactory,
-  ProxyAccountForwarder,
-} from "../..";
+import { ReplayProtectionType, ChainID, ProxyAccountForwarder } from "../..";
 import { Wallet } from "ethers";
 import { ForwarderFactory } from "./forwarderFactory";
-import { MAINNET_PROXYDEPLOYER, ROPSTEN_PROXYDEPLOYER } from "../config";
+import {
+  PROXY_ACCOUNT_DEPLOYER_ADDRESS,
+  BASE_ACCOUNT_ADDRESS,
+} from "../../deployment/addresses";
 
 export class ProxyAccountForwarderFactory extends ForwarderFactory<
   ProxyAccountForwarder
@@ -17,49 +15,27 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
    * @param replayProtectionType Bitflip, Multinonce or Nonce
    * @param signer Signer's wallet
    */
-  public async createNew(
+  public createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Wallet
-  ): Promise<ProxyAccountForwarder> {
-    const proxyAccountDeployerAddr = this.getProxyAccountDeployerAddress(
-      chainid
-    );
-
-    const proxyAccountDeployer = new ProxyAccountDeployerFactory(signer).attach(
-      proxyAccountDeployerAddr
-    );
-    const baseAccount = await proxyAccountDeployer.baseAccount();
-    const proxyAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyAccountDeployer.address,
+  ): ProxyAccountForwarder {
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      PROXY_ACCOUNT_DEPLOYER_ADDRESS,
       signer.address,
-      baseAccount
+      BASE_ACCOUNT_ADDRESS
     );
 
     return new ProxyAccountForwarder(
       chainid,
-      proxyAccountDeployerAddr,
+      PROXY_ACCOUNT_DEPLOYER_ADDRESS,
       signer,
-      this.getReplayProtection(signer, proxyAddress, replayProtectionType)
-    );
-  }
-
-  /**
-   * Fetches address of the deployed ProxyAccountDeployer.
-   * It is responsible for creating proxy account factorties.
-   * @param chainid Mainnet or Ropsten
-   */
-  public getProxyAccountDeployerAddress(chainid: ChainID): string {
-    if (chainid == ChainID.MAINNET) {
-      return MAINNET_PROXYDEPLOYER;
-    }
-
-    if (chainid == ChainID.ROPSTEN) {
-      return ROPSTEN_PROXYDEPLOYER;
-    }
-
-    throw new Error(
-      "Please specify ChainID.MAINNET or ChainID.ROPSTEN for the ProxyDeployer contract"
+      proxyAccountAddress,
+      this.getReplayProtection(
+        signer,
+        proxyAccountAddress,
+        replayProtectionType
+      )
     );
   }
 }

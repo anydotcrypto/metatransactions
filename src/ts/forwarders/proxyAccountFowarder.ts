@@ -17,7 +17,6 @@ import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDe
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
 export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
-  private baseAccount: string;
   private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.
@@ -30,9 +29,10 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     chainID: ChainID,
     proxyDeployerAddress: string,
     signer: Wallet,
-    replayProtectionAuthority: ReplayProtectionAuthority
+    address: string,
+    replayProtectionAuthority: ReplayProtectionAuthority,
   ) {
-    super(chainID, signer, replayProtectionAuthority);
+    super(chainID, signer, address, replayProtectionAuthority);
     this.proxyDeployer = new ProxyAccountDeployerFactory(signer).attach(
       proxyDeployerAddress
     );
@@ -55,9 +55,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * @returns TRUE if deployed, FALSE if not deployed.
    */
   public async isContractDeployed(): Promise<boolean> {
-    return (
-      (await this.signer.provider.getCode(await this.getAddress())) !== "0x"
-    );
+    return (await this.signer.provider.getCode(this.address)) !== "0x";
   }
   /**
    * Returns the encoded calldata for creating a proxy contract
@@ -140,31 +138,15 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     };
   }
 
-  /**
-   * Fetches the proxy contract account address.
-   * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
-   * @param signersAddress Signer's address
-   * @param cloneAddress Contract to clone address
-   */
-  public async getAddress(): Promise<string> {
-    return ProxyAccountForwarder.buildProxyAccountAddress(
-      this.proxyDeployer.address,
-      this.signer.address,
-      await this.getBaseAccount()
-    );
-  }
+  //   /**
+  //    * Fetches the proxy contract account address.
+  //    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
+  //    * @param signersAddress Signer's address
+  //    * @param cloneAddress Contract to clone address
+  //    */
+  //   public async getAddress(): string {
 
-  /**
-   * Fetch the base account from the Proxy Deployer
-   * and store it locally.
-   */
-  private async getBaseAccount(): Promise<string> {
-    if (!this.baseAccount) {
-      this.baseAccount = await this.proxyDeployer.baseAccount();
-    }
-
-    return this.baseAccount;
-  }
+  //   }
 
   /**
    * Builds the proxy contract address.

@@ -10,6 +10,9 @@ import {
   ProxyAccountDeployerFactory,
   ProxyAccountForwarderFactory,
   RelayHubForwarderFactory,
+  RelayHubForwarder,
+  MultiNonceReplayProtection,
+  BitFlipReplayProtection,
 } from "../../src";
 import { when, spy } from "ts-mockito";
 
@@ -52,19 +55,6 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
   const proxyAccountsForwardersFactory = new ProxyAccountForwarderFactory();
   const relayHubForwardsFactory = new RelayHubForwarderFactory();
 
-  const spiedProxyForwarderFactory = spy(proxyAccountsForwardersFactory);
-  const spiedRelayHubForwarderFactory = spy(relayHubForwardsFactory);
-
-  when(
-    // @ts-ignore
-    spiedRelayHubForwarderFactory.getDeployedRelayHubAddress(ChainID.MAINNET)
-  ).thenReturn(relayHub.address);
-
-  when(
-    // @ts-ignore
-    spiedProxyForwarderFactory.getProxyAccountDeployerAddress(ChainID.MAINNET)
-  ).thenReturn(proxyDeployer.address);
-
   return {
     relayHub,
     proxyDeployer,
@@ -76,46 +66,6 @@ async function createHubs(provider: Provider, [admin]: Wallet[]) {
 }
 
 describe("Forwarder Factory", () => {
-  // The "spy" in the other tests is carrying over here. Reset() will not fix it.
-  // it("Check the hard-coded addresses for ropsten and mainnet", async () => {
-  //   const spiedForwarderFactory = spy(ForwarderFactory);
-
-  //   // resetCalls(spiedForwarderFactory);
-
-  //   spiedForwarderFactory.getForwarderAddress(
-  //     ChainID.MAINNET,
-  //     ForwarderType.PROXYACCOUNTDEPLOYER
-  //   );
-
-  //   const mainnetProxyAccountFactory = ForwarderFactory.getForwarderAddress(
-  //     ChainID.MAINNET,
-  //     ForwarderType.PROXYACCOUNTDEPLOYER
-  //   );
-
-  //   expect(mainnetProxyAccountFactory).to.eq("0x0b116DF91Aae33d85840165c5487462E0E821242");
-
-  //   const ropstenProxyAccountFactory = ForwarderFactory.getForwarderAddress(
-  //     ChainID.ROPSTEN,
-  //     ForwarderType.PROXYACCOUNTDEPLOYER
-  //   );
-
-  //   expect(ropstenProxyAccountFactory).to.eq("0x9b1D523DfA8A6b2B04d3A54D469b63525823ffC9");
-
-  //   const mainnetRelayHub = ForwarderFactory.getForwarderAddress(
-  //     ChainID.MAINNET,
-  //     ForwarderType.RELAYHUB
-  //   );
-
-  //   expect(mainnetRelayHub).to.eq("0x70107abB312db18bD9AdDec39CE711374B09EBC1");
-
-  //   const ropstenRelayHub = ForwarderFactory.getForwarderAddress(
-  //     ChainID.ROPSTEN,
-  //     ForwarderType.RELAYHUB
-  //   );
-
-  //   expect(ropstenRelayHub).to.eq("0xE206a5C07aDE5ff4BA8805E68Fb0A52e12aE7798");
-  // }).timeout(50000);
-
   it("Confirm the CHAINID values correspond to the various networks", async () => {
     expect(ChainID.MAINNET).to.eq(1);
     expect(ChainID.ROPSTEN).to.eq(3);
@@ -126,13 +76,14 @@ describe("Forwarder Factory", () => {
       relayHub,
       admin,
       msgSenderExample,
-      relayHubForwardsFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = await relayHubForwardsFactory.createNew(
+    const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
-      ReplayProtectionType.NONCE,
-      admin
+      admin,
+      relayHub.address,
+      new MultiNonceReplayProtection(1, admin, relayHub.address)
     );
+
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
@@ -171,13 +122,13 @@ describe("Forwarder Factory", () => {
       relayHub,
       admin,
       msgSenderExample,
-      relayHubForwardsFactory,
     } = await loadFixture(createHubs);
-    const relayForwarder = await relayHubForwardsFactory.createNew(
-      ChainID.MAINNET,
-      ReplayProtectionType.MULTINONCE,
-      admin
-    );
+    const relayForwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        admin,
+        relayHub.address,
+        new MultiNonceReplayProtection(30, admin, relayHub.address)
+      );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
@@ -218,11 +169,12 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       relayHubForwardsFactory,
     } = await loadFixture(createHubs);
-    const relayForwarder = await relayHubForwardsFactory.createNew(
-      ChainID.MAINNET,
-      ReplayProtectionType.BITFLIP,
-      admin
-    );
+    const relayForwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        admin,
+        relayHub.address,
+        new BitFlipReplayProtection(admin, relayHub.address)
+      );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwardParams = await relayForwarder.signMetaTransaction({
@@ -260,7 +212,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -281,7 +233,7 @@ describe("Forwarder Factory", () => {
       expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
       expect(forwardParams.data).to.eq(callData, "Calldata");
       expect(forwardParams.to).to.eq(
-        await proxyForwarder.getAddress(),
+        proxyForwarder.address,
         "Proxy account address"
       );
       expect(decodedReplayProtection[0]).to.eq(new BigNumber(0), "Nonce1");
@@ -311,7 +263,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -332,7 +284,7 @@ describe("Forwarder Factory", () => {
       expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
       expect(forwardParams.data).to.eq(callData, "Calldata");
       expect(forwardParams.to).to.eq(
-        await proxyForwarder.getAddress(),
+        proxyForwarder.address,
         "Proxy account address"
       );
       expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
@@ -362,7 +314,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
@@ -382,7 +334,7 @@ describe("Forwarder Factory", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(
-      await proxyForwarder.getAddress(),
+      proxyForwarder.address,
       "Proxy account address"
     );
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;

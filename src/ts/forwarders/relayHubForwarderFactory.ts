@@ -5,7 +5,7 @@ import {
   RelayHubForwarder,
 } from "../..";
 import { Wallet } from "ethers";
-import { ROPSTEN_RELAYHUB, MAINNET_RELAYHUB } from "../config";
+import { RELAY_HUB_ADDRESS } from "../../deployment/addresses";
 
 export class RelayHubForwarderFactory extends ForwarderFactory<
   RelayHubForwarder
@@ -16,36 +16,16 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
    * @param replayProtectionType Bitflip, Multinonce or Nonce
    * @param signer Signer's wallet
    */
-  public async createNew(
+  public createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Wallet
-  ): Promise<RelayHubForwarder> {
-    const relayHubAddress = this.getDeployedRelayHubAddress(chainid);
-
+  ): RelayHubForwarder {
     return new RelayHubForwarder(
       chainid,
-      relayHubAddress,
       signer,
-      this.getReplayProtection(signer, relayHubAddress, replayProtectionType)
-    );
-  }
-
-  /**
-   * Pre-deployed contracts for easy of use
-   * @param chainid Mainnet or Ropsten
-   */
-  public getDeployedRelayHubAddress(chainid: ChainID): string {
-    if (chainid == ChainID.MAINNET) {
-      return MAINNET_RELAYHUB;
-    }
-
-    if (chainid == ChainID.ROPSTEN) {
-      return ROPSTEN_RELAYHUB;
-    }
-
-    throw new Error(
-      "Please specify ChainID.MAINNET or ChainID.ROPSTEN for the RelayHub contract"
+      RELAY_HUB_ADDRESS,
+      this.getReplayProtection(signer, RELAY_HUB_ADDRESS, replayProtectionType)
     );
   }
 }

@@ -3,20 +3,14 @@ import { RelayHubFactory, ProxyAccountDeployerFactory } from "..";
 import { keccak256, toUtf8Bytes, getCreate2Address } from "ethers/utils";
 import { MultiSendFactory } from "../typedContracts/MultiSendFactory";
 import { deployerAddress, deployerABI } from "./deployer";
+import {
+  RELAY_HUB_SALT_STRING,
+  VERSION,
+  PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
+  MULTI_SEND_SALT_STRING,
+} from "./addresses";
 
-const VERSION = "v0.1.0";
-const RELAY_HUB = "RELAY_HUB";
-const PROXY_ACCOUNT_DEPLOYER = "PROXY_ACCOUNT_DEPLOYER";
-const MULTI_SEND = "MULTI_SEND";
-
-// addresses for the salts above
-const proxyDeployerAddress = "0x2AaAc4B6Ec181AEF203221c718AfE87f358508B6";
-const baseAccountAddress = "0x354ed262196d1d965ac3241412e932f28704e129";
-const relayHubAddress = "0x0A6f799E5594C6c6e931a62FA6aF4f0d18c934d4";
-const multiSendAddress = "0x87dd8Bc0E2389a6f110F5693E59F788cB1a58e9d";
-
-export const ADMIN_MNEMONIC =
-  "";
+export const ADMIN_MNEMONIC = "";
 /**
  * Set up the provider and wallet
  */
@@ -61,7 +55,9 @@ async function deployContract(
   const deployerContract = new Contract(deployerAddress, deployerABI, admin);
 
   const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubSalt = keccak256(toUtf8Bytes(VERSION + RELAY_HUB));
+  const relayHubSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + RELAY_HUB_SALT_STRING)
+  );
   const relayHubAddress = await deployContract(
     deployerContract,
     relayHubFactory,
@@ -71,7 +67,7 @@ async function deployContract(
 
   const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
   const proxyDeployerSalt = keccak256(
-    toUtf8Bytes(VERSION + PROXY_ACCOUNT_DEPLOYER)
+    toUtf8Bytes(VERSION + "|" + PROXY_ACCOUNT_DEPLOYER_SALT_STRING)
   );
   const proxyAddress = await deployContract(
     deployerContract,
@@ -84,7 +80,9 @@ async function deployContract(
   console.log("BaseAccount address: " + baseAccount);
 
   const multiSendFactory = new MultiSendFactory(admin);
-  const multiSendSalt = keccak256(toUtf8Bytes(VERSION + MULTI_SEND));
+  const multiSendSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
+  );
   const multiSendAddress = await deployContract(
     deployerContract,
     multiSendFactory,

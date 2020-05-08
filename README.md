@@ -80,7 +80,7 @@ For the msg.sender solution, we cover [Proxy Account Contracts vs the RelayHub](
 To instantiate the proxy account forwarder: 
 ```
 const signer = Wallet.Mnemonic("");
-const forwarder = await new ProxyAccountForwarderFactory().createNew(
+const forwarder = new ProxyAccountForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.MULTINONCE,
     signer
@@ -94,7 +94,7 @@ Important: It will sign meta-transactions even if the proxy account contract doe
 To instantiate the RelayHub forwarder: 
 ```
 const signer = Wallet.Mnemonic("");
-const relayHubForwarder = await new RelayHubForwarderFactory().createNew(
+const relayHubForwarder = new RelayHubForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.NONCE,
     signer
@@ -128,7 +128,7 @@ Let's set up our forwarder and signer:
 ```
 const user = Wallet.Mnemonic("");
 const relayer = Wallet.Mnemonic(""); 
-const forwarder = await new ProxyAccountForwarderFactory().createNew(
+const forwarder = new ProxyAccountForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.MULTINONCE,
     user
@@ -192,7 +192,7 @@ Let's set up our forwarder and signer:
 const user = Wallet.Mnemonic("");
 const relayer = Wallet.Mnemonic(""); 
 
-const forwarder = await new RelayHubForwarderFactory().createNew(
+const forwarder = new RelayHubForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.MULTINONCE,
     user
