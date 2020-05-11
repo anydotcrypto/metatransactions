@@ -46,17 +46,18 @@ For the interface, we propose:
 targetContract.callWithSigner(callData, replayProtection, signature,  signer)
 ```
 
-It has the following parameters:  
-`targetContract`: Address of the target contract. Same as CALL.
-`calldata`: Encoded function name and data. Same as CALL.
-`replayProtection`: Encoded replay protection of two nonces (queue and queueNonce)
-`signature`: Authorised command signed by the user
-`signer`: Externally owned account address
+It has the following parameters:
+
+- `targetContract`: Address of the target contract. Same as CALL.
+- `calldata`: Encoded function name and data. Same as CALL.
+- `replayProtection`: Encoded replay protection of two nonces (queue and queueNonce)
+- `signature`: Authorised command signed by the user
+- `signer`: Externally owned account address
 
 We assume the following encoding / signing:
 
-`replayProtection` -> `abi.encode(["uint","uint"],[queue,queueNonce]);`
-`signature` -> `Sign(keccak256(targetContract, callData, replayProtection, chainid))`
+- `replayProtection` -> `abi.encode(["uint","uint"],[queue,queueNonce]);`
+- `signature` -> `Sign(keccak256(targetContract, callData, replayProtection, chainid))`
 
 The additional `chainid` is to verify the signature is for the target blockchain (mainnet/ropsten/etc).
 
