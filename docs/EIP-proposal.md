@@ -73,8 +73,10 @@ The opcode needs to check the replay protection is valid:
 ```
 // Check the signer's replay protection is valid
 function verifyReplayProtection(address _signer, bytes memory _replayProtection) internal returns(bool) {
+
     uint queue; uint queueNonce;
     (queue, queueNonce) = abi.decode(_replayProtection, (uint256, uint256));
+
     // Notice the signer's address and queue computes the index
     bytes32 queue = keccak256(abi.encode(_signer, _queue));
     uint256 storedNonce = nonceStore[queue];
@@ -105,6 +107,7 @@ Altogether the final functionality:
 function callWithSigner(address _targetContract, bytes memory _callData, bytes memory _replayProtection, bytes memory _signature, address _signer) public {
 
     require(verifyReplayProtection(_replayProtection, _signer), "Replay protection is not valid");
+
     require(signer == verifySignature(_targetContract, _callData, _replayProtection, _signature), "Signer did not authorise this command");
 
     msg.sender = signer; // Override msg.sender to be signer
