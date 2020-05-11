@@ -1,6 +1,6 @@
 import { defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers/wallet";
-import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { RelayHub, ChainID, RelayHubFactory } from "../..";
 import {
   ForwardParams,
@@ -25,11 +25,11 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    */
   constructor(
     chainID: ChainID,
-    relayHubAddress: string,
     signer: Wallet,
+    relayHubAddress: string,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
-    super(chainID, signer, replayProtectionAuthority);
+    super(chainID, signer, relayHubAddress, replayProtectionAuthority);
     this.relayHub = new RelayHubFactory(signer).attach(relayHubAddress);
   }
 

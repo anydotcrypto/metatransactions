@@ -27,11 +27,14 @@ import {
   ChainID,
   ReplayProtectionType,
   ProxyAccountForwarder,
+  MultiNonceReplayProtection,
+  BitFlipReplayProtection,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { ForwardParams } from "../../src/ts/forwarders/forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
+import { ethers } from "ethers";
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -83,15 +86,6 @@ async function createProxyAccountDeployer(
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
   const proxyDeployer = proxyDeployerFactory.attach(result.contractAddress!);
-
-  const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
-
-  const spiedForwarderFactory = spy(proxyAccountForwarderFactory);
-  when(
-    // @ts-ignore
-    spiedForwarderFactory.getProxyAccountDeployerAddress(ChainID.MAINNET)
-  ).thenReturn(proxyDeployer.address);
-
   return {
     provider,
     proxyDeployer,
@@ -101,11 +95,10 @@ async function createProxyAccountDeployer(
     msgSenderCon,
     nonceStoreMock,
     bitFlipNonceStore,
-    proxyAccountForwarderFactory,
   };
 }
 
-describe("ProxyAccountFactoryProxy", () => {
+describe("ProxyAccountDeployer", () => {
   fnIt<proxyDeployerFunctions>(
     (a) => a.createProxyAccount,
     "create proxy account with deterministic address (and compute offchain deterministic address)",
@@ -164,13 +157,9 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.forward,
     "for proxyAccount emits expected address",
     async () => {
-      const {
-        proxyDeployer,
-        owner,
-        sender,
-        msgSenderCon,
-        proxyAccountForwarderFactory,
-      } = await loadFixture(createProxyAccountDeployer);
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
@@ -193,10 +182,10 @@ describe("ProxyAccountFactoryProxy", () => {
 
       const proxyAccountFactory = new ProxyAccountFactory(owner);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
-      const forwarder = await proxyAccountForwarderFactory.createNew(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
       );
 
       const params = await forwarder.signMetaTransaction({
@@ -226,19 +215,15 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.forward,
     "looks up proxy account address and forwards the call.",
     async () => {
-      const {
-        proxyDeployer,
-        owner,
-        sender,
-        msgSenderCon,
-        proxyAccountForwarderFactory,
-      } = await loadFixture(createProxyAccountDeployer);
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
 
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const forwarder = await proxyAccountForwarderFactory.createNew(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
       );
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
@@ -260,22 +245,47 @@ describe("ProxyAccountFactoryProxy", () => {
     }
   );
 
+  const createForwarder = async (
+    proxyDeployer: ProxyAccountDeployer,
+    user: ethers.Wallet,
+    replayProtectionType: ReplayProtectionType
+  ) => {
+    const baseAccount = await proxyDeployer.baseAccount();
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      proxyDeployer.address,
+      user.address,
+      baseAccount
+    );
+    const replayProtection =
+      replayProtectionType === ReplayProtectionType.MULTINONCE
+        ? new MultiNonceReplayProtection(30, user, proxyAccountAddress)
+        : replayProtectionType === ReplayProtectionType.BITFLIP
+        ? new BitFlipReplayProtection(user, proxyAccountAddress)
+        : new MultiNonceReplayProtection(1, user, proxyAccountAddress);
+
+    const proxyForwarder = new ProxyAccountForwarder(
+      ChainID.MAINNET,
+      proxyDeployer.address,
+      user,
+      proxyAccountAddress,
+      replayProtection
+    );
+
+    return proxyForwarder;
+  };
+
   fnIt<accountFunctions>(
     (a) => a.forward,
     "returns encoded forward calldata that we send in a transaction",
     async () => {
-      const {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = await createForwarder(
         proxyDeployer,
         owner,
-        sender,
-        msgSenderCon,
-        proxyAccountForwarderFactory,
-      } = await loadFixture(createProxyAccountDeployer);
-      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const forwarder = await proxyAccountForwarderFactory.createNew(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+        ReplayProtectionType.MULTINONCE
       );
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
@@ -318,12 +328,9 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.deployContract,
     "deploys a contract via the proxy account",
     async () => {
-      const {
-        proxyDeployer,
-        owner,
-        sender,
-        proxyAccountForwarderFactory,
-      } = await loadFixture(createProxyAccountDeployer);
+      const { proxyDeployer, owner, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
@@ -347,10 +354,10 @@ describe("ProxyAccountFactoryProxy", () => {
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
 
-      const forwarder = await proxyAccountForwarderFactory.createNew(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
       );
 
       const initCode = msgSenderFactory.getDeployTransaction(
@@ -402,21 +409,18 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.deployContract,
     "deploys an encoded metadeployment via a proxy account",
     async () => {
-      const {
-        proxyDeployer,
-        owner,
-        sender,
-        proxyAccountForwarderFactory,
-      } = await loadFixture(createProxyAccountDeployer);
+      const { proxyDeployer, owner, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
 
-      const forwarder = await proxyAccountForwarderFactory.createNew(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
       );
 
       const initCode = msgSenderFactory.getDeployTransaction(
@@ -467,12 +471,9 @@ describe("ProxyAccountFactoryProxy", () => {
     (a) => a.deployContract,
     "deploy missing real init code and fails",
     async () => {
-      const {
-        proxyDeployer,
-        owner,
-        sender,
-        proxyAccountForwarderFactory,
-      } = await loadFixture(createProxyAccountDeployer);
+      const { proxyDeployer, owner, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
 
       const msgSenderFactory = new MsgSenderExampleFactory(owner);
 
@@ -496,11 +497,10 @@ describe("ProxyAccountFactoryProxy", () => {
 
       const proxyAccountFactory = new ProxyAccountFactory(sender);
       const proxyAccount = proxyAccountFactory.attach(proxyAddress);
-
-      const forwarder = await proxyAccountForwarderFactory.createNew(
-        ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
       );
 
       // Doesn't like bytecode. Meh.

@@ -1,7 +1,14 @@
-import { ethers } from "ethers";
+import { ethers, Contract, ContractFactory } from "ethers";
 import { RelayHubFactory, ProxyAccountDeployerFactory } from "..";
-import { parseEther } from "ethers/utils";
+import { keccak256, toUtf8Bytes, getCreate2Address } from "ethers/utils";
 import { MultiSendFactory } from "../typedContracts/MultiSendFactory";
+import { deployerAddress, deployerABI } from "./deployer";
+import {
+  RELAY_HUB_SALT_STRING,
+  VERSION,
+  PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
+  MULTI_SEND_SALT_STRING,
+} from "./addresses";
 
 export const ADMIN_MNEMONIC = "";
 /**
@@ -20,40 +27,68 @@ async function setup() {
     provider: infuraProvider,
   };
 }
+
+async function deployContract(
+  deployerContract: Contract,
+  contractFactory: ContractFactory,
+  salt: string
+) {
+  const deployTx = contractFactory.getDeployTransaction();
+  const gas =
+    (await contractFactory.signer.provider!.estimateGas(deployTx)).toNumber() *
+    1.2;
+  const deployResponse = await deployerContract.deploy(deployTx.data, salt, {
+    gasLimit: gas,
+  });
+  await deployResponse.wait();
+  return getCreate2Address({
+    from: deployerAddress,
+    salt,
+    initCode: deployTx.data,
+  });
+}
+
 (async () => {
   // Set up wallets & provider
   const { admin } = await setup();
   console.log("Admin wallet address: " + admin.address);
+  const deployerContract = new Contract(deployerAddress, deployerABI, admin);
 
   const relayHubFactory = new RelayHubFactory(admin);
-  const tx = relayHubFactory.getDeployTransaction();
-  tx.gasPrice = parseEther("0.000000012");
+  const relayHubSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + RELAY_HUB_SALT_STRING)
+  );
+  const relayHubAddress = await deployContract(
+    deployerContract,
+    relayHubFactory,
+    relayHubSalt
+  );
+  console.log("RelayHub address: " + relayHubAddress);
 
-  const request = await admin.sendTransaction(tx);
-
-  const receipt = await request.wait(1);
-
-  console.log("Relay hub: " + receipt.contractAddress);
-
-  const proxyHubFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyTx = proxyHubFactory.getDeployTransaction();
-
-  proxyTx.gasPrice = parseEther("0.000000012");
-  const proxyRequest = await admin.sendTransaction(proxyTx);
-  const proxyReceipt = await proxyRequest.wait(1);
-
-  console.log("Proxy hub: " + proxyReceipt.contractAddress);
+  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
+  const proxyDeployerSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + PROXY_ACCOUNT_DEPLOYER_SALT_STRING)
+  );
+  const proxyAddress = await deployContract(
+    deployerContract,
+    proxyDeployerFactory,
+    proxyDeployerSalt
+  );
+  console.log("ProxyAccountDeployer address: " + proxyAddress);
+  const proxyDeployer = proxyDeployerFactory.attach(proxyAddress);
+  const baseAccount = await proxyDeployer.baseAccount();
+  console.log("BaseAccount address: " + baseAccount);
 
   const multiSendFactory = new MultiSendFactory(admin);
-  const multiSend = multiSendFactory.getDeployTransaction();
-
-  proxyTx.gasPrice = parseEther("0.000000012");
-  const multiSendRequest = await admin.sendTransaction(multiSend);
-  const multiSendReceipt = await multiSendRequest.wait(1);
-
-  console.log("MultiSend: " + multiSendReceipt.contractAddress);
-
-  console.log("Setup complete. Enjoy the competition.");
+  const multiSendSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
+  );
+  const multiSendAddress = await deployContract(
+    deployerContract,
+    multiSendFactory,
+    multiSendSalt
+  );
+  console.log("MultiSend address: " + multiSendAddress);
 })().catch((e) => {
   console.log(e);
   // Deal with the fact the chain failed

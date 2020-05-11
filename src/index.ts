@@ -18,8 +18,8 @@ export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactor
 export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
 export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
 
-export { MultiNonceReplayProtection } from "./ts/replayprotection/multiNonce";
-export { BitFlipReplayProtection } from "./ts/replayprotection/bitFlip";
+export { MultiNonceReplayProtection } from "./ts/replayProtection/multiNonce";
+export { BitFlipReplayProtection } from "./ts/replayProtection/bitFlip";
 export {
   ForwarderFactory,
   ChainID,

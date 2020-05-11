@@ -1,5 +1,5 @@
 import { ChainID } from "../..";
-import { ReplayProtectionAuthority } from "../replayprotection/replayProtectionAuthority";
+import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { Wallet } from "ethers";
 import {
   defaultAbiCoder,
@@ -57,7 +57,11 @@ export abstract class Forwarder<T> {
   constructor(
     protected readonly chainID: ChainID,
     public readonly signer: Wallet,
-    protected readonly replayProtectionAuthority: ReplayProtectionAuthority
+    /**
+     * The address of this forwarder contract
+     */
+    public readonly address: string,
+    protected readonly replayProtectionAuthority: ReplayProtectionAuthority,
   ) {}
 
   /**
@@ -102,15 +106,13 @@ export abstract class Forwarder<T> {
    * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
    */
   public async signMetaTransaction(data: T) {
-    const forwarderAddr = await this.getAddress();
-
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = this.getEncodedCallData(data);
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
       this.replayProtectionAuthority.getAddress(),
-      forwarderAddr
+      this.address
     );
 
     const signature = await this.signer.signMessage(
@@ -118,7 +120,7 @@ export abstract class Forwarder<T> {
     );
 
     const params = this.getForwardParams(
-      forwarderAddr,
+        this.address,
       data,
       encodedReplayProtection,
       signature
@@ -161,14 +163,12 @@ export abstract class Forwarder<T> {
    * @param initCode Bytecode for the smart contract
    */
   public async signMetaDeployment(initCode: string) {
-    const forwarderAddr = await this.getAddress();
-
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       initCode,
       encodedReplayProtection,
       this.replayProtectionAuthority.getAddress(),
-      forwarderAddr
+      this.address
     );
 
     const signature = await this.signer.signMessage(
@@ -176,7 +176,7 @@ export abstract class Forwarder<T> {
     );
 
     const params: DeploymentParams = {
-      to: forwarderAddr,
+      to: this.address,
       signer: this.signer.address,
       initCode,
       replayProtection: encodedReplayProtection,
@@ -213,9 +213,4 @@ export abstract class Forwarder<T> {
 
     return getCreate2Address(options);
   }
-
-  /**
-   * The address that will appear in the msg.sender of target contract
-   */
-  public abstract async getAddress(): Promise<string>;
 }

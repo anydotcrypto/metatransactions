@@ -5,7 +5,7 @@ import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { BitFlipReplayProtection } from "../../src/ts/replayprotection/bitFlip";
+import { BitFlipReplayProtection } from "../../src/ts/replayProtection/bitFlip";
 import BN from "bn.js";
 
 const expect = chai.expect;

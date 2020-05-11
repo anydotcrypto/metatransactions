@@ -8,7 +8,7 @@ import { when, anything, spy } from "ts-mockito";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { MultiNonceReplayProtection } from "../../src/ts/replayprotection/multiNonce";
+import { MultiNonceReplayProtection } from "../../src/ts/replayProtection/multiNonce";
 
 const expect = chai.expect;
 chai.use(solidity);
