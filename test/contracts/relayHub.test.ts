@@ -3,7 +3,6 @@ import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
 import Doppelganger from "ethereum-doppelganger";
-import { when, spy } from "ts-mockito";
 
 import { fnIt } from "@pisa-research/test-utils";
 import {
@@ -13,8 +12,6 @@ import {
   RelayHub,
   IReplayProtectionJson,
   RelayHubForwarderFactory,
-  ProxyAccountDeployer,
-  ProxyAccountForwarder,
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   RelayHubForwarder,
@@ -25,7 +22,6 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
-import { ethers } from "ethers";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -73,12 +69,9 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "for msgSender emits expected signer address",
     async () => {
-      const {
-        relayHub,
-        owner,
-        sender,
-        msgSenderCon,
-      } = await loadFixture(createRelayHub);
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
       const forwarder = new RelayHubForwarder(
         ChainID.MAINNET,
@@ -112,12 +105,9 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "sending two transactions should work with no replay protection conflicts",
     async () => {
-      const {
-        relayHub,
-        owner,
-        sender,
-        msgSenderCon,
-      } = await loadFixture(createRelayHub);
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
       const forwarder = new RelayHubForwarder(
         ChainID.MAINNET,
@@ -125,7 +115,6 @@ describe("RelayHub Contract", () => {
         relayHub.address,
         new MultiNonceReplayProtection(30, owner, relayHub.address)
       );
-
 
       // Send off first transaction!
       let params = await forwarder.signMetaTransaction({
@@ -291,12 +280,9 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "target contract function reverts and we can detect it in the relay hub.",
     async () => {
-      const {
-        relayHub,
-        owner,
-        sender,
-        msgSenderCon,
-      } = await loadFixture(createRelayHub);
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
       const msgSenderCall = msgSenderCon.interface.functions.willRevert.encode(
         []
       );

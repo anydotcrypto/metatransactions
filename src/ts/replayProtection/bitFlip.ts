@@ -47,32 +47,29 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
       this.bitmap = await this.accessNonceStore(this.index);
     }
 
-    // Let's try to find an empty bit for 1000 indexes
+    // Let's try to find an empty bit for 30 indexes
     // If it fails after that... something bad happened
     // with the random number generator.
-    for (let i = 0; i < 1000; i) {
-      try {
-        // Try to find an empty bit
-        bitToFlip = this.findEmptyBit(this.bitmap);
+    for (let i = 0; i < 30; i) {
+      // Try to find an empty bit
+      bitToFlip = this.findEmptyBit(this.bitmap);
 
-        // Did we find one?
-        if (bitToFlip.eq(new BigNumber("-1"))) {
-          // No, let's try the next bitmap
-          this.index = this.index.add(1);
-          this.bitmap = await this.accessNonceStore(this.index);
-        } else {
-          // We found an empty bit
-          foundEmptyBit = true;
+      // Did we find one?
+      if (bitToFlip.eq(new BigNumber("-1"))) {
+        // No, let's try the next bitmap
+        this.index = this.index.add(1);
+        this.bitmap = await this.accessNonceStore(this.index);
+      } else {
+        // We found an empty bit
+        foundEmptyBit = true;
 
-          const flipped = this.flipBit(this.bitmap, bitToFlip);
-          this.bitmap = flipped;
-          const newIndex = this.index;
-          return { newIndex, bitToFlip };
-        }
-      } catch (e) {
-        // Likely an error from infura, lets hold back and try again.
-        await wait(500);
+        const flipped = this.flipBit(this.bitmap, bitToFlip);
+        this.bitmap = flipped;
+        const newIndex = this.index;
+        return { newIndex, bitToFlip };
       }
+      // Hold back to prevent spamming infura
+      await wait(100);
     }
 
     throw new Error("Failed to find an index with an empty bitmap");

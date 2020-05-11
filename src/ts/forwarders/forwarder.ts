@@ -61,7 +61,7 @@ export abstract class Forwarder<T> {
      * The address of this forwarder contract
      */
     public readonly address: string,
-    protected readonly replayProtectionAuthority: ReplayProtectionAuthority,
+    protected readonly replayProtectionAuthority: ReplayProtectionAuthority
   ) {}
 
   /**
@@ -120,7 +120,7 @@ export abstract class Forwarder<T> {
     );
 
     const params = this.getForwardParams(
-        this.address,
+      this.address,
       data,
       encodedReplayProtection,
       signature
@@ -212,5 +212,16 @@ export abstract class Forwarder<T> {
     };
 
     return getCreate2Address(options);
+  }
+
+  /**
+   * Checks if the ProxyContract is already deployed.
+   * @returns TRUE if deployed, FALSE if not deployed.
+   */
+  public async isContractDeployed(): Promise<boolean> {
+    const code = await this.signer.provider.getCode(this.address);
+    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
+    const codeIsEmpty = !code || code === "0x" || code === "0x0";
+    return !codeIsEmpty;
   }
 }

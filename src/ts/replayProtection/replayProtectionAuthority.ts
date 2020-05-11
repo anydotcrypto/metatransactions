@@ -1,6 +1,7 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers";
 import { ReplayProtectionFactory } from "../../typedContracts/ReplayProtectionFactory";
+import { Forwarder } from "../forwarders/forwarder";
 
 export interface Nonces {
   index: BigNumber;
@@ -38,24 +39,28 @@ export abstract class ReplayProtectionAuthority {
    * @param contract Hub Contract
    */
   protected async accessNonceStore(index: BigNumber): Promise<BigNumber> {
-    try {
-      const replayProtection = new ReplayProtectionFactory(this.signer).attach(
-        this.forwarderAddress
-      );
-      // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
-      // Onchain ID = H(signerAddress, index).
-      // Mostly benefits bitflip & multinonce.
-      const onchainId = keccak256(
-        defaultAbiCoder.encode(
-          ["address", "uint"],
-          [this.signer.address, index]
-        )
-      );
+    // Does the forwarder exist?
+    const code = await this.signer.provider.getCode(this.forwarderAddress);
+    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
+    const codeIsEmpty = !code || code === "0x" || code === "0x0";
 
-      return await replayProtection.nonceStore(onchainId);
-    } catch (e) {
-      // Contract is not deployed. Very likely a new user, so return the default index 0.
+    if (codeIsEmpty) {
+      // Forwarder does not exist (e.g. proxy contract).
+      // So we need to use the default nonce of 0
       return new BigNumber("0");
     }
+
+    const replayProtection = new ReplayProtectionFactory(this.signer).attach(
+      this.forwarderAddress
+    );
+
+    // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
+    // Onchain ID = H(signerAddress, index).
+    // Mostly benefits bitflip & multinonce.
+    const onchainId = keccak256(
+      defaultAbiCoder.encode(["address", "uint"], [this.signer.address, index])
+    );
+
+    return await replayProtection.nonceStore(onchainId);
   }
 }

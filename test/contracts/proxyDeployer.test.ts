@@ -2,7 +2,6 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { loadFixture } from "ethereum-waffle";
-import { when, spy } from "ts-mockito";
 
 import {
   keccak256,
@@ -23,7 +22,6 @@ import {
   ProxyAccountFactory,
   ProxyAccount,
   ProxyAccountDeployerFactory,
-  ProxyAccountForwarderFactory,
   ChainID,
   ReplayProtectionType,
   ProxyAccountForwarder,

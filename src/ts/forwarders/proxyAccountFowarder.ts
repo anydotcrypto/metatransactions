@@ -30,7 +30,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     proxyDeployerAddress: string,
     signer: Wallet,
     address: string,
-    replayProtectionAuthority: ReplayProtectionAuthority,
+    replayProtectionAuthority: ReplayProtectionAuthority
   ) {
     super(chainID, signer, address, replayProtectionAuthority);
     this.proxyDeployer = new ProxyAccountDeployerFactory(signer).attach(
@@ -50,13 +50,6 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     );
   }
 
-  /**
-   * Checks if the ProxyContract is already deployed.
-   * @returns TRUE if deployed, FALSE if not deployed.
-   */
-  public async isContractDeployed(): Promise<boolean> {
-    return (await this.signer.provider.getCode(this.address)) !== "0x";
-  }
   /**
    * Returns the encoded calldata for creating a proxy contract
    * No need for ForwardParams as no signature is required in ProxyAccountDeployer

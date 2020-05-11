@@ -39,7 +39,6 @@
     "np": "^6.2.1"
   },
   "dependencies": {
-    "@chainlink/contracts": "0.0.3",
     "@openzeppelin/contracts": "3.0.0-beta.0",
     "@pisa-research/utils": "^0.1.39",
     "@pisa-research/test-utils": "^0.1.36",

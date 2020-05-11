@@ -67,20 +67,16 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
 
 describe("RelayHub Forwarder", () => {
   it("Sign a meta-transaction with multinonce and check the forward params are correct", async () => {
-    const {
-      relayHub,
-      admin,
-      msgSenderExample,
-    } = await loadFixture(createHubs);
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwarder = new RelayHubForwarder(
-        ChainID.MAINNET,
-        admin,
-        relayHub.address,
-        new MultiNonceReplayProtection(30, admin, relayHub.address),
-      );
+      ChainID.MAINNET,
+      admin,
+      relayHub.address,
+      new MultiNonceReplayProtection(30, admin, relayHub.address)
+    );
 
     const forwardParams = await forwarder.signMetaTransaction({
       to: msgSenderExample.address,
@@ -115,20 +111,16 @@ describe("RelayHub Forwarder", () => {
   }).timeout(50000);
 
   it("Sign a meta-transaction with bitflip and check the forward params are correct", async () => {
-    const {
-      relayHub,
-      admin,
-      msgSenderExample,
-    } = await loadFixture(createHubs);
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwarder = new RelayHubForwarder(
-        ChainID.MAINNET,
-        admin,
-        relayHub.address,
-        new BitFlipReplayProtection(admin, relayHub.address),
-      );
+      ChainID.MAINNET,
+      admin,
+      relayHub.address,
+      new BitFlipReplayProtection(admin, relayHub.address)
+    );
 
     const forwardParams = await forwarder.signMetaTransaction({
       to: msgSenderExample.address,
@@ -241,7 +233,6 @@ describe("RelayHub Forwarder", () => {
     }
   }).timeout(500000);
 
-  // TODO: Should we throw an error here? Or let it gracefully set to 0.
   it("ForwarderFactory ignores value for the RelayHub if the types are mixed up (ProxyAccountCallData instead of RelayHubCallData) the types are mixed up accidently.", async () => {
     const { admin, msgSenderExample, forwarderFactory } = await loadFixture(
       createHubs
@@ -271,11 +262,11 @@ describe("RelayHub Forwarder", () => {
     const { relayHub, admin } = await loadFixture(createHubs);
 
     const forwarder = new RelayHubForwarder(
-        ChainID.MAINNET,
-        admin,
-        relayHub.address,
-        new MultiNonceReplayProtection(30, admin, relayHub.address)
-      );
+      ChainID.MAINNET,
+      admin,
+      relayHub.address,
+      new MultiNonceReplayProtection(30, admin, relayHub.address)
+    );
 
     const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
       relayHub.address
@@ -314,16 +305,14 @@ describe("RelayHub Forwarder", () => {
   }).timeout(50000);
 
   it("Encode the meta-deployment before publishing to the network", async () => {
-    const { relayHub, admin, user2 } = await loadFixture(
-      createHubs
-    );
+    const { relayHub, admin, user2 } = await loadFixture(createHubs);
 
     const forwarder = new RelayHubForwarder(
-        ChainID.MAINNET,
-        admin,
-        relayHub.address,
-        new MultiNonceReplayProtection(30, admin, relayHub.address)
-      );
+      ChainID.MAINNET,
+      admin,
+      relayHub.address,
+      new MultiNonceReplayProtection(30, admin, relayHub.address)
+    );
 
     const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
       relayHub.address

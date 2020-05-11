@@ -5,7 +5,6 @@ import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
   RelayHubFactory,
-  ForwarderFactory,
   MsgSenderExampleFactory,
   ProxyAccountDeployerFactory,
   ProxyAccountForwarderFactory,
@@ -72,11 +71,7 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the RelayForwarder with Nonce ", async () => {
-    const {
-      relayHub,
-      admin,
-      msgSenderExample,
-    } = await loadFixture(createHubs);
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
     const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       admin,
@@ -118,17 +113,13 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the RelayForwarder with MultiNonce ", async () => {
-    const {
-      relayHub,
-      admin,
-      msgSenderExample,
-    } = await loadFixture(createHubs);
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
     const relayForwarder = new RelayHubForwarder(
-        ChainID.MAINNET,
-        admin,
-        relayHub.address,
-        new MultiNonceReplayProtection(30, admin, relayHub.address)
-      );
+      ChainID.MAINNET,
+      admin,
+      relayHub.address,
+      new MultiNonceReplayProtection(30, admin, relayHub.address)
+    );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
@@ -170,11 +161,11 @@ describe("Forwarder Factory", () => {
       relayHubForwardsFactory,
     } = await loadFixture(createHubs);
     const relayForwarder = new RelayHubForwarder(
-        ChainID.MAINNET,
-        admin,
-        relayHub.address,
-        new BitFlipReplayProtection(admin, relayHub.address)
-      );
+      ChainID.MAINNET,
+      admin,
+      relayHub.address,
+      new BitFlipReplayProtection(admin, relayHub.address)
+    );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     const forwardParams = await relayForwarder.signMetaTransaction({
