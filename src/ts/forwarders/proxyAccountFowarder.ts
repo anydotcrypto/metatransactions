@@ -7,7 +7,7 @@ import {
   Forwarder,
   ProxyAccountCallData,
   DeploymentParams,
-  EncodedTx,
+  MinimalTx,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -56,13 +56,13 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * @returns The proxy deployer address and the calldata for creating proxy account
    * @throws If the proxy account already exists
    */
-  public async createProxyContract(): Promise<EncodedTx> {
+  public async createProxyContract(): Promise<MinimalTx> {
     const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
       [this.signer.address]
     );
 
     // 115k gas inc the transaction cost.
-    return { to: this.proxyDeployer.address, data: callData, gas: 115000 };
+    return { to: this.proxyDeployer.address, data: callData };
   }
 
   /**

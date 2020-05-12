@@ -11,10 +11,9 @@ import {
 } from "ethers/utils";
 import { Create2Options } from "ethers/utils/address";
 
-export interface EncodedTx {
+export interface MinimalTx {
   to: string;
   data: string;
-  gas: number;
 }
 
 export interface ForwardParams {
