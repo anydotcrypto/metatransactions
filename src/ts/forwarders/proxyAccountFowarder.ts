@@ -131,16 +131,6 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     };
   }
 
-  //   /**
-  //    * Fetches the proxy contract account address.
-  //    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
-  //    * @param signersAddress Signer's address
-  //    * @param cloneAddress Contract to clone address
-  //    */
-  //   public async getAddress(): string {
-
-  //   }
-
   /**
    * Builds the proxy contract address.
    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)

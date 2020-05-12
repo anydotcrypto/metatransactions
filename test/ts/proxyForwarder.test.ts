@@ -26,8 +26,6 @@ import {
 } from "../../src/ts/forwarders/forwarderFactory";
 import { AddressZero } from "ethers/constants";
 import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
-import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
-import { MultiSender } from "../../src/ts/multiSend/batchTx";
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
 
@@ -55,13 +53,10 @@ async function createHubs(
     AddressZero
   );
 
-  const multiSend = await new MultiSendFactory(admin).deploy();
-
   const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
 
   return {
     proxyDeployer,
-    multiSend,
     admin,
     user1,
     user2,
@@ -376,13 +371,13 @@ describe("Proxy Forwarder", () => {
   };
 
   it("Deploys proxy contract and then checks proxyAccountForwarder.isProxyContractDeployed().", async () => {
-    const {
-      proxyDeployer,
-      admin,
-      user1,
-    } = await loadFixture(createHubs);
+    const { proxyDeployer, admin, user1 } = await loadFixture(createHubs);
 
-    const forwarder = await createForwarder(proxyDeployer, user1, ReplayProtectionType.MULTINONCE);
+    const forwarder = await createForwarder(
+      proxyDeployer,
+      user1,
+      ReplayProtectionType.MULTINONCE
+    );
 
     const encoded = await forwarder.createProxyContract();
     await admin.sendTransaction({ to: encoded.to, data: encoded.data });
@@ -410,11 +405,12 @@ describe("Proxy Forwarder", () => {
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
-    const {
+    const { proxyDeployer, admin } = await loadFixture(createHubs);
+    const forwarder = await createForwarder(
       proxyDeployer,
       admin,
-    } = await loadFixture(createHubs);
-    const forwarder = await createForwarder(proxyDeployer, admin, ReplayProtectionType.MULTINONCE);
+      ReplayProtectionType.MULTINONCE
+    );
 
     const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
       proxyDeployer.address
@@ -487,75 +483,5 @@ describe("Proxy Forwarder", () => {
         msgSenderExample.interface.events.WhoIsSender.name
       )
       .withArgs(admin.address);
-  }).timeout(50000);
-
-  it("Deploy a new meta-contract and a meta-tx with MultiSend", async () => {
-    const {
-      proxyDeployer,
-      multiSend,
-      admin,
-      msgSenderExample,
-    } = await loadFixture(createHubs);
-
-    const forwarder = await createForwarder(proxyDeployer, admin, ReplayProtectionType.MULTINONCE);
-
-    const multiSender = new MultiSender(multiSend);
-
-    // Sign meta-deployment
-    let encodedProxyDeployTx = await forwarder.createProxyContract();
-
-    // Sign the meta-tx
-    const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
-      []
-    );
-    const forwardParams = await forwarder.signMetaTransaction({
-      to: msgSenderExample.address,
-      value: new BigNumber("0"),
-      data: msgSenderExampleData,
-    });
-
-    const encodeForwardData = await forwarder.encodeSignedMetaTransaction(
-      forwardParams
-    );
-
-    const batch = [
-      {
-        to: encodedProxyDeployTx.to,
-        data: encodedProxyDeployTx.data,
-        revertIfFail: false,
-      },
-      { to: forwardParams.to, data: encodeForwardData, revertIfFail: false },
-    ];
-    const multiSendEncodedTx = await multiSender.batch(batch);
-
-    const tx = await admin.sendTransaction({
-      to: multiSendEncodedTx.to,
-      data: multiSendEncodedTx.data,
-      gasLimit: 5000000,
-    });
-
-    await tx.wait(1);
-
-    const baseAccount = await proxyDeployer.baseAccount();
-    const builtProxy = forwarder.address;
-    const saltHex = solidityKeccak256(["address"], [admin.address]);
-    const byteCodeHash = solidityKeccak256(
-      ["bytes", "bytes20", "bytes"],
-      [
-        "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
-        baseAccount,
-        "0x5af43d82803e903d91602b57fd5bf3",
-      ]
-    );
-    const options = {
-      from: proxyDeployer.address,
-      salt: saltHex,
-      initCodeHash: byteCodeHash,
-    };
-    const proxyAddress = getCreate2Address(options);
-    expect(builtProxy).to.eq(proxyAddress);
-
-    const messageSent = await msgSenderExample.sentTest(builtProxy);
-    expect(messageSent).to.be.true;
   }).timeout(50000);
 });

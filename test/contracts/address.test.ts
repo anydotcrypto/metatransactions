@@ -62,12 +62,4 @@ describe("Contract addresses", () => {
       RELAY_HUB_ADDRESS
     );
   });
-
-  it("MultiSender", () => {
-    checkAddress(
-      VERSION + "|" + MULTI_SEND_SALT_STRING,
-      new MultiSendFactory(),
-      MULTI_SEND_ADDRESS
-    );
-  });
 });
