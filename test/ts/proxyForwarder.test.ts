@@ -26,8 +26,6 @@ import {
 } from "../../src/ts/forwarders/forwarderFactory";
 import { AddressZero } from "ethers/constants";
 import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
-import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
-import { MultiSender } from "../../src/ts/multiSend/batchTx";
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
 
@@ -55,13 +53,10 @@ async function createHubs(
     AddressZero
   );
 
-  const multiSend = await new MultiSendFactory(admin).deploy();
-
   const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
 
   return {
     proxyDeployer,
-    multiSend,
     admin,
     user1,
     user2,
