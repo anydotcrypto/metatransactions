@@ -8,7 +8,7 @@ import { when, anything, spy } from "ts-mockito";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { MultiNonce } from "../../src/ts/multinonce";
+import { MultiNonceReplayProtection } from "../../src/ts/replayProtection/multiNonce";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -31,11 +31,13 @@ describe("Multinonce Module", () => {
   it("Replace-by-nonce (single queue) increments as expected", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const multinonce = new MultiNonce(relayHub.address, 1);
-
-    const encodedReplayProtection = await multinonce.getEncodedReplayProtection(
-      admin
+    const multinonce = new MultiNonceReplayProtection(
+      1,
+      admin,
+      relayHub.address
     );
+
+    const encodedReplayProtection = await multinonce.getEncodedReplayProtection();
 
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
@@ -49,12 +51,14 @@ describe("Multinonce Module", () => {
   it("Single queue nonce increments sequentially as expected", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
-    const multinonce = new MultiNonce(relayHub.address, 1);
+    const multinonce = new MultiNonceReplayProtection(
+      1,
+      admin,
+      relayHub.address
+    );
 
     for (let i = 0; i < 25; i++) {
-      const encodedReplayProtection = await multinonce.getEncodedReplayProtection(
-        admin
-      );
+      const encodedReplayProtection = await multinonce.getEncodedReplayProtection();
       const decodedReplayProtection = defaultAbiCoder.decode(
         ["uint", "uint"],
         encodedReplayProtection
@@ -69,16 +73,18 @@ describe("Multinonce Module", () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
     const NO_OF_QUEUES = 5;
-    const multinonce = new MultiNonce(relayHub.address, NO_OF_QUEUES);
+    const multinonce = new MultiNonceReplayProtection(
+      NO_OF_QUEUES,
+      admin,
+      relayHub.address
+    );
 
     // We'll have 10 queue (concurrent transactions)
     // Under the hood, it authorises a transaction for each queue in turn.
 
     for (let i = 0; i < 25; i++) {
       for (let j = 0; j < NO_OF_QUEUES; j++) {
-        const encodedReplayProtection = await multinonce.getEncodedReplayProtection(
-          admin
-        );
+        const encodedReplayProtection = await multinonce.getEncodedReplayProtection();
         const decodedReplayProtection = defaultAbiCoder.decode(
           ["uint", "uint"],
           encodedReplayProtection
@@ -95,20 +101,22 @@ describe("Multinonce Module", () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
     const NO_OF_QUEUES = 5;
 
-    const multinonce = new MultiNonce(relayHub.address, NO_OF_QUEUES);
-    const spiedMultinonce: MultiNonce = spy(multinonce);
+    const multinonce = new MultiNonceReplayProtection(
+      NO_OF_QUEUES,
+      admin,
+      relayHub.address
+    );
+    const spiedMultinonce: MultiNonceReplayProtection = spy(multinonce);
 
     when(
       // @ts-ignore:
-      await spiedMultinonce.accessNonceStore(anything(), anything(), anything())
+      await spiedMultinonce.accessNonceStore(anything())
     ).thenReturn(new BigNumber("2"));
 
     // MultiNonce should pick up the expected index on-chain
     for (let i = 2; i < 5; i++) {
       for (let j = 0; j < NO_OF_QUEUES; j++) {
-        const encodedReplayProtection = await multinonce.getEncodedReplayProtection(
-          admin
-        );
+        const encodedReplayProtection = await multinonce.getEncodedReplayProtection();
         const decodedReplayProtection = defaultAbiCoder.decode(
           ["uint", "uint"],
           encodedReplayProtection
@@ -124,18 +132,22 @@ describe("Multinonce Module", () => {
   it("Send concurrent requests and the lock should ensure nonce incremented as expected", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
     const NO_OF_QUEUES = 100;
-    const multinonce = new MultiNonce(relayHub.address, NO_OF_QUEUES);
-    const spiedMultinonce: MultiNonce = spy(multinonce);
+    const multinonce = new MultiNonceReplayProtection(
+      NO_OF_QUEUES,
+      admin,
+      relayHub.address
+    );
+    const spiedMultinonce: MultiNonceReplayProtection = spy(multinonce);
 
     when(
       // @ts-ignore:
-      await spiedMultinonce.accessNonceStore(anything(), anything(), anything())
+      await spiedMultinonce.accessNonceStore(anything())
     ).thenReturn(new BigNumber("2"));
 
     const concurrentJobs = [];
 
     for (let i = 0; i < NO_OF_QUEUES; i++) {
-      const job = multinonce.getEncodedReplayProtection(admin);
+      const job = multinonce.getEncodedReplayProtection();
       concurrentJobs.push(job);
     }
 

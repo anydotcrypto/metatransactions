@@ -11,14 +11,12 @@ import {
 import { fnIt } from "@pisa-research/test-utils";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { BitFlipNonceStoreFactory } from "../../dist";
-import { BitFlipNonceStore } from "../../dist";
+import { BitFlipNonceStoreFactory, BitFlipNonceStore } from "../../src";
 
 const expect = chai.expect;
 chai.use(solidity);
 
-let dummyBitFlipNonceStore: BitFlipNonceStore;
-type bitFlipNonceStoreFunctions = typeof dummyBitFlipNonceStore.functions;
+type bitFlipNonceStoreFunctions = BitFlipNonceStore["functions"];
 
 async function createBitFlipNonceStore(
   provider: Provider,
@@ -55,7 +53,7 @@ export const constructTargetNonce1 = (
 
 describe("BitFlipNonceStore", () => {
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "does update nonce",
     async () => {
       const { nonceStore, sender } = await loadFixture(createBitFlipNonceStore);
@@ -75,7 +73,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "to revert when called twice",
     async () => {
       const { nonceStore, sender } = await loadFixture(createBitFlipNonceStore);
@@ -97,7 +95,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "to successfully update different nonce1",
     async () => {
       const { nonceStore, sender } = await loadFixture(createBitFlipNonceStore);
@@ -125,7 +123,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "to successfully update different nonce2",
     async () => {
       const { nonceStore, sender } = await loadFixture(createBitFlipNonceStore);
@@ -155,7 +153,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "to still revert after an update",
     async () => {
       const { nonceStore, sender } = await loadFixture(createBitFlipNonceStore);
@@ -179,7 +177,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "can use hashed nonce1",
     async () => {
       const { nonceStore, sender } = await loadFixture(createBitFlipNonceStore);
@@ -198,7 +196,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { update: any }) => a.update,
+    (a) => a.update,
     "can update nonce from different senders",
     async () => {
       const { nonceStore, sender, admin } = await loadFixture(
@@ -227,7 +225,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { updateFor: any }) => a.updateFor,
+    (a) => a.updateFor,
     "can update nonce for target",
     async () => {
       const { nonceStore, sender, target1 } = await loadFixture(
@@ -254,7 +252,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { updateFor: any }) => a.updateFor,
+    (a) => a.updateFor,
     "cannot update the nonce twice",
     async () => {
       const { nonceStore, sender, target1, target2 } = await loadFixture(
@@ -295,7 +293,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { updateFor: any }) => a.updateFor,
+    (a) => a.updateFor,
     "can update nonces for different targets",
     async () => {
       const { nonceStore, sender, target1 } = await loadFixture(
@@ -325,7 +323,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { updateFor: any }) => a.updateFor,
+    (a) => a.updateFor,
     "cannot update for different senders",
     async () => {
       const { nonceStore, sender, admin, target1 } = await loadFixture(
@@ -366,7 +364,7 @@ describe("BitFlipNonceStore", () => {
   );
 
   fnIt<bitFlipNonceStoreFunctions>(
-    (a: { updateFor: any }) => a.updateFor,
+    (a) => a.updateFor,
     "cannot update nonce for same sender and target, different nonce",
     async () => {
       const { nonceStore, sender, target1 } = await loadFixture(
