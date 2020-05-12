@@ -148,12 +148,12 @@ We can deploy the signer's proxy account contract (note: it is very easy to meta
 ```
 const isProxyDeployed = await forwarder.isContractDeployed();
 if (!isProxyDeployed) {
-    const encodedTx = await forwarder.createProxyContract();
+    const minimalTx = await forwarder.createProxyContract();
 
     // For our example we mimic the relayer API with a relayer wallet.
     const proxyTx = await relayer.sendTransaction({
-      to: encodedTx.to,
-      data: encodedTx.callData,
+      to: minimalTx.to,
+      data: minimalTx.callData,
     });
 
     // Wait 1 block confirmation
@@ -181,13 +181,13 @@ const metaTx = await forwarder.signMetaTransaction({
     callData,
 });
 
-const encodedMetaTx = await forwarder.encodeSignedMetaTransaction(
+const metaTxData = await forwarder.encodeSignedMetaTransaction(
     metaTx
 );
 
 const submitTicketTx = await relayer.sendTransaction({
     to: metaTx.to,
-    data: encodedMetaTx,
+    data: metaTxData,
 });
 
 const submitTicketReceipt = await submitTicketTx.wait(1);
@@ -248,13 +248,13 @@ const metaTx = await forwarder.signMetaTransaction({
     target: cyberDiceCon.address,
     callData,
 });
-const encodedMetaTx = await forwarder.encodeSignedMetaTransaction(
+const metaTxData = await forwarder.encodeSignedMetaTransaction(
     metaTx
 );
 
 const receipt = await relayer.sendTransaction({
     to: metaTx.to,
-    data: encodedMetaTx,
+    data: metaTxData,
 });
 
 const tx = await receipt.wait();
@@ -290,16 +290,15 @@ We must check if the proxy contract is deployed before deciding to deploy it.
 
 ```
 const isDeployed: boolean = await forwarder.isContractDeployed();
-const encodedTx: EncodedTx = await forwarder.createProxyContract();
+const minimalTx: MinimalTx = await forwarder.createProxyContract();
 ```
 
-The EncodedTx has the following interface:
+The MinimalTx has the following interface:
 
 ```
-interface EncodedTx {
+interface MinimalTx {
   to: string; // Target contract address
   data: string; // Calldata for the target contract
-  gas: number; // Estimate gas limit (work-in-progress)
 }
 ```
 
@@ -348,11 +347,11 @@ Of course, it may be simpler to encode and send the meta-transaction (e.g. so it
 
 ```
 // Encode calldata for ProxyAccount.forward()
-const encodedMetaTx: EncodedTx = await forwarder.encodeSignedMetaTransaction(
+const metaTxData = await forwarder.encodeSignedMetaTransaction(
     params
 
 // Sent directly to the ProxyAccount with the nencoded calldata
-const tx = await relayer.sendTransaction({to: params.to, data: encodedMetaTx});
+const tx = await relayer.sendTransaction({to: params.to, data: metaTxData});
 ```
 
 ### Sign and encode meta-deployments
@@ -396,12 +395,12 @@ const tx = await proxyAccount.connect(relayer).deployContract(
 Of course, it might just be easier to encode and send the calldata:
 
 ```
-  const encodedMetaDeployment = await forwarder.encodeSignedMetaDeployment(
+  const metaDeploymentData = await forwarder.encodeSignedMetaDeployment(
     params
   );
   const tx = await relayer.sendTransaction({
     to: params.to,
-    data: encodedMetaDeployment,
+    data: metaDeploymentData,
   });
 ```
 
@@ -501,11 +500,11 @@ Of course, it may be simpler to encode and send the meta-transaction:
 
 ```
 // Encode calldata for RelayHub.forward()
-const encodedMetaTx: EncodedTx = await forwarder.encodeSignedMetaTransaction(
+const metaTxData = await forwarder.encodeSignedMetaTransaction(
     params
 
 // Sent directly to the ProxyAccount with the nencoded calldata
-const tx = await relayer.sendTransaction({to: params.to, data: encodedMetaTx});
+const tx = await relayer.sendTransaction({to: params.to, data: metaTxData});
 ```
 
 ### Sign and encode meta-deployments
@@ -550,12 +549,12 @@ const tx = await relayHubContract.connect(relayer).deployContract(
 Of course, it might just be easier to encode and send the calldata:
 
 ```
-  const encodedMetaDeployment = await forwarder.encodeSignedMetaDeployment(
+  const metaDeploymentData = await forwarder.encodeSignedMetaDeployment(
     params
   );
   const tx = await relayer.sendTransaction({
     to: params.to,
-    data: encodedMetaDeployment,
+    data: metaDeploymentData,
   });
 ```
 
