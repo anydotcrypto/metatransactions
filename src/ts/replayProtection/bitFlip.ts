@@ -68,8 +68,6 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
         const newIndex = this.index;
         return { newIndex, bitToFlip };
       }
-      // Hold back to prevent spamming infura
-      await wait(100);
     }
 
     throw new Error("Failed to find an index with an empty bitmap");
