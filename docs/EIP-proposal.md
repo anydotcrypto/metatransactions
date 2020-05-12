@@ -15,7 +15,7 @@ Ethereum transaction's intertwine the identity of who paid for the transaction (
 
 ## Abstract
 
-It is common practice to authenticate the immediate caller of a contract using msg.sender. An immediate caller can be the externally owned account that signed the Ethereum Transaction or another smart contract. We propose a third option, `callWithSigner()`, that checks if an externally owned account has authorised the command (alongside relevant replay protection) before calling the target contract. If the checks pass, then the target contract is invokved and msg.sender is assigned as the externally owned account.
+It is common practice to authenticate the immediate caller of a contract using msg.sender. An immediate caller can be the externally owned account that signed the Ethereum Transaction or another smart contract. We propose a third option, `callWithSigner()`, that checks if an externally owned account has authorised the command (alongside relevant replay protection) before calling the target contract. If the checks pass, then the target contract is invoked and externally owned account is assigned as msg.sender.
 
 ## Motivation
 
@@ -23,22 +23,36 @@ The idea of a [meta-transaction](https://medium.com/@austin_48503/ethereum-meta-
 
 There are two existing solutions that try to solve the problem, but they have the following shortcomings:
 
-**Proxy contract**. This approach requires users to migrate their funds into a proxy contract. While the additional work-flow of deploying a proxy contract and transferring funds is inconvenient for adoption, the real hurdle is the additional security risks associated with storing funds in a smart contract and whether users will trust the solution due to significant events like the Parity Wallet hack. As well, a subtle problem is how to migrate way/recover from the situation when the provider of the proxy contract disappears (e.g. the wallet manages the proxy contract and discontinues its service, but no other service is using the same approach).
+**Proxy contract**. Each user has their own proxy contract. They must migrate funds into the proxy contract and all transactions are sent via the proxy contract. As such, the msg.sender is set as the proxy contract address. There are three hurdles for proxy contracts:
 
-**Upgrade target contract**. This approach requires the target contract to natively support meta-transactions and it does not work for pre-existing smart contracts. The `Permit()` function is intrusive as it requires the target contract to natively handle replay protection (e.g. verify the user's signature and then increment nonce by 1). `msgSender()` tries to alleviate the contract intrusiveness as the replay protection is handled by a global singleton RelayHub contract and the target contract is only required to replace msg.sender with msgSender() . So far no single approach has achieved wide-spread adoption and this is most evident in [Gnosis Safe](https://github.com/gnosis/safe-contracts/blob/development/contracts/GnosisSafe.sol#L193) that implements three solutions to the msg.sender problem. This includes 1) checking a signed message from the externally owned account that is not compatible with Permit(), 2) checking the message hash for uniquness and 3) checking contract signatures via EIP-1271.
+1. **Workflow issues.** There is an additional and inconvenient work-flow of deploying a proxy contract and transferring funds. This can hinder adoption as it is not a straight-forward plug & play experience.
+2. **Two addresses.** The user now has two addresses which includes the signing address and the proxy contract address. This needs to be managed as part of the user experience and some dapps may need to take it into account.
+3. **Trust issues.** Users may have trust issues with storing funds in a smart contract due to the additional security risks. Several events including the Parity Wallet Hack exacerbate the problem.
 
-The fragmentation of solutions to the msg.sender problem is evident that it is indeed a real problem faced by contract developers. They have tried to solve it at the contract-level, but it is fundamentally a platform issue. This motivates us to propose a new opcode `callWithSigner()` that can be implemented in the EVM. As a bonus point, the opcode `tx.origin` will finally have a meaningful purpose and it should be renamed `tx.gaspayer`.
+Finally there is a subtle problem on how to recover (and migrate away) from the proxy contract if the provider disappears. For example, if the wallet managing access to the proxy contract discontinues its service, but no other service is using the same standard.
+
+**Upgrade target contract**. This approach requires the target contract to natively support meta-transactions and it does not work for pre-existing smart contracts. There are two popular approaches:
+
+1. The `Permit()` function is intrusive as it requires the target contract to natively handle replay protection (e.g. verify the user's signature and then increment nonce by 1).
+
+2. `msgSender()` tries to alleviate the contract intrusiveness as a global singleton RelayHub contract is responsible for handling the replay protection. The target contract is only required to replace msg.sender with msgSender() .
+
+So far no single approach has achieved wide-spread adoption and this is most evident in [Gnosis Safe](https://github.com/gnosis/safe-contracts/blob/development/contracts/GnosisSafe.sol#L193) that implements three solutions to the msg.sender problem. This includes checking a signed message from the externally owned account that is not compatible with Permit(), checking the message hash for uniqueness (i.e. a form of replay protection) and finally checking contract signatures via EIP-1271.
+
+The fragmentation of solutions to the msg.sender problem is evident that it is indeed a real problem faced by contract developers. They have tried to solve it at the contract-level, but it is fundamentally a platform issue. This motivates us to propose a new opcode `callWithSigner()` that can be implemented in the EVM. As a bonus point, the opcode `tx.origin` will finally have [a meaningful purpose](https://github.com/ethereum/solidity/issues/683) and it should be renamed `tx.gaspayer`.
 
 ## Specification
 
 We propose `callWithSigner()` that checks:
 
 - The externally owned account has signed and authorised the call (e.g. target contract and its calldata)
-- The signed replay protection is unique (e.g. this is the first and only time the command is executed)
+- The replay protection is unique (e.g. this is the first and only time the command is executed)
 
-If both checks pass, then the target contract is invoked with the desired calldata and the signer's address is set as msg.sender. Of course, this proposal requires the new opcode to maintain storage as it must keep track of the replay protection used so far by all signers.
+If both checks pass, then the target contract is invoked with the desired calldata and the signer's address is set as msg.sender. Of course, the new opcode requires long-term storage to keep track of the latest replay protection used (e.g. it is achieved with a single mapping that links the signer's address to the latest nonce).
 
 For the replay protection, we propose using [MultiNonce](https://github.com/PISAresearch/metamask-comp/tree/master#multinonce). Conceptually, the user has a list of nonce queues and in each queue the nonce must strictly increment by one. MultiNonce supports up to N concurrent transactions at any time and potentially requires the same storage as a single nonce queue.
+
+We provide the rest of this specification in pseudo-Solidity for ease of reading (and its motivation originates [from here](https://github.com/anydotcrypto/metatransactions/blob/master/src/contracts/account/RelayHub.sol).
 
 For the interface, we propose:
 
@@ -54,14 +68,12 @@ It has the following parameters:
 - `signature`: Authorised command signed by the user
 - `signer`: Externally owned account address
 
-We assume the following encoding / signing:
+We assume the following for the encoding and the signing:
 
 - `replayProtection` -> `abi.encode(["uint","uint"],[queue,queueNonce]);`
 - `signature` -> `Sign(keccak256(targetContract, callData, replayProtection, chainid))`
 
 The additional `chainid` is to verify the signature is for the target blockchain (mainnet/ropsten/etc).
-
-To specify how to implement callWithSigner we provide an example in pseudo-Solidity for ease of reading.
 
 We assume there is a global mapping of replay protection:
 
@@ -98,7 +110,7 @@ function verifySig(address _targetContract, bytes memory _callData, bytes memory
 
     bytes memory encodedData = abi.encode(_targetContract, _callData, _replayProtection,  this.chainid);
 
-    return ECDSA.recover(ECDSA.toEthSignedMessageHash(keccak256(encodedData)), _signature);
+    return ECDSA.recover(keccak256(encodedData), _signature);
 }
 ```
 
@@ -116,7 +128,7 @@ function callWithSigner(address _targetContract, bytes memory _callData, bytes m
 }
 ```
 
-As we can see in the above, the opcode simply checks replay protection and the signer's signature before overriding msg.sender and then executing a normal .call().
+As we can see in the above, the opcode checks the replay protection and the signer's signature before overriding msg.sender and then executing a normal .call().
 
 ## Rationale
 
@@ -128,15 +140,15 @@ The rationale to favor a new opcode is the following:
 
 There are two alternative approaches that we describe below.
 
-**Pre-signed Ethereum Transaction.** Instead of the interface/data structure proposed in this EIP, another approach is to supply a pre-signed Ethereum Transaction to the new opcode. The advantage is that we can re-use the existing account system for the replay protection, re-use significant portions of code (both in the node and client-side) to verify/generate the transaction. However, it likely has a larger data-structure overhead (e.g. RLP decoding, additional fields, etc), it mixes the replay protection of both systems (which may not be desirable) and it limits the signer to NONCE replay protection (single queue). We mention the approach as it is a desirable alternative that should be considered.
+**Pre-signed Ethereum Transaction.** It is possible to supply a pre-signed Ethereum Transaction to the new opcode. We can re-use the existing account system for the replay protection and re-use significant portions of code (both in the node and client-side) to handling the transaction. However, it does involve a more complicated data-structure (e.g. RLP decoding, additional fields, etc) and it may not be desirable to mix the replay protection of both systems. As well, it limits the signer to NONCE replay protection (single queue). We mention the approach as it is a desirable alternative that should be considered and it has been implemented in the [GSN](https://github.com/opengsn/gsn/blob/master/contracts/Penalizer.sol#L28).
 
-**Modify Ethereum Transaction**. An alternative approach for solving the problem is to modify the structure of an Ethereum Transaction to include a new field for the signer's address, signature/replayprotection and the command. The EVM can simply check if the fields are filled in are correct before swapping msg.sender with the signer's address. Of course, if the fields are omitted, then msg.sender == tx.origin. However modifying the structure of an Ethereum Transaction is an intrusive and significant change. It may require all wallets and tooling to upgrade to support the new EIP. Thus the rationale for the new opcode is the following:
+**Modify Ethereum Transaction**. We can modify the structure of an Ethereum Transaction to include a new field for the signer's address, signature & replay protection and the calldata. The EVM can check if the fields are filled in are correct before swapping msg.sender with the signer's address. Of course, if the fields are omitted, then msg.sender == tx.origin. However modifying the structure of an Ethereum Transaction is an intrusive and significant change. It may require all wallets and tooling to upgrade to support the new EIP.
 
 We provide some brief information in regards to related work:
 
-[Account abstraction](https://docs.ethhub.io/ethereum-roadmap/ethereum-2.0/account-abstraction/). This work aims to remove the the distinction of externally owned accounts and contract accounts. While the original account abstraction proposal is a drastic change and may not be implemented in ETH1, our proposal for callWithSigner is way to implement something similar to account abstraction. The opcode can be wrapped in contract logic while keeping the signer's address as msg.sender. As such all transactions are sent via a contract wallet, the contract logic is procesed, and then the signer's address is kept when calling the target contract. **We highlight our goal is to work with the existing account system, but it may enable a subset of account abstraction.**
+[Account abstraction](https://docs.ethhub.io/ethereum-roadmap/ethereum-2.0/account-abstraction/). It removes the distinction of externally owned accounts and contract accounts. In a way, it is similar to the proxy contract approach where the user's funds are stored in the contract wallet and that is the default msg.sender on the network. As a result, this EIP may not be required as there is no such thing as an 'externally owned account' and thus the signer's address is never used as msg.sender.
 
-[Rich transaction precompile](https://github.com/Arachnid/EIPs/blob/f6a2640f48026fc06b485dc6eaf04074a7927aef/EIPS/EIP-draft-rich-transactions.md). This work lets a signer execute a batch of calls in a single Ethereum Transaction while maintaining msg.sender as the signer of the transaction. It is desirable to streamline the user experience (e.g. one transaction to perform several actions). Our proposal for callWithSigner can achieve a similar effect as the contract code that surrounds the the opcode can be used to send a batch of transactions. For example:
+[(EIP not assigned) Rich transaction precompile](https://github.com/Arachnid/EIPs/blob/f6a2640f48026fc06b485dc6eaf04074a7927aef/EIPS/EIP-draft-rich-transactions.md). It lets a signer execute a batch of calls in a single Ethereum Transaction while maintaining msg.sender as the signer of the transaction. It is desirable to streamline the user experience (e.g. one transaction to perform several actions). Our proposal for callWithSigner can achieve a similar effect as the contract code that surrounds the the opcode can be used to send a batch of transactions. For example:
 
 ```
 for(uint i=0; i<transactions.length; i++) {
@@ -146,15 +158,23 @@ for(uint i=0; i<transactions.length; i++) {
 
 Thus it is complementary to the rich transaction precompile approach and this EIP requires less intrusive changes as it does not impact the transaction format or how it is interpreted.
 
+[EIP1035 - Transaction execution batching and delegation](https://github.com/ethereum/EIPs/issues/1035). It has a similar motivation to our EIP, but it tries to solve it with a new standard solidity function:
+
+```
+function authorizedcall(bytes data, address account, uint256 nonce, uint256 chain_id, bytes signature);
+```
+
+We believe our EIP extends it with improved replay protection (MultiNonce) and a plan to incorporate it into the EVM. The name `authorizedcall` can be used for the our proposed precompile/opcode.
+
 ## Backwards Compatibility
 
 This EIP does not impact any existing smart contract on Ethereum. It adds functionality, but does not remove any. It must be implemented as a hard-fork on the network and thus all clients must upgrade to use it.
 
 ## Test Cases
 
-<!--Test cases for an implementation are mandatory for EIPs that are affecting consensus changes. Other EIPs can choose to include links to test cases if applicable.-->
+In all cases, if the transaction passes, then it should test that msg.sender is the signer's address:
 
-Replay protection testcases:
+Replay protection:
 
 - For queue=0, the first nonce=0 is accepted. first nonce=0 for queue=0 is accepted.
 - For queue=0, the nonce is accepted if it is incremented sequentially.
@@ -164,12 +184,12 @@ Replay protection testcases:
 - For queue=0 and queue=3, the first nonce=0 is accepted.
 - Replay protection is rejected due to bad encoding (e.g. 3 uints instead of 2)
 
-Signature testcases:
+Signature verification:
 
 - Signature is valid if the replay protection and target contract/calldata is valid.
 - It will not verify the user's signature if the replay protection is invalid/used already.
 
-Call testcases. In all cases, if the transaction passes, then it should test that msg.sender is the signer's address:
+Call:
 
 - Transaction should succeed if the target contract and calldata is executed.
 - Transaction should succeed if calldata requires more than 1 argument.
@@ -183,7 +203,12 @@ We do not yet have an implementation of the new opcode/precompile. But we provid
 
 ## Security Considerations
 
-Our proposal is potentially the first opcode/precompile that requires persistent storage which may come with its own security/reliability challenges. Furthermore if the replay protection or signature verification is not implemented correctly, then it can facilitate impersonation and/or replay attacks. The final implementation code should be small and the project is well-scoped, so it should be reasonable to audit.
+- First opcode/precompile that requires persistant storage
+- Potential impersonation attacks if there is a bug in the signature verification
+- Potential replay-attack problems if there is a bug in the replay protection
+- Cost for creating a new nonce queue should be greater than re-using an existing nonce queue.
+
+Given the final implementation code should be relatively small and the project is well-scoped, it should be reasonable to audit.
 
 ## Copyright
 
