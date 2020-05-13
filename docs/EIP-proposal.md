@@ -168,7 +168,7 @@ for(uint i=0; i<transactions.length; i++) {
 }
 ```
 
-Thus it is complementary to the rich transaction precompile approach and this EIP requires less intrusive changes as it does not impact the transaction format or how it is interpreted.
+Thus it is complementary to the rich transaction precompile approach and this EIP requires less intrusive changes as it does not impact the transaction format or how it is interpreted. An alternative approach called [CallGroups](https://corepaper.org/contract/callgroup/) also aims to batch transactions, but it appears to support changing the msg.sender of the call.
 
 [EIP1035 - Transaction execution batching and delegation](https://github.com/ethereum/EIPs/issues/1035). It has a similar motivation to our EIP, but it tries to solve it with a new standard solidity function:
 
