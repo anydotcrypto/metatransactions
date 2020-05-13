@@ -107,7 +107,11 @@ const tx = await proxyAccount
         );
 
 ```
-We have included an additional ```relayer``` class that is an example on how a relayer can take the forward parameters and send it to the network. It also includes functionality for encoding the meta-transaction and sending it in the ```data``` field of a transaction. 
+We have included an additional ```relayer``` class that is an example on how a relayer can take the forward parameters and send it to the network. 
+
+There is also functionality for encoding the meta-transaction and sending it in the ```data``` field of a transaction: 
+
+```
 
 ### All done! Good work! 
 
