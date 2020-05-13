@@ -95,7 +95,7 @@ describe("RelayHub Forwarder", () => {
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Nonce replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -135,12 +135,12 @@ describe("RelayHub Forwarder", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(relayHub.address, "Relay hub address");
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true; // Picks a randon number greater than 6174
+    expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
     const bitFlipped = flipBit(new BigNumber("0"), new BigNumber("0"));
     expect(decodedReplayProtection[1]).to.eq(bitFlipped, "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000001",
-      "Built-in replay protection"
+      "Bitflip replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -216,12 +216,12 @@ describe("RelayHub Forwarder", () => {
         expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
         expect(forwardParams.data).to.eq(callData, "Calldata");
         expect(forwardParams.to).to.eq(relayHub.address);
-        expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
+        expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
         const bitFlipped = flipBit(new BigNumber("0"), new BigNumber(i));
         expect(decodedReplayProtection[1]).to.eq(bitFlipped, "Nonce2");
         expect(forwardParams.replayProtectionAuthority).to.eq(
           "0x0000000000000000000000000000000000000001",
-          "Built-in replay protection"
+          "Bitflip replay protection"
         );
         expect(forwardParams.signer).to.eq(
           user2.address,
@@ -285,11 +285,11 @@ describe("RelayHub Forwarder", () => {
     expect(deploymentParams.to).to.eq(relayHub.address);
     expect(deploymentParams.signer).to.eq(admin.address);
     expect(deploymentParams.initCode).to.eq(initCode);
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1"); // Picks a randon number greater than 6174
+    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Bitflip replay protection"
     );
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 
@@ -331,11 +331,11 @@ describe("RelayHub Forwarder", () => {
     expect(deploymentParams.to).to.eq(relayHub.address);
     expect(deploymentParams.signer).to.eq(admin.address);
     expect(deploymentParams.initCode).to.eq(initCode);
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1"); // Picks a randon number greater than 6174
+    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Bitflip replay protection"
     );
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 

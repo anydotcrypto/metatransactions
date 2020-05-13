@@ -174,7 +174,7 @@ describe("Forwarder Factory", () => {
     expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
+    expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2"); // One bit flipped
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000001",
@@ -322,7 +322,7 @@ describe("Forwarder Factory", () => {
       proxyForwarder.address,
       "Proxy account address"
     );
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
+    expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000001",

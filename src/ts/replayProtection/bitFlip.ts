@@ -38,7 +38,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
 
     // Lets confirm they are defined
     if (!this.index || !this.bitmap) {
-      const min = 6174; // Magic number to separate MultiNonce and BitFlip
+      const min = 0; // Magic number to separate MultiNonce and BitFlip
       const max = Number.MAX_SAFE_INTEGER;
       // Would prefer something better than Math.random()
       this.index = new BigNumber(

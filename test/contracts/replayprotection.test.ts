@@ -514,7 +514,7 @@ describe("ReplayProtection", () => {
         createReplayProtection
       );
 
-      const bitmapIndex = 6174;
+      const bitmapIndex = 123;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
       const { callData, encodedReplayProtection, signedCall } = await signCall(
@@ -589,7 +589,7 @@ describe("ReplayProtection", () => {
         createReplayProtection
       );
 
-      const bitmapIndex = 6174;
+      const bitmapIndex = 321;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
       const { callData, encodedReplayProtection, signedCall } = await signCall(

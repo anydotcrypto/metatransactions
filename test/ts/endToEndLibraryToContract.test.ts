@@ -13,6 +13,7 @@ import {
   ProxyAccountDeployerFactory,
   ProxyAccount,
   ProxyAccountForwarder,
+  ProxyAccountFactory,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";

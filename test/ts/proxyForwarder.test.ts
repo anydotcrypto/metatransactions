@@ -133,7 +133,7 @@ describe("Proxy Forwarder", () => {
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Multinonce replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -250,11 +250,11 @@ describe("Proxy Forwarder", () => {
       proxyForwarder.address,
       "Proxy account address"
     );
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
+    expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000001",
-      "Built-in replay protection"
+      "Bitflip replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -310,12 +310,12 @@ describe("Proxy Forwarder", () => {
           "Proxy account address"
         );
 
-        expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
+        expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
         const bitFlipped = flipBit(new BigNumber("0"), new BigNumber(i));
         expect(decodedReplayProtection[1]).to.eq(bitFlipped, "Nonce2");
         expect(forwardParams.replayProtectionAuthority).to.eq(
           "0x0000000000000000000000000000000000000001",
-          "Built-in replay protection"
+          "Bitflip replay protection"
         );
         expect(forwardParams.signer).to.eq(
           user1.address,
@@ -437,11 +437,11 @@ describe("Proxy Forwarder", () => {
     expect(deploymentParams.to).to.eq(proxyAccount.address);
     expect(deploymentParams.signer).to.eq(admin.address);
     expect(deploymentParams.initCode).to.eq(initCode);
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0")); // Picks a randon number greater than 6174
+    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"));
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Nonce replay protection"
     );
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 
