@@ -11,7 +11,7 @@ created: 2020-05-11
 
 ## Simple Summary
 
-Ethereum transaction's intertwine the identity of who paid for the transaction (tx.gaspayer) and who wants to execute a command (msg.sender). As a result, it is not straight forward for Alice to pay the gas fee on behalf of Bob who wants to execute a command in a smart contract. If this issue can be fixed, then it allows Bob, without any significant hurdles, to outsource his transaction infrastructure to Alice in a non-custodial manner. This EIP aims to alleviate the issue by introducing a new opcode, `callWithSigner()`, in the EVM.
+Ethereum transactions intertwine the identity of who paid for the transaction (tx.gaspayer) and who wants to execute a command (msg.sender). As a result, it is not straightforward for Alice to pay the gas fee on behalf of Bob who wants to execute a command in a smart contract. If this issue can be fixed, then it allows Bob, without any significant hurdles, to outsource his transaction infrastructure to Alice in a non-custodial manner. This EIP aims to alleviate the issue by introducing a new opcode, `callWithSigner()`, in the EVM.
 
 ## Abstract
 
@@ -25,8 +25,8 @@ There are two existing solutions that try to solve the problem, but they have th
 
 **Proxy contract**. Each user has their own proxy contract. They must migrate funds into the proxy contract and all transactions are sent via the proxy contract. As such, the msg.sender is set as the proxy contract address. There are three hurdles for proxy contracts:
 
-1. **Workflow issues.** There is an additional and inconvenient work-flow of deploying a proxy contract and transferring funds. This can hinder adoption as it is not a straight-forward plug & play experience.
-2. **Two addresses.** The user now has two addresses which includes the signing address and the proxy contract address. This needs to be managed as part of the user experience and some dapps may need to take it into account.
+1. **Workflow issues.** There is an additional and inconvenient work-flow of deploying a proxy contract and transferring funds. This can hinder adoption as it is not a straightforward plug & play experience.
+2. **Two addresses.** The user now has two addresses: the signing address and the proxy contract address. This needs to be managed as part of the user experience and some dapps may need to take it into account.
 3. **Trust issues.** Users may have trust issues with storing funds in a smart contract due to the additional security risks. Several events including the Parity Wallet Hack exacerbate the problem.
 
 Finally there is a subtle problem on how to recover (and migrate away) from the proxy contract if the provider disappears. For example, if the wallet managing access to the proxy contract discontinues its service, but no other service is using the same standard.
@@ -35,7 +35,7 @@ Finally there is a subtle problem on how to recover (and migrate away) from the 
 
 1. The `Permit()` function is intrusive as it requires the target contract to natively handle replay protection (e.g. verify the user's signature and then increment nonce by 1).
 
-2. `msgSender()` tries to alleviate the contract intrusiveness as a global singleton RelayHub contract is responsible for handling the replay protection. The target contract is only required to replace msg.sender with msgSender() .
+2. `msgSender()` tries to alleviate the contract intrusiveness, as a global singleton RelayHub contract is responsible for handling the replay protection. The target contract is only required to replace msg.sender with msgSender() .
 
 So far no single approach has achieved wide-spread adoption and this is most evident in [Gnosis Safe](https://github.com/gnosis/safe-contracts/blob/development/contracts/GnosisSafe.sol#L193) that implements three solutions to the msg.sender problem. This includes checking a signed message from the externally owned account that is not compatible with Permit(), checking the message hash for uniqueness (i.e. a form of replay protection) and finally checking contract signatures via EIP-1271.
 
@@ -50,7 +50,7 @@ We propose `callWithSigner()` that checks:
 
 If both checks pass, then the target contract is invoked with the desired calldata and the signer's address is set as msg.sender. Of course, the new opcode requires long-term storage to keep track of the latest replay protection used (e.g. it is achieved with a single mapping that links the signer's address to the latest nonce).
 
-For the replay protection, we propose using [MultiNonce](https://github.com/PISAresearch/metamask-comp/tree/master#multinonce). Conceptually, the user has a list of nonce queues and in each queue the nonce must strictly increment by one. MultiNonce supports up to N concurrent transactions at any time and potentially requires the same storage as a single nonce queue.
+For the replay protection, we propose using [MultiNonce](https://github.com/PISAresearch/metamask-comp/tree/master#multinonce). Conceptually, the user has a list of nonce queues and in each queue the nonce must strictly be incremented by one. MultiNonce supports up to N concurrent transactions at any time and potentially requires the same storage as a single nonce queue.
 
 For the interface, we propose:
 
@@ -108,7 +108,7 @@ There are two alternative approaches that we describe below.
 
 **Modify Ethereum Transaction**. We can modify the structure of an Ethereum Transaction to include a new field for the signer's address, signature & replay protection and the calldata. The EVM can check if the fields are filled in are correct before swapping msg.sender with the signer's address. Of course, if the fields are omitted, then msg.sender == tx.origin. However modifying the structure of an Ethereum Transaction is an intrusive and significant change. It may require all wallets and tooling to upgrade to support the new EIP.
 
-We provide some brief information in regards to related work:
+We provide some brief information in regard to related work:
 
 [Account abstraction](https://docs.ethhub.io/ethereum-roadmap/ethereum-2.0/account-abstraction/). It removes the distinction of externally owned accounts and contract accounts. In a way, it is similar to the proxy contract approach where the user's funds are stored in the contract wallet and that is the default msg.sender on the network. As a result, this EIP may not be required as there is no such thing as an 'externally owned account' and thus the signer's address is never used as msg.sender.
 
