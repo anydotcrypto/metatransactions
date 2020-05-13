@@ -43,7 +43,7 @@ contract ProxyAccount is ReplayProtection {
         bytes memory encodedData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
-        verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature);
+        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Signer did not sign this meta-transaction.");
 
         // Call out to the target contract
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));
