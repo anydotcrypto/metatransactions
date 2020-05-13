@@ -52,18 +52,17 @@ If both checks pass, then the target contract is invoked with the desired callda
 
 For the replay protection, we propose using [MultiNonce](https://github.com/PISAresearch/metamask-comp/tree/master#multinonce). Conceptually, the user has a list of nonce queues and in each queue the nonce must strictly increment by one. MultiNonce supports up to N concurrent transactions at any time and potentially requires the same storage as a single nonce queue.
 
-We provide the rest of this specification in pseudo-Solidity for ease of reading (and its motivation originates [from here](https://github.com/anydotcrypto/metatransactions/blob/master/src/contracts/account/RelayHub.sol).
-
 For the interface, we propose:
 
 ```
-targetContract.callWithSigner(callData, replayProtection, signature,  signer)
+targetContract.callWithSigner(callData, value, replayProtection, signature,  signer)
 ```
 
 It has the following parameters:
 
 - `targetContract`: Address of the target contract. Same as CALL.
 - `calldata`: Encoded function name and data. Same as CALL.
+- `value`: Quantity of ETH to send in WEI. Same as CALL.
 - `replayProtection`: Encoded replay protection of two nonces (queue and queueNonce)
 - `signature`: Authorised command signed by the user
 - `signer`: Externally owned account address
@@ -71,9 +70,22 @@ It has the following parameters:
 We assume the following for the encoding and the signing:
 
 - `replayProtection` -> `abi.encode(["uint","uint"],[queue,queueNonce]);`
-- `signature` -> `Sign(keccak256(targetContract, callData, replayProtection, chainid))`
+- `signature` -> `Sign(keccak256(targetContract, callData, value, replayProtection, chainid))`
 
 The additional `chainid` is to verify the signature is for the target blockchain (mainnet/ropsten/etc).
+
+At a high level, the opcode executes as follows:
+
+- Verify the signer's signature over the target contract, callData, replayProtection and the chainid. (Defensive approach: We check against supplied signer address).
+- Verify the signer has sufficient balance for the call (signer.balance > value)
+- Decode reply protection for queue and queueNonce.
+- Compute signer queue index with queueIndex = H(signer, queue)
+- Fetch latest storedNonce for the queue
+- Check that queueNonce == storedNonce, if so increment by one and store it. If not, revert.
+- Change msg.sender to the signer's address.
+- Call into the target contract with the supplied callData and the signer's value in WEI. (value taken from the global account system balanace).
+
+We provide the rest of this specification in pseudo-Solidity for ease of reading (and its motivation originates [from here](https://github.com/anydotcrypto/metatransactions/blob/master/src/contracts/account/RelayHub.sol).
 
 We assume there is a global mapping of replay protection:
 
@@ -106,9 +118,9 @@ function verifyReplayProtection(address _signer, bytes memory _replayProtection)
 The opcode needs to verify the signer's signature:
 
 ```
-function verifySig(address _targetContract, bytes memory _callData, bytes memory _replayProtection, bytes memory _signature) public view returns (address) {
+function verifySig(address _targetContract, bytes memory _callData, uint _value, bytes memory _replayProtection, bytes memory _signature) public view returns (address) {
 
-    bytes memory encodedData = abi.encode(_targetContract, _callData, _replayProtection,  this.chainid);
+    bytes memory encodedData = abi.encode(_targetContract, _callData, _value, _replayProtection,  this.chainid);
 
     return ECDSA.recover(keccak256(encodedData), _signature);
 }
@@ -117,14 +129,14 @@ function verifySig(address _targetContract, bytes memory _callData, bytes memory
 Altogether the final functionality:
 
 ```
-function callWithSigner(address _targetContract, bytes memory _callData, bytes memory _replayProtection, bytes memory _signature, address _signer) public {
+function callWithSigner(address _targetContract, bytes memory _callData, uint _value, bytes memory _replayProtection, bytes memory _signature, address _signer) public {
 
     require(verifyReplayProtection(_replayProtection, _signer), "Replay protection is not valid");
 
     require(signer == verifySignature(_targetContract, _callData, _replayProtection, _signature), "Signer did not authorise this command");
 
     msg.sender = signer; // Override msg.sender to be signer
-    _targetContract.call(_callData);
+    _targetContract.call(_value)(_callData);
 }
 ```
 
@@ -207,6 +219,7 @@ We do not yet have an implementation of the new opcode/precompile. But we provid
 - Potential impersonation attacks if there is a bug in the signature verification
 - Potential replay-attack problems if there is a bug in the replay protection
 - Cost for creating a new nonce queue should be greater than re-using an existing nonce queue.
+- We authenticate the blockchain via the ChainID. If two blockchains share the same ChainID, it may facilitate replay attacks.
 
 Given the final implementation code should be relatively small and the project is well-scoped, it should be reasonable to audit.
 
