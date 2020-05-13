@@ -47,7 +47,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
       this.bitmap = await this.accessNonceStore(this.index);
     }
 
-    // Let's try to find an empty bit for 30 indexes
+    // Let's try to find an empty bit for 1000 indexes
     // If it fails after that... something bad happened
     // with the random number generator.
     for (let i = 0; i < 30; i) {
@@ -63,10 +63,11 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
         // We found an empty bit
         foundEmptyBit = true;
 
-        const flipped = this.flipBit(this.bitmap, bitToFlip);
-        this.bitmap = flipped;
+        const flippedWithBitmap = this.flipBit(this.bitmap, bitToFlip);
+        this.bitmap = flippedWithBitmap;
         const newIndex = this.index;
-        return { newIndex, bitToFlip };
+        const singleBitFlipped = this.flipBit(new BigNumber("0"), bitToFlip);
+        return { newIndex, singleBitFlipped };
       }
     }
 
@@ -113,8 +114,11 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
   public async getEncodedReplayProtection() {
     try {
       this.lock.acquire();
-      const { newIndex, bitToFlip } = await this.searchBitmaps();
-      return defaultAbiCoder.encode(["uint", "uint"], [newIndex, bitToFlip]);
+      const { newIndex, singleBitFlipped } = await this.searchBitmaps();
+      return defaultAbiCoder.encode(
+        ["uint", "uint"],
+        [newIndex, singleBitFlipped]
+      );
     } finally {
       this.lock.release();
     }
@@ -124,6 +128,6 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * Return address of replay protection authority
    */
   public getAddress() {
-    return "0x0000000000000000000000000000000000000000";
+    return "0x0000000000000000000000000000000000000001";
   }
 }

@@ -43,7 +43,7 @@ contract ProxyAccount is ReplayProtection {
         bytes memory encodedData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature));
+        verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature);
 
         // Call out to the target contract
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));

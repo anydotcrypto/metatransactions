@@ -1,7 +1,6 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
 import { Wallet } from "ethers";
 import { ReplayProtectionFactory } from "../../typedContracts/ReplayProtectionFactory";
-import { Forwarder } from "../forwarders/forwarder";
 
 export interface Nonces {
   index: BigNumber;
@@ -31,12 +30,10 @@ export abstract class ReplayProtectionAuthority {
   abstract async getEncodedReplayProtection(): Promise<string>;
 
   /**
-   * We may need to access on-chain contract to fetch the starting
-   * point for the replay protection. e.g. in replace-by-nonce,
-   * you want to fetch the latest and only valid nonce (50).
-   * @param signerAddress Signer's address
+   * We try to access the on-chain nonce store to fetch the
+   * latest nonce. If the contract is not yet deployed, then
+   * it returns 0.
    * @param index Index in Nonce Store
-   * @param contract Hub Contract
    */
   protected async accessNonceStore(index: BigNumber): Promise<BigNumber> {
     // Does the forwarder exist?
@@ -58,7 +55,10 @@ export abstract class ReplayProtectionAuthority {
     // Onchain ID = H(signerAddress, index).
     // Mostly benefits bitflip & multinonce.
     const onchainId = keccak256(
-      defaultAbiCoder.encode(["address", "uint"], [this.signer.address, index])
+      defaultAbiCoder.encode(
+        ["address", "uint", "address"],
+        [this.signer.address, index, this.getAddress()]
+      )
     );
 
     return await replayProtection.nonceStore(onchainId);

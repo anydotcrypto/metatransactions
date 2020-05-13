@@ -23,6 +23,7 @@ import {
   ProxyAccountCallData,
 } from "../../src/ts/forwarders/forwarder";
 import { RelayHubForwarder } from "../../src/ts/forwarders/relayHubForwarder";
+import { flipBit } from "../utils/bitflip-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -135,9 +136,10 @@ describe("RelayHub Forwarder", () => {
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(relayHub.address, "Relay hub address");
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true; // Picks a randon number greater than 6174
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+    const bitFlipped = flipBit(new BigNumber("0"), new BigNumber("0"));
+    expect(decodedReplayProtection[1]).to.eq(bitFlipped, "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000001",
       "Built-in replay protection"
     );
     expect(forwardParams.signer).to.eq(
@@ -215,9 +217,10 @@ describe("RelayHub Forwarder", () => {
         expect(forwardParams.data).to.eq(callData, "Calldata");
         expect(forwardParams.to).to.eq(relayHub.address);
         expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-        expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
+        const bitFlipped = flipBit(new BigNumber("0"), new BigNumber(i));
+        expect(decodedReplayProtection[1]).to.eq(bitFlipped, "Nonce2");
         expect(forwardParams.replayProtectionAuthority).to.eq(
-          "0x0000000000000000000000000000000000000000",
+          "0x0000000000000000000000000000000000000001",
           "Built-in replay protection"
         );
         expect(forwardParams.signer).to.eq(

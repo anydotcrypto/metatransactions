@@ -15,6 +15,9 @@ export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 export { ReplayProtection } from "./typedContracts/ReplayProtection";
 export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
+export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
+export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
+
 export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
 export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
 

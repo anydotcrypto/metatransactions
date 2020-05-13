@@ -13,7 +13,6 @@ import {
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
 } from "../../src";
-import { when, spy } from "ts-mockito";
 
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -98,7 +97,7 @@ describe("Forwarder Factory", () => {
       expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
       expect(forwardParams.replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
       expect(forwardParams.signer).to.eq(
         admin.address,
@@ -139,7 +138,7 @@ describe("Forwarder Factory", () => {
       expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
       expect(forwardParams.replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
       expect(forwardParams.signer).to.eq(
         admin.address,
@@ -154,12 +153,7 @@ describe("Forwarder Factory", () => {
   }).timeout(50000);
 
   it("Create the RelayForwarder with Bitflip ", async () => {
-    const {
-      relayHub,
-      admin,
-      msgSenderExample,
-      relayHubForwardsFactory,
-    } = await loadFixture(createHubs);
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
     const relayForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       admin,
@@ -181,10 +175,10 @@ describe("Forwarder Factory", () => {
     expect(forwardParams.data).to.eq(callData, "Calldata");
     expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+    expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2"); // One bit flipped
     expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "0x0000000000000000000000000000000000000001",
+      "Bitflip address"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -231,7 +225,7 @@ describe("Forwarder Factory", () => {
       expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
       expect(forwardParams.replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
       expect(forwardParams.signer).to.eq(
         admin.address,
@@ -282,7 +276,7 @@ describe("Forwarder Factory", () => {
       expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
       expect(forwardParams.replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
       expect(forwardParams.signer).to.eq(
         admin.address,
@@ -329,10 +323,10 @@ describe("Forwarder Factory", () => {
       "Proxy account address"
     );
     expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+    expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "0x0000000000000000000000000000000000000001",
+      "Bitflip replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,

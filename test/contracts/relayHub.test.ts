@@ -22,6 +22,7 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
+import { flipBit } from "../utils/bitflip-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -490,13 +491,9 @@ describe("RelayHub Contract", () => {
     (a) => a.forward,
     "for msgSender emits expected signer address twice with inbuilt bitflip protection",
     async () => {
-      const {
-        relayHub,
-        owner,
-        sender,
-        msgSenderCon,
-        forwarderFactory,
-      } = await loadFixture(createRelayHub);
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
       const forwarder = new RelayHubForwarder(
         ChainID.MAINNET,

@@ -18,7 +18,6 @@ import {
   RelayHubFactory,
   ProxyAccountFactory,
 } from "../../src";
-import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 import { ContractFactory } from "ethers";
 
 const checkAddress = (
