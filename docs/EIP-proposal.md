@@ -1,7 +1,7 @@
 ---
 eip: <to be assigned>
 title: CallWithSigner - A new CALL opcode to replace msg.sender with the signer's address
-author:
+author: Patrick McCorry (@stonecoldpat) & Chris Buckland (@yahgwai)
 discussions-to: <URL>
 status: draft
 type: Standards Track
@@ -74,74 +74,25 @@ We assume the following for the encoding and the signing:
 
 The additional `chainid` is to verify the signature is for the target blockchain (mainnet/ropsten/etc).
 
+We assume the account nonce store is a simple mapping:
+
+```
+mapping(bytes32 -> uint) nonceStore;
+uint storedNonce = nonceStore(keccak256(signer || queue));
+```
+
 At a high level, the opcode executes as follows:
 
-- Verify the signer's signature over the target contract, callData, replayProtection and the chainid. (Defensive approach: We check against supplied signer address).
-- Verify the signer has sufficient balance for the call (signer.balance > value)
-- Decode reply protection for queue and queueNonce.
-- Compute signer queue index with queueIndex = H(signer, queue)
-- Fetch latest storedNonce for the queue
-- Check that queueNonce == storedNonce, if so increment by one and store it. If not, revert.
-- Change msg.sender to the signer's address.
-- Call into the target contract with the supplied callData and the signer's value in WEI. (value taken from the global account system balanace).
+- Verify the signer's `signature` using the hash of `targetContract`, `callData`, `replayProtection`, `chainid`. Note we assume a defensive approach as we check the signature against the supplied signer's address.
+- Verify the signer has sufficient balance for the call (`signer.balance` > `value`)
+- Decode `replayProtection` to fetch `queue` and `queueNonce`.
+- Compute the signer's queue index as `queueIndex = H(signer || queue)`.
+- Fetch latest `storedNonce` for `queueIndex`.
+- Check `queueNonce == storedNonce`, if so increment by one and store it. If not, revert.
+- Update the msg.sender such that `msg.sender=signer`.
+- Perform the call with `targetContract.call(value)(callData);` We assume the value is taken from the global account system balance.
 
-We provide the rest of this specification in pseudo-Solidity for ease of reading (and its motivation originates [from here](https://github.com/anydotcrypto/metatransactions/blob/master/src/contracts/account/RelayHub.sol).
-
-We assume there is a global mapping of replay protection:
-
-```
-mapping(bytes32 => uint256) public nonceStore;
-```
-
-The opcode needs to check the replay protection is valid:
-
-```
-// Check the signer's replay protection is valid
-function verifyReplayProtection(address _signer, bytes memory _replayProtection) internal returns(bool) {
-
-    uint queue; uint queueNonce;
-    (queue, queueNonce) = abi.decode(_replayProtection, (uint256, uint256));
-
-    // Notice the signer's address and queue computes the index
-    bytes32 queue = keccak256(abi.encode(_signer, _queue));
-    uint256 storedNonce = nonceStore[queue];
-
-    if(queueNonce == storedNonce) {
-        nonceStore[index] = storedNonce + 1;
-        return true;
-    }
-
-    return false;
-}
-```
-
-The opcode needs to verify the signer's signature:
-
-```
-function verifySig(address _targetContract, bytes memory _callData, uint _value, bytes memory _replayProtection, bytes memory _signature) public view returns (address) {
-
-    bytes memory encodedData = abi.encode(_targetContract, _callData, _value, _replayProtection,  this.chainid);
-
-    return ECDSA.recover(keccak256(encodedData), _signature);
-}
-```
-
-Altogether the final functionality:
-
-```
-function callWithSigner(address _targetContract, bytes memory _callData, uint _value, bytes memory _replayProtection, bytes memory _signature, address _signer) public {
-
-    require(verifyReplayProtection(_replayProtection, _signer), "Replay protection is not valid");
-
-    require(signer == verifySignature(_targetContract, _callData, _replayProtection, _signature), "Signer did not authorise this command");
-
-    require(signer.balance >= _value, "Signer does not have sufficient balance for the call");
-    msg.sender = signer; // Override msg.sender to be signer
-    _targetContract.call(_value)(_callData);
-}
-```
-
-As we can see in the above, the opcode checks the replay protection and the signer's signature before overriding msg.sender and then executing a normal .call().
+We provide a pseudo-implementation in Solidity of the specification in the implementation section.
 
 ## Rationale
 
@@ -212,7 +163,63 @@ More tests can and should be added. The above is a small sample for the initial 
 
 ## Implementation
 
-We do not yet have an implementation of the new opcode/precompile. But we provided an example in pseudo-Solidity for the specification. This should provide clarity on how it can be implemented if this EIP moves to that stage.
+We do not yet have an implementation of the new opcode/precompile. But in the following we provide in pseudo-Solidity for the specification. This should provide clarity on how it can be implemented if this EIP moves to that stage. The motivation of the implementation originates [from here](https://github.com/anydotcrypto/metatransactions/blob/master/src/contracts/account/RelayHub.sol).
+
+We assume there is a global mapping of replay protection:
+
+```
+mapping(bytes32 => uint256) public nonceStore;
+```
+
+The opcode needs to check the replay protection is valid:
+
+```
+// Check the signer's replay protection is valid
+function verifyReplayProtection(address _signer, bytes memory _replayProtection) internal returns(bool) {
+
+    uint queue; uint queueNonce;
+    (queue, queueNonce) = abi.decode(_replayProtection, (uint256, uint256));
+
+    // Notice the signer's address and queue computes the index
+    bytes32 queue = keccak256(abi.encode(_signer, _queue));
+    uint256 storedNonce = nonceStore[queue];
+
+    if(queueNonce == storedNonce) {
+        nonceStore[index] = storedNonce + 1;
+        return true;
+    }
+
+    return false;
+}
+```
+
+The opcode needs to verify the signer's signature:
+
+```
+function verifySig(address _targetContract, bytes memory _callData, uint _value, bytes memory _replayProtection, bytes memory _signature) public view returns (address) {
+
+    bytes memory encodedData = abi.encode(_targetContract, _callData, _value, _replayProtection,  this.chainid);
+
+    return ECDSA.recover(keccak256(encodedData), _signature);
+}
+```
+
+Altogether the final functionality:
+
+```
+function callWithSigner(address _targetContract, bytes memory _callData, uint _value, bytes memory _replayProtection, bytes memory _signature, address _signer) public {
+
+    require(verifyReplayProtection(_replayProtection, _signer), "Replay protection is not valid");
+
+    require(signer == verifySignature(_targetContract, _callData, _replayProtection, _signature), "Signer did not authorise this command");
+
+    require(signer.balance >= _value, "Signer does not have sufficient balance for the call");
+    msg.sender = signer; // Override msg.sender to be signer
+    _targetContract.call(_value)(_callData);
+}
+```
+
+As we can see in the above, the opcode checks the replay protection and the signer's signature before overriding msg.sender and then executing a normal .call().
 
 ## Security Considerations
 
