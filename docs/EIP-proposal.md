@@ -135,6 +135,7 @@ function callWithSigner(address _targetContract, bytes memory _callData, uint _v
 
     require(signer == verifySignature(_targetContract, _callData, _replayProtection, _signature), "Signer did not authorise this command");
 
+    require(signer.balance >= _value, "Signer does not have sufficient balance for the call");
     msg.sender = signer; // Override msg.sender to be signer
     _targetContract.call(_value)(_callData);
 }
