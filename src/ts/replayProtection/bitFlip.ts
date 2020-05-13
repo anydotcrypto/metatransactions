@@ -1,6 +1,6 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Wallet } from "ethers";
-import { ReplayProtectionAuthority } from "./replayprotectionauthority";
+import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
@@ -11,15 +11,18 @@ import BN from "bn.js";
  * concurrent transactions (e.g. processing 1000 withdrawals, order
  * does not matter).
  */
-export class BitFlip extends ReplayProtectionAuthority {
-  private indexTracker: Map<string, BigNumber>; // Keep track of bitmap index
-  private bitmapTracker: Map<string, BigNumber>; // Keep track of bitmap
-  lock: Lock;
+export class BitFlipReplayProtection extends ReplayProtectionAuthority {
+  private index: BigNumber; // Keep track of bitmap index
+  private bitmap: BigNumber;
+  private readonly lock: Lock;
 
-  constructor(private readonly contract: string) {
-    super();
-    this.indexTracker = new Map<string, BigNumber>();
-    this.bitmapTracker = new Map<string, BigNumber>();
+  /**
+   * BitFlip replay protection for a single wallet
+   * @param signer Signer's wallet
+   * @param forwarderAddress RelayHub or ProxyAccount address
+   */
+  constructor(signer: Wallet, forwarderAddress: string) {
+    super(signer, forwarderAddress);
     this.lock = new Lock();
   }
 
@@ -29,47 +32,41 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param contract RelayHub or ProxyAccount
    * @param searchFrom Starting bitmap index
    */
-  private async searchBitmaps(signer: Wallet) {
+  private async searchBitmaps() {
     let foundEmptyBit = false;
-    let index = this.indexTracker.get(signer.address);
-    let bitmap = this.bitmapTracker.get(signer.address);
     let bitToFlip = new BigNumber("0");
 
     // Lets confirm they are defined
-    if (!index || !bitmap) {
+    if (!this.index || !this.bitmap) {
       const min = 6174; // Magic number to separate MultiNonce and BitFlip
       const max = Number.MAX_SAFE_INTEGER;
       // Would prefer something better than Math.random()
-      index = new BigNumber(Math.floor(Math.random() * (max - min + 1) + min));
-      bitmap = await this.accessNonceStore(signer, index, this.contract);
+      this.index = new BigNumber(
+        Math.floor(Math.random() * (max - min + 1) + min)
+      );
+      this.bitmap = await this.accessNonceStore(this.index);
     }
 
-    // Let's try to find an empty bit for 1000 indexes
+    // Let's try to find an empty bit for 30 indexes
     // If it fails after that... something bad happened
     // with the random number generator.
-    for (let i = 0; i < 1000; i) {
-      try {
-        // Try to find an empty bit
-        bitToFlip = this.findEmptyBit(bitmap);
+    for (let i = 0; i < 30; i) {
+      // Try to find an empty bit
+      bitToFlip = this.findEmptyBit(this.bitmap);
 
-        // Did we find one?
-        if (bitToFlip.eq(new BigNumber("-1"))) {
-          // No, let's try the next bitmap
-          index = index.add(1);
-          bitmap = await this.accessNonceStore(signer, index, this.contract);
-        } else {
-          // We found an empty bit
-          foundEmptyBit = true;
+      // Did we find one?
+      if (bitToFlip.eq(new BigNumber("-1"))) {
+        // No, let's try the next bitmap
+        this.index = this.index.add(1);
+        this.bitmap = await this.accessNonceStore(this.index);
+      } else {
+        // We found an empty bit
+        foundEmptyBit = true;
 
-          // Keep track of index and new flipped bitmap
-          this.indexTracker.set(signer.address, index);
-          const flipped = this.flipBit(bitmap, bitToFlip);
-          this.bitmapTracker.set(signer.address, flipped);
-          return { index, bitToFlip };
-        }
-      } catch (e) {
-        // Likely an error from infura, lets hold back and try again.
-        await wait(500);
+        const flipped = this.flipBit(this.bitmap, bitToFlip);
+        this.bitmap = flipped;
+        const newIndex = this.index;
+        return { newIndex, bitToFlip };
       }
     }
 
@@ -113,11 +110,11 @@ export class BitFlip extends ReplayProtectionAuthority {
    * @param signerAddress Signer's address
    * @param contract RelayHub or Proxy Account
    */
-  public async getEncodedReplayProtection(signer: Wallet) {
+  public async getEncodedReplayProtection() {
     try {
       this.lock.acquire();
-      const { index, bitToFlip } = await this.searchBitmaps(signer);
-      return defaultAbiCoder.encode(["uint", "uint"], [index, bitToFlip]);
+      const { newIndex, bitToFlip } = await this.searchBitmaps();
+      return defaultAbiCoder.encode(["uint", "uint"], [newIndex, bitToFlip]);
     } finally {
       this.lock.release();
     }
