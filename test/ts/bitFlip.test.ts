@@ -6,6 +6,7 @@ import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { BitFlipReplayProtection } from "../../src/ts/replayProtection/bitFlip";
+import { deployMetaTxContracts } from "../../src";
 import BN from "bn.js";
 import { flipBit } from "../utils/bitflip-utils";
 
@@ -13,13 +14,9 @@ const expect = chai.expect;
 chai.use(solidity);
 
 async function createRelayHub(provider: Provider, [admin]: Wallet[]) {
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
+  const { relayHubAddress } = await deployMetaTxContracts(admin);
 
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const result = await relayHubCreation.wait(1);
-
-  const relayHub = relayHubFactory.attach(result.contractAddress!);
+  const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
   return {
     relayHub,
     admin,

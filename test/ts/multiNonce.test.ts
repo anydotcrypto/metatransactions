@@ -4,23 +4,16 @@ import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import { when, anything, spy } from "ts-mockito";
-
-import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { MultiNonceReplayProtection } from "../../src/ts/replayProtection/multiNonce";
+import { RelayHubFactory, MultiNonceReplayProtection, deployMetaTxContracts } from "../../src";
 
 const expect = chai.expect;
 chai.use(solidity);
 
 async function createRelayHub(provider: Provider, [admin]: Wallet[]) {
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
-
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const result = await relayHubCreation.wait(1);
-
-  const relayHub = relayHubFactory.attach(result.contractAddress!);
+  const { relayHubAddress } = await deployMetaTxContracts(admin)
+  const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
   return {
     relayHub,
     admin,

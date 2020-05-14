@@ -1,6 +1,5 @@
 import "mocha";
 import * as chai from "chai";
-import chaiAsPromised from "chai-as-promised";
 import { loadFixture } from "ethereum-waffle";
 
 import {
@@ -35,7 +34,6 @@ import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ethers } from "ethers";
 
 const expect = chai.expect;
-chai.use(chaiAsPromised);
 let hubClass: ProxyAccountDeployer;
 let accountClass: ProxyAccount;
 
