@@ -1,5 +1,5 @@
 import { defaultAbiCoder, BigNumber, BigNumberish } from "ethers/utils";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 import BN from "bn.js";
@@ -19,7 +19,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param signer Signer's wallet
    * @param forwarderAddress RelayHub or ProxyAccount address
    */
-  constructor(signer: Wallet, forwarderAddress: string) {
+  constructor(signer: Signer, forwarderAddress: string) {
     super(signer, forwarderAddress);
     this.lock = new Lock();
   }

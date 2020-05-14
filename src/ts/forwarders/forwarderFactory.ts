@@ -1,4 +1,4 @@
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { MultiNonceReplayProtection, BitFlipReplayProtection } from "../..";
 
@@ -20,11 +20,11 @@ export abstract class ForwarderFactory<D> {
    * @param replayProtectionType Replay Protection
    * @param signer Signer's wallet
    */
-  public abstract createNew(
+  public abstract async createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
-    signer: Wallet
-  ): D;
+    signer: Signer
+  ): Promise<D>;
 
   /**
    * Fetch a pre-configured replay protection
@@ -33,7 +33,7 @@ export abstract class ForwarderFactory<D> {
    * @param replayProtectionType Replay Protection
    */
   protected getReplayProtection(
-    signer: Wallet,
+    signer: Signer,
     forwarderAddress: string,
     replayProtectionType: ReplayProtectionType
   ): ReplayProtectionAuthority {

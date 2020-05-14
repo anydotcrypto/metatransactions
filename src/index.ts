@@ -18,6 +18,20 @@ export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactor
 export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
 export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
 
+export {
+  RELAY_HUB_ADDRESS,
+  PROXY_ACCOUNT_DEPLOYER_ADDRESS,
+  BASE_ACCOUNT_ADDRESS,
+} from "./deployment/addresses";
+
+export {
+  RelayHubCallData,
+  ProxyAccountCallData,
+  MinimalTx,
+  ForwardParams,
+  DeploymentParams,
+  Forwarder,
+} from "./ts/forwarders/forwarder";
 export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
 export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
 
@@ -36,4 +50,4 @@ import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.j
 export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
 
-export { deployMetaTxContracts } from "./deployment/deploy"
+export { deployMetaTxContracts } from "./deployment/deploy";

@@ -1,5 +1,5 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 
@@ -20,7 +20,7 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
    */
   constructor(
     private readonly concurrency: number,
-    signer: Wallet,
+    signer: Signer,
     forwarderAddress: string
   ) {
     super(signer, forwarderAddress);

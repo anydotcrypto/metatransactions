@@ -1,6 +1,6 @@
 import { ChainID } from "../..";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import {
   defaultAbiCoder,
   BigNumberish,
@@ -44,7 +44,7 @@ export interface RelayHubCallData {
 }
 
 export interface ProxyAccountCallData extends RelayHubCallData {
-  value: BigNumberish;
+  value?: BigNumberish;
 }
 
 /**
@@ -55,7 +55,7 @@ export interface ProxyAccountCallData extends RelayHubCallData {
 export abstract class Forwarder<T> {
   constructor(
     protected readonly chainID: ChainID,
-    public readonly signer: Wallet,
+    public readonly signer: Signer,
     /**
      * The address of this forwarder contract
      */
@@ -118,7 +118,7 @@ export abstract class Forwarder<T> {
       arrayify(keccak256(encodedMetaTx))
     );
 
-    const params = this.getForwardParams(
+    const params = await this.getForwardParams(
       this.address,
       data,
       encodedReplayProtection,
@@ -136,12 +136,12 @@ export abstract class Forwarder<T> {
    * @param replayProtection Encoded replay protection
    * @param signature Signature to authorise meta-transaction
    */
-  protected abstract getForwardParams(
+  protected abstract async getForwardParams(
     to: string,
     data: T,
     replayProtection: string,
     signature: string
-  ): ForwardParams;
+  ): Promise<ForwardParams>;
 
   /**
    * Encodes the forward function and its arguments such that
@@ -176,7 +176,7 @@ export abstract class Forwarder<T> {
 
     const params: DeploymentParams = {
       to: this.address,
-      signer: this.signer.address,
+      signer: await this.signer.getAddress(),
       initCode,
       replayProtection: encodedReplayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
@@ -218,7 +218,7 @@ export abstract class Forwarder<T> {
    * @returns TRUE if deployed, FALSE if not deployed.
    */
   public async isContractDeployed(): Promise<boolean> {
-    const code = await this.signer.provider.getCode(this.address);
+    const code = await this.signer.provider!.getCode(this.address);
     // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
     const codeIsEmpty = !code || code === "0x" || code === "0x0";
     return !codeIsEmpty;

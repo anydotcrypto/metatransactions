@@ -57,11 +57,8 @@ describe("Proxy Forwarder", () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
     const { proxyDeployer, user1 } = await loadFixture(createHubs);
 
-    const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      user1.address,
-      baseAccount
+      user1.address
     );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
@@ -92,11 +89,8 @@ describe("Proxy Forwarder", () => {
       createHubs
     );
 
-    const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      admin.address,
-      baseAccount
+      admin.address
     );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
@@ -149,13 +143,9 @@ describe("Proxy Forwarder", () => {
       createHubs
     );
 
-    const baseAccount = await proxyDeployer.baseAccount();
-
     const noQueues = 10;
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      user1.address,
-      baseAccount
+      user1.address
     );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
@@ -176,6 +166,7 @@ describe("Proxy Forwarder", () => {
       forwardParams
     );
 
+    const baseAccount = await proxyDeployer.baseAccount();
     await proxyDeployer.createProxyAccount(user1.address);
     const saltHex = solidityKeccak256(["address"], [user1.address]);
     const byteCodeHash = solidityKeccak256(
@@ -212,11 +203,8 @@ describe("Proxy Forwarder", () => {
       createHubs
     );
 
-    const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      admin.address,
-      baseAccount
+      admin.address
     );
 
     const proxyForwarder = new ProxyAccountForwarder(
@@ -270,11 +258,8 @@ describe("Proxy Forwarder", () => {
       createHubs
     );
 
-    const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      user1.address,
-      baseAccount
+      user1.address
     );
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
@@ -333,11 +318,8 @@ describe("Proxy Forwarder", () => {
     user: ethers.Wallet,
     replayProtectionType: ReplayProtectionType
   ) => {
-    const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      user.address,
-      baseAccount
+      user.address
     );
     const replayProtection =
       replayProtectionType === ReplayProtectionType.MULTINONCE

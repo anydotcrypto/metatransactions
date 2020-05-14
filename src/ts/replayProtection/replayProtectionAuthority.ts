@@ -1,5 +1,5 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { ReplayProtectionFactory } from "../../typedContracts/ReplayProtectionFactory";
 
 export interface Nonces {
@@ -15,7 +15,7 @@ export abstract class ReplayProtectionAuthority {
    * @param signer Signer's wallet
    */
   constructor(
-    protected readonly signer: Wallet,
+    protected readonly signer: Signer,
     protected readonly forwarderAddress: string
   ) {}
 
@@ -37,7 +37,7 @@ export abstract class ReplayProtectionAuthority {
    */
   protected async accessNonceStore(index: BigNumber): Promise<BigNumber> {
     // Does the forwarder exist?
-    const code = await this.signer.provider.getCode(this.forwarderAddress);
+    const code = await this.signer.provider!.getCode(this.forwarderAddress);
     // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
     const codeIsEmpty = !code || code === "0x" || code === "0x0";
 
@@ -57,7 +57,7 @@ export abstract class ReplayProtectionAuthority {
     const onchainId = keccak256(
       defaultAbiCoder.encode(
         ["address", "uint", "address"],
-        [this.signer.address, index, this.getAddress()]
+        [await this.signer.getAddress(), index, this.getAddress()]
       )
     );
 

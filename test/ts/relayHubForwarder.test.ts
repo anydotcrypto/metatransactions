@@ -230,7 +230,7 @@ describe("RelayHub Forwarder", () => {
     );
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
-    const forwarder: Forwarder<ProxyAccountCallData> = forwarderFactory.createNew(
+    const forwarder: Forwarder<ProxyAccountCallData> = await forwarderFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
