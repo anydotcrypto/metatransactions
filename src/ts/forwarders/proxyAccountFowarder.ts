@@ -1,5 +1,4 @@
-import { defaultAbiCoder, solidityKeccak256, BigNumber } from "ethers/utils";
-import { Wallet } from "ethers/wallet";
+import { defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "../..";
 import {
@@ -15,6 +14,7 @@ import {
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
   BASE_ACCOUNT_ADDRESS,
 } from "../../deployment/addresses";
+import { Signer } from "ethers";
 
 /**
  * A single library for approving meta-transactions and its associated
@@ -33,7 +33,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   constructor(
     chainID: ChainID,
     proxyDeployerAddress: string,
-    signer: Wallet,
+    signer: Signer,
     address: string,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
@@ -63,7 +63,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    */
   public async createProxyContract(): Promise<MinimalTx> {
     const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
-      [this.signer.address]
+      [await this.signer.getAddress()]
     );
 
     // 115k gas inc the transaction cost.
@@ -117,15 +117,15 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * @param replayProtectionAuthority Replay Protection Authority
    * @param signature Signature
    */
-  protected getForwardParams(
+  protected async getForwardParams(
     to: string,
     data: ProxyAccountCallData,
     replayProtection: string,
     signature: string
-  ): ForwardParams {
+  ): Promise<ForwardParams> {
     return {
       to,
-      signer: this.signer.address,
+      signer: await this.signer.getAddress(),
       target: data.to,
       value: data.value ? data.value.toString() : "0",
       data: data.data,

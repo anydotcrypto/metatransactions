@@ -1,5 +1,4 @@
 import { defaultAbiCoder } from "ethers/utils";
-import { Wallet } from "ethers/wallet";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { RelayHub, ChainID, RelayHubFactory } from "../..";
 import {
@@ -8,6 +7,7 @@ import {
   Forwarder,
   DeploymentParams,
 } from "./forwarder";
+import { Signer } from "ethers";
 
 /**
  * A single library for approving meta-transactions and its associated
@@ -25,7 +25,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    */
   constructor(
     chainID: ChainID,
-    signer: Wallet,
+    signer: Signer,
     relayHubAddress: string,
     replayProtectionAuthority: ReplayProtectionAuthority
   ) {
@@ -49,15 +49,15 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    * @param replayProtectionAuthority Replay Protection Authority
    * @param signature Signature
    */
-  protected getForwardParams(
+  protected async getForwardParams(
     to: string,
     data: RelayHubCallData,
     replayProtection: string,
     signature: string
-  ): ForwardParams {
+  ): Promise<ForwardParams> {
     return {
       to,
-      signer: this.signer.address,
+      signer: await this.signer.getAddress(),
       target: data.to,
       value: "0",
       data: data.data,
