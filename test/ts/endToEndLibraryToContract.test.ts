@@ -13,7 +13,7 @@ import {
   ProxyAccountDeployerFactory,
   ProxyAccount,
   ProxyAccountForwarder,
-  ProxyAccountFactory,
+  deployMetaTxContracts,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -32,18 +32,10 @@ type proxyAccountFunctions = typeof proxyAccount.functions;
 async function setup(provider: Provider, [admin, owner, sender]: Wallet[]) {
   const relayHub = await new RelayHubFactory(admin).deploy();
 
-  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
-
-  const proxyDeployerCreation = await admin.sendTransaction(
-    proxyDeployerCreationTx
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
+  const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
+    proxyAccountDeployerAddress
   );
-  const proxyResult = await proxyDeployerCreation.wait(1);
-
-  const proxyDeployer = proxyDeployerFactory.attach(
-    proxyResult.contractAddress!
-  );
-  // when(PROXY_ACCOUNT_DEPLOYER_ADDRESS).thenReturn(proxyDeployer.address);
 
   return {
     provider,
@@ -112,11 +104,8 @@ describe("End to End Library to Contract", () => {
         setup
       );
 
-      const baseAccount = await proxyDeployer.baseAccount();
       const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        proxyDeployer.address,
-        owner.address,
-        baseAccount
+        owner.address
       );
 
       // Reset forwarder 5 times
@@ -230,11 +219,8 @@ describe("End to End Library to Contract", () => {
       const { proxyDeployer, relayHub, owner, sender } = await loadFixture(
         setup
       );
-      const baseAccount = await proxyDeployer.baseAccount();
       const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        proxyDeployer.address,
-        owner.address,
-        baseAccount
+        owner.address
       );
       let counter = 0;
 
@@ -301,11 +287,8 @@ describe("End to End Library to Contract", () => {
       );
       const queues = 4;
 
-      const baseAccount = await proxyDeployer.baseAccount();
       const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        proxyDeployer.address,
-        owner.address,
-        baseAccount
+        owner.address
       );
 
       // Reset the forwarder 5 times

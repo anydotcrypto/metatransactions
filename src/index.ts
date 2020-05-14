@@ -30,6 +30,7 @@ export {
   MinimalTx,
   ForwardParams,
   DeploymentParams,
+  Forwarder,
 } from "./ts/forwarders/forwarder";
 export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
 export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
@@ -49,4 +50,4 @@ import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.j
 export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
 
-export { deployMetaTxContracts } from "./deployment/deploy"
+export { deployMetaTxContracts } from "./deployment/deploy";

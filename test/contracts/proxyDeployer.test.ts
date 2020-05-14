@@ -26,6 +26,7 @@ import {
   ProxyAccountForwarder,
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
+  deployMetaTxContracts,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -63,9 +64,6 @@ async function createProxyAccountDeployer(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
 ) {
-  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
-
   const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
   await nonceStoreMock.deploy(admin);
   await nonceStoreMock.update.returns(true);
@@ -73,15 +71,12 @@ async function createProxyAccountDeployer(
 
   const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
   const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
-
-  const proxyDeployerCreation = await admin.sendTransaction(
-    proxyDeployerCreationTx
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
+  const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
+    proxyAccountDeployerAddress
   );
-  const result = await proxyDeployerCreation.wait(1);
-
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
-  const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
-  const proxyDeployer = proxyDeployerFactory.attach(result.contractAddress!);
+  const msgSenderCon = await msgSenderFactory.deploy(proxyDeployer.address);
   return {
     provider,
     proxyDeployer,
@@ -122,9 +117,7 @@ describe("ProxyAccountDeployer", () => {
       const proxyAddress = getCreate2Address(options);
 
       const builtAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        proxyDeployer.address,
-        sender.address,
-        baseAccount
+        sender.address
       );
 
       // Computed offchain
@@ -246,11 +239,8 @@ describe("ProxyAccountDeployer", () => {
     user: ethers.Wallet,
     replayProtectionType: ReplayProtectionType
   ) => {
-    const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      proxyDeployer.address,
-      user.address,
-      baseAccount
+      user.address
     );
     const replayProtection =
       replayProtectionType === ReplayProtectionType.MULTINONCE

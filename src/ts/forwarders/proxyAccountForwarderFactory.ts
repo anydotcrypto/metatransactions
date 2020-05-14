@@ -21,9 +21,7 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
     signer: Wallet
   ): ProxyAccountForwarder {
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      PROXY_ACCOUNT_DEPLOYER_ADDRESS,
-      signer.address,
-      BASE_ACCOUNT_ADDRESS
+      signer.address
     );
 
     return new ProxyAccountForwarder(

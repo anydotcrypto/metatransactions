@@ -44,7 +44,7 @@ export interface RelayHubCallData {
 }
 
 export interface ProxyAccountCallData extends RelayHubCallData {
-  value: BigNumberish;
+  value?: BigNumberish;
 }
 
 /**
