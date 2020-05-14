@@ -13,16 +13,14 @@ import { Wallet } from "ethers/wallet";
 import { defaultAbiCoder, keccak256, arrayify, BigNumber } from "ethers/utils";
 import { AddressZero } from "ethers/constants";
 import { Contract } from "ethers";
+import BN from "bn.js";
+import { flipBit } from "../utils/bitflip-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
 
 let dummyAccount: ReplayProtectionWrapper;
 type replayProtection = typeof dummyAccount.functions;
-
-function flipBit(bits: BigNumber, bitToFlip: BigNumber): BigNumber {
-  return new BigNumber(bits).add(new BigNumber(2).pow(bitToFlip));
-}
 
 async function signCall(
   replayProtection: Contract,
@@ -134,7 +132,7 @@ describe("ReplayProtection", () => {
         expect(storedNonce.toNumber()).to.eq(i + 1);
       }
     }
-  );
+  ).timeout("20000");
 
   fnIt<replayProtection>(
     (a) => a.noncePublic,
@@ -167,11 +165,11 @@ describe("ReplayProtection", () => {
         expect(storedNonce.toNumber()).to.eq(1);
       }
     }
-  );
+  ).timeout("20000");
 
   fnIt<replayProtection>(
     (a) => a.noncePublic,
-    "increment 20 queues multiple times to test MULTINONCE",
+    "increment 20 queues at least 20 times to test MULTINONCE",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
@@ -238,7 +236,7 @@ describe("ReplayProtection", () => {
 
       expect(nonce).to.eq(1);
     }
-  ).timeout("50000");
+  );
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
@@ -287,7 +285,7 @@ describe("ReplayProtection", () => {
         "Multinonce replay protection failed"
       );
     }
-  ).timeout("50000");
+  );
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
@@ -317,7 +315,7 @@ describe("ReplayProtection", () => {
         "Multinonce replay protection failed"
       );
     }
-  ).timeout("50000");
+  );
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
@@ -346,7 +344,7 @@ describe("ReplayProtection", () => {
       // User signs AddressZero, but the contract computes signature for AddressOne
       await expect(tx).to.be.revertedWith("Not expected signer");
     }
-  ).timeout("50000");
+  );
 
   fnIt<replayProtection>(
     (a) => a.bitflipPublic,
@@ -402,7 +400,7 @@ describe("ReplayProtection", () => {
 
       await expect(
         replayProtection.bitflipPublic(admin.address, nonceReplayProtection)
-      ).to.be.revertedWith("It must flip at least one bit!");
+      ).to.be.revertedWith("It must flip one bit!");
     }
   );
 
@@ -548,7 +546,7 @@ describe("ReplayProtection", () => {
 
       expect(nonce).to.eq(bitToFlip);
     }
-  ).timeout("50000");
+  );
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
@@ -579,7 +577,175 @@ describe("ReplayProtection", () => {
         )
       ).to.be.revertedWith("Multinonce replay protection failed");
     }
-  ).timeout("50000");
+  );
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "submit same replay protection for bitflip() twice and it should fail",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      const bitmapIndex = 321;
+      const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
+
+      const { callData, encodedReplayProtection, signedCall } = await signCall(
+        replayProtection,
+        "0x0000000000000000000000000000000000000001",
+        admin,
+        bitmapIndex,
+        bitToFlip.toNumber()
+      );
+
+      await replayProtection.verifyPublic(
+        callData,
+        encodedReplayProtection,
+        "0x0000000000000000000000000000000000000001",
+        admin.address,
+        signedCall
+      );
+
+      const index = keccak256(
+        defaultAbiCoder.encode(
+          ["address", "uint", "address"],
+          [
+            admin.address,
+            bitmapIndex,
+            "0x0000000000000000000000000000000000000001",
+          ]
+        )
+      );
+      const nonce = await replayProtection.nonceStore(index);
+
+      expect(nonce).to.eq(bitToFlip);
+
+      await expect(
+        replayProtection.verifyPublic(
+          callData,
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001",
+          admin.address,
+          signedCall
+        )
+      ).to.be.revertedWith("Bitflip replay protection failed");
+    }
+  );
+
+  function isPowerOfTwo(n: BigNumber) {
+    const bn = new BN(n.toString());
+    return bn.and(bn.sub(new BN("1"))).eq(new BN("0"));
+  }
+
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "test isPowerOfTwo",
+    async () => {
+      // As long as one argument is zero, it should always work.
+      for (let i = 0; i < 256; i++) {
+        const flipped = flipBit(new BigNumber("0"), new BigNumber(i));
+        expect(isPowerOfTwo(flipped)).to.be.true;
+        expect(flipped).not.eq(new BigNumber("0"));
+      }
+
+      // More than one bit is flipped, it should always fail.
+      for (let i = 1; i < 256; i++) {
+        const flipped = flipBit(new BigNumber("1"), new BigNumber(i));
+        expect(isPowerOfTwo(flipped)).to.be.false;
+      }
+    }
+  );
+
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "flips two bits for bitflip for a single job and it should fail",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      let bitmapIndex = 2;
+      let bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
+      bitToFlip = flipBit(bitToFlip, new BigNumber("1"));
+
+      const { callData, encodedReplayProtection, signedCall } = await signCall(
+        replayProtection,
+        "0x0000000000000000000000000000000000000001",
+        admin,
+        bitmapIndex,
+        bitToFlip.toNumber()
+      );
+
+      await expect(
+        replayProtection.verifyPublic(
+          callData,
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001",
+          admin.address,
+          signedCall
+        )
+      ).to.be.revertedWith("Only a single bit can be flipped");
+
+      const index = keccak256(
+        defaultAbiCoder.encode(
+          ["address", "uint", "address"],
+          [
+            admin.address,
+            bitmapIndex,
+            "0x0000000000000000000000000000000000000001",
+          ]
+        )
+      );
+      const nonce = await replayProtection.nonceStore(index);
+
+      expect(nonce).to.eq(new BigNumber("0"));
+    }
+  );
+
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "flip a bit and add 1. use the modified bit to flip and it should fail.",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      let bitmapIndex = 2;
+      let bitToFlip = flipBit(new BigNumber("0"), new BigNumber("5"));
+      bitToFlip = bitToFlip.add(1);
+
+      const { callData, encodedReplayProtection, signedCall } = await signCall(
+        replayProtection,
+        "0x0000000000000000000000000000000000000001",
+        admin,
+        bitmapIndex,
+        bitToFlip.toNumber()
+      );
+
+      await expect(
+        replayProtection.verifyPublic(
+          callData,
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001",
+          admin.address,
+          signedCall
+        )
+      ).to.be.revertedWith("Only a single bit can be flipped");
+
+      const index = keccak256(
+        defaultAbiCoder.encode(
+          ["address", "uint", "address"],
+          [
+            admin.address,
+            bitmapIndex,
+            "0x0000000000000000000000000000000000000001",
+          ]
+        )
+      );
+      const nonce = await replayProtection.nonceStore(index);
+
+      expect(nonce).to.eq(new BigNumber("0"));
+    }
+  );
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
@@ -632,5 +798,5 @@ describe("ReplayProtection", () => {
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
     }
-  ).timeout("50000");
+  );
 });

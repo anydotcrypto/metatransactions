@@ -82,7 +82,7 @@ contract ReplayProtection {
      * MultiNonce replay protection.
      * Explained: https://github.com/PISAresearch/metamask-comp#multinonce
      * Allows a user to send N queues of transactions, but transactions in each queue are accepted in order.
-     * If nonce1==0, then it is the same as replace-by-version (e.g. increment nonce each time).
+     * If queue==0, then it is a single queue (e.g. NONCE replay protection)
      * @param _replayProtection Contains a single nonce
      */
     function nonce(address _signer, bytes memory _replayProtection) internal returns(bool) {
@@ -104,18 +104,21 @@ contract ReplayProtection {
     /**
      * Bitflip Replay Protection
      * Explained: https://github.com/PISAresearch/metamask-comp#bitflip
-     * Allows a user to flip a bit in nonce2 as replay protection. Every nonce supports 256 bit flips.
+     * Signer flips a bit for every new transaction. Each queue supports 256 bit flips.
      */
     function bitflip(address _signer, bytes memory _replayProtection) internal returns(bool) {
         (uint256 queue, uint256 bitsToFlip) = abi.decode(_replayProtection, (uint256, uint256));
 
-        require(bitsToFlip > 0, "It must flip at least one bit!");
+        require(bitsToFlip > 0, "It must flip one bit!");
+
+        // n & (n-1) == 0, i.e. is it a power of two?
+        // example: 4 = 100, 3 = 011. 4 & = 000.
+        require(bitsToFlip & bitsToFlip-1 == 0, "Only a single bit can be flipped");
 
         // Combine with msg.sender to get unique indexes per caller
         bytes32 index = queueIndex(_signer, queue, getBitFlipAddress());
         uint256 currentBitmap = nonceStore[index];
 
-        // Finally check if the bit is flipped!
         // This is an AND operation, so if the bitmap
         // and the bitsToFlip share no common "1" bits,
         // then it will be 0. We require bitsToFlip > 0,
@@ -130,7 +133,7 @@ contract ReplayProtection {
     /**
      * A helper function for computing the queue index identifier.
      */
-    function queueIndex(address _signer, uint _queue, address _authority) internal returns(bytes32) {
+    function queueIndex(address _signer, uint _queue, address _authority) internal pure returns(bytes32) {
         return keccak256(abi.encode(_signer, _queue, _authority));
     }
 }

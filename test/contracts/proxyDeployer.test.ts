@@ -362,7 +362,7 @@ describe("ProxyAccountDeployer", () => {
         );
 
       await expect(tx).to.revertedWith(
-        "Signer did not sign this meta-transaction."
+        "Owner did not sign this meta-transaction."
       );
     }
   );
