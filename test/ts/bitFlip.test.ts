@@ -1,12 +1,13 @@
 import "mocha";
 import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, defaultAbiCoder } from "ethers/utils";
+import { BigNumber, defaultAbiCoder, bigNumberify } from "ethers/utils";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { BitFlipReplayProtection } from "../../src/ts/replayProtection/bitFlip";
 import BN from "bn.js";
+import { flipBit } from "../utils/bitflip-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -34,7 +35,7 @@ describe("Bitflip Module", () => {
 
     let binary = "1";
     for (let i = 0; i < 255; i++) {
-      const flipped = bitflip.flipBit(bitmap, new BigNumber(i));
+      const flipped = bitflip.flipBit(bitmap, i);
 
       const flippedBN = new BN(flipped.toString());
       const binaryToBN = new BN(binary, 2);
@@ -63,7 +64,7 @@ describe("Bitflip Module", () => {
 
     let binary = "1";
     for (let i = 0; i < 10; i++) {
-      bitmap = bitflip.flipBit(bitmap, new BigNumber(i));
+      bitmap = bitflip.flipBit(bitmap, i);
 
       const bitmapBN = new BN(bitmap.toString());
       const binaryToBN = new BN(binary, 2);
@@ -85,7 +86,7 @@ describe("Bitflip Module", () => {
 
     let binary = "1";
     for (let i = 0; i < 200; i++) {
-      bitmap = bitflip.flipBit(bitmap, new BigNumber(i));
+      bitmap = bitflip.flipBit(bitmap, i);
 
       const bitmapBN = new BN(bitmap.toString());
       const binaryToBN = new BN(binary, 2);
@@ -107,30 +108,39 @@ describe("Bitflip Module", () => {
     const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     let bitmap = new BigNumber("0");
 
-    bitmap = bitflip.flipBit(bitmap, new BigNumber("0"));
-    bitmap = bitflip.flipBit(bitmap, new BigNumber("9"));
-    bitmap = bitflip.flipBit(bitmap, new BigNumber("199"));
+    bitmap = bitflip.flipBit(bitmap, 0);
+    bitmap = bitflip.flipBit(bitmap, 9);
+    bitmap = bitflip.flipBit(bitmap, 199);
 
     const bitToFlip = bitflip.findEmptyBit(bitmap);
 
     expect(bitToFlip.toString()).to.eq(new BigNumber("1").toString());
   }).timeout(50000);
 
-  it("get bits to flip in sequence", async () => {
+  it("flip more than 2560 times to ensure it will m it moves queue when the previous queue is exhausted", async () => {
     const { relayHub, admin } = await loadFixture(createRelayHub);
 
     const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
 
+    let lastIndex = new BigNumber("-1");
     // Flip every bit
-    // j = index of bitmap
     // i = bit to flip in the map
-    for (let j = 6174; j < 10; j++) {
-      for (let i = 0; i < 256; i++) {
-        const encodedNonces = await bitflip.getEncodedReplayProtection();
-        const nonces = defaultAbiCoder.decode(["uint", "uint"], encodedNonces);
+    for (let i = 0; i < 2560; i++) {
+      const encodedNonces = await bitflip.getEncodedReplayProtection();
+      const nonces = defaultAbiCoder.decode(["uint", "uint"], encodedNonces);
 
-        expect(nonces[0]).to.eq(new BigNumber(j));
-        expect(nonces[1]).to.eq(new BigNumber(i));
+      const index = i % 256;
+      const flipped = flipBit(new BigNumber("0"), new BigNumber(index));
+      expect(nonces[1]).to.eq(flipped);
+
+      // Verify the index was indeed changed.
+      // We expect it to increment by 1 after
+      // the initial random index is chosen
+      if (i === 0) {
+        lastIndex = nonces[0];
+      } else if (index === 0) {
+        expect(nonces[0]).to.eq(lastIndex.add(1));
+        lastIndex = nonces[0];
       }
     }
   }).timeout(50000);

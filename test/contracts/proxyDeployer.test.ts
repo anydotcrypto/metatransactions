@@ -323,6 +323,51 @@ describe("ProxyAccountDeployer", () => {
   );
 
   fnIt<accountFunctions>(
+    (a) => a.forward,
+    "empty signature will emit a pseudo-random signer",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+
+      // Replay protection is always reset due to fixture. So it should be [0.0].
+      const params = await forwarder.signMetaTransaction({
+        to: msgSenderCon.address,
+        value: new BigNumber("0"),
+        data: msgSenderCall,
+      });
+
+      const proxyAccount = new ProxyAccountFactory(owner).attach(
+        forwarder.address
+      );
+
+      const tx = proxyAccount
+        .connect(sender)
+        .forward(
+          params.target,
+          params.value,
+          params.data,
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          "0x0000000000000000000000000000000000000000"
+        );
+
+      await expect(tx).to.revertedWith(
+        "Owner did not sign this meta-transaction."
+      );
+    }
+  );
+
+  fnIt<accountFunctions>(
     (a) => a.deployContract,
     "deploys a contract via the proxy account",
     async () => {

@@ -23,6 +23,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * @param chainID Chain ID
    * @param proxyDeployer Address of contract
    * @param signer Signer's wallet
+   * @param proxyAddress Proxy contract
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
   constructor(
