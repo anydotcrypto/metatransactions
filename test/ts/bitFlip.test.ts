@@ -35,7 +35,7 @@ describe("Bitflip Module", () => {
 
     let binary = "1";
     for (let i = 0; i < 255; i++) {
-      const flipped = bitflip.flipBit(bitmap, new BigNumber(i));
+      const flipped = bitflip.flipBit(bitmap, i);
 
       const flippedBN = new BN(flipped.toString());
       const binaryToBN = new BN(binary, 2);
@@ -64,7 +64,7 @@ describe("Bitflip Module", () => {
 
     let binary = "1";
     for (let i = 0; i < 10; i++) {
-      bitmap = bitflip.flipBit(bitmap, new BigNumber(i));
+      bitmap = bitflip.flipBit(bitmap, i);
 
       const bitmapBN = new BN(bitmap.toString());
       const binaryToBN = new BN(binary, 2);
@@ -86,7 +86,7 @@ describe("Bitflip Module", () => {
 
     let binary = "1";
     for (let i = 0; i < 200; i++) {
-      bitmap = bitflip.flipBit(bitmap, new BigNumber(i));
+      bitmap = bitflip.flipBit(bitmap, i);
 
       const bitmapBN = new BN(bitmap.toString());
       const binaryToBN = new BN(binary, 2);
@@ -108,9 +108,9 @@ describe("Bitflip Module", () => {
     const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     let bitmap = new BigNumber("0");
 
-    bitmap = bitflip.flipBit(bitmap, new BigNumber("0"));
-    bitmap = bitflip.flipBit(bitmap, new BigNumber("9"));
-    bitmap = bitflip.flipBit(bitmap, new BigNumber("199"));
+    bitmap = bitflip.flipBit(bitmap, 0);
+    bitmap = bitflip.flipBit(bitmap, 9);
+    bitmap = bitflip.flipBit(bitmap, 199);
 
     const bitToFlip = bitflip.findEmptyBit(bitmap);
 

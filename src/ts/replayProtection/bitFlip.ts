@@ -93,7 +93,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param bits 256 bits
    * @param toFlip index to flip (0,...,255)
    */
-  public flipBit(bits: BigNumber, bitToFlip: BigNumberish): BigNumber {
+  public flipBit(bits: BigNumber, bitToFlip: number): BigNumber {
     return new BigNumber(bits).add(new BigNumber(2).pow(bitToFlip));
   }
 
