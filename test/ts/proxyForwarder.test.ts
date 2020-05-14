@@ -32,7 +32,6 @@ import { flipBit } from "../utils/bitflip-utils";
 const expect = chai.expect;
 chai.use(solidity);
 
-<<<<<<< HEAD
 async function createHubs(
   provider: Provider,
   [admin, user1, user2, user3]: Wallet[]
@@ -40,19 +39,6 @@ async function createHubs(
   const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
-=======
-async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
-  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
-
-  const proxyDeployerCreation = await admin.sendTransaction(
-    proxyDeployerCreationTx
-  );
-  const proxyResult = await proxyDeployerCreation.wait(1);
-
-  const proxyDeployer = proxyDeployerFactory.attach(
-    proxyResult.contractAddress!
->>>>>>> master
   );
 
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(
