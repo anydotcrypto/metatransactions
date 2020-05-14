@@ -1,6 +1,5 @@
 import "mocha";
 import * as chai from "chai";
-import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
@@ -12,8 +11,8 @@ import {
   RelayHubForwarder,
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
+  deployMetaTxContracts,
 } from "../../src";
-import { when, spy } from "ts-mockito";
 
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -24,29 +23,17 @@ import {
 
 const expect = chai.expect;
 chai.use(solidity);
-chai.use(chaiAsPromised);
 
 async function createHubs(provider: Provider, [admin]: Wallet[]) {
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
+  const {
+    relayHubAddress,
+    proxyAccountDeployerAddress,
+  } = await deployMetaTxContracts(admin);
 
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const relayResult = await relayHubCreation.wait(1);
-
-  const relayHub = relayHubFactory.attach(relayResult.contractAddress!);
-
-  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
-
-  const proxyDeployerCreation = await admin.sendTransaction(
-    proxyDeployerCreationTx
+  const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
+  const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
+    proxyAccountDeployerAddress
   );
-  const proxyResult = await proxyDeployerCreation.wait(1);
-
-  const proxyDeployer = proxyDeployerFactory.attach(
-    proxyResult.contractAddress!
-  );
-
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(
     relayHub.address
   );

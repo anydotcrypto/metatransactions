@@ -1,6 +1,5 @@
 import "mocha";
 import * as chai from "chai";
-import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
 import {
   BigNumber,
@@ -16,6 +15,7 @@ import {
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   ProxyAccountDeployer,
+  deployMetaTxContracts,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -31,22 +31,14 @@ import { ethers } from "ethers";
 
 const expect = chai.expect;
 chai.use(solidity);
-chai.use(chaiAsPromised);
 
 async function createHubs(
   provider: Provider,
   [admin, user1, user2, user3]: Wallet[]
 ) {
-  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
-
-  const proxyDeployerCreation = await admin.sendTransaction(
-    proxyDeployerCreationTx
-  );
-  const proxyResult = await proxyDeployerCreation.wait(1);
-
-  const proxyDeployer = proxyDeployerFactory.attach(
-    proxyResult.contractAddress!
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
+  const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
+    proxyAccountDeployerAddress
   );
 
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(

@@ -1,32 +1,14 @@
-import { ethers, Contract, ContractFactory } from "ethers";
+import { Contract, ContractFactory, Signer } from "ethers";
 import { RelayHubFactory, ProxyAccountDeployerFactory } from "..";
 import { keccak256, toUtf8Bytes, getCreate2Address } from "ethers/utils";
 import { MultiSendFactory } from "../typedContracts/MultiSendFactory";
-import { deployerAddress, deployerABI } from "./deployer";
+import { deployerAddress, deployDeployer } from "./deployer";
 import {
   RELAY_HUB_SALT_STRING,
   VERSION,
   PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
   MULTI_SEND_SALT_STRING,
 } from "./addresses";
-
-export const ADMIN_MNEMONIC = "";
-/**
- * Set up the provider and wallet
- */
-async function setup() {
-  const infuraProvider = new ethers.providers.InfuraProvider(
-    "ropsten",
-    "7333c8bcd07b4a179b0b0a958778762b"
-  );
-
-  const adminMnemonicWallet = ethers.Wallet.fromMnemonic(ADMIN_MNEMONIC);
-  const admin = adminMnemonicWallet.connect(infuraProvider);
-  return {
-    admin,
-    provider: infuraProvider,
-  };
-}
 
 async function deployContract(
   deployerContract: Contract,
@@ -48,11 +30,9 @@ async function deployContract(
   });
 }
 
-(async () => {
-  // Set up wallets & provider
-  const { admin } = await setup();
-  console.log("Admin wallet address: " + admin.address);
-  const deployerContract = new Contract(deployerAddress, deployerABI, admin);
+export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean = false) => {
+  // deploy the deployer
+  const deployerContract = await deployDeployer(admin);
 
   const relayHubFactory = new RelayHubFactory(admin);
   const relayHubSalt = keccak256(
@@ -62,8 +42,8 @@ async function deployContract(
     deployerContract,
     relayHubFactory,
     relayHubSalt
-  );
-  console.log("RelayHub address: " + relayHubAddress);
+  );  
+  logProgress && console.log("RelayHub address: " + relayHubAddress);
 
   const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
   const proxyDeployerSalt = keccak256(
@@ -74,10 +54,11 @@ async function deployContract(
     proxyDeployerFactory,
     proxyDeployerSalt
   );
-  console.log("ProxyAccountDeployer address: " + proxyAddress);
+  logProgress && console.log("ProxyAccountDeployer address: " + proxyAddress);
+
   const proxyDeployer = proxyDeployerFactory.attach(proxyAddress);
   const baseAccount = await proxyDeployer.baseAccount();
-  console.log("BaseAccount address: " + baseAccount);
+  logProgress && console.log("BaseAccount address: " + baseAccount);
 
   const multiSendFactory = new MultiSendFactory(admin);
   const multiSendSalt = keccak256(
@@ -88,8 +69,12 @@ async function deployContract(
     multiSendFactory,
     multiSendSalt
   );
-  console.log("MultiSend address: " + multiSendAddress);
-})().catch((e) => {
-  console.log(e);
-  // Deal with the fact the chain failed
-});
+  logProgress && console.log("MultiSend address: " + multiSendAddress);
+
+  return {
+      relayHubAddress,
+      proxyAccountDeployerAddress: proxyAddress,
+      baseAccountAddress: baseAccount,
+      multiSendAddress: multiSendAddress
+  }
+};

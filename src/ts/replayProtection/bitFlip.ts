@@ -2,7 +2,6 @@ import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Wallet } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
-import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
 
 /**
