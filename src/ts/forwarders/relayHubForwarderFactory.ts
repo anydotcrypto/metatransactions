@@ -4,7 +4,7 @@ import {
   ReplayProtectionType,
   RelayHubForwarder,
 } from "../..";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { RELAY_HUB_ADDRESS } from "../../deployment/addresses";
 
 export class RelayHubForwarderFactory extends ForwarderFactory<
@@ -16,11 +16,11 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
    * @param replayProtectionType Bitflip, Multinonce or Nonce
    * @param signer Signer's wallet
    */
-  public createNew(
+  public async createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
-    signer: Wallet
-  ): RelayHubForwarder {
+    signer: Signer
+  ): Promise<RelayHubForwarder> {
     return new RelayHubForwarder(
       chainid,
       signer,

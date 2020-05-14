@@ -184,7 +184,7 @@ describe("RelayHub Contract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const forwarder = forwarderFactory.createNew(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -242,7 +242,7 @@ describe("RelayHub Contract", () => {
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
-      const forwarder = forwarderFactory.createNew(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -327,7 +327,7 @@ describe("RelayHub Contract", () => {
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
-      const forwarder = forwarderFactory.createNew(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -380,7 +380,7 @@ describe("RelayHub Contract", () => {
         [msgSenderCon.address, msgSenderCall]
       );
 
-      const forwarder = forwarderFactory.createNew(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
@@ -439,7 +439,7 @@ describe("RelayHub Contract", () => {
         [msgSenderCon.address, msgSenderCall]
       );
 
-      const forwarder = forwarderFactory.createNew(
+      const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner

@@ -86,7 +86,7 @@ To instantiate the proxy account forwarder:
 
 ```
 const signer = Wallet.Mnemonic("");
-const forwarder = new ProxyAccountForwarderFactory().createNew(
+const forwarder = await new ProxyAccountForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.MULTINONCE,
     signer
@@ -101,7 +101,7 @@ To instantiate the RelayHub forwarder:
 
 ```
 const signer = Wallet.Mnemonic("");
-const relayHubForwarder = new RelayHubForwarderFactory().createNew(
+const relayHubForwarder = await new RelayHubForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.NONCE,
     signer
@@ -136,7 +136,7 @@ Let's set up our forwarder and signer:
 ```
 const user = Wallet.Mnemonic("");
 const relayer = Wallet.Mnemonic("");
-const forwarder = new ProxyAccountForwarderFactory().createNew(
+const forwarder = await new ProxyAccountForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.MULTINONCE,
     user
@@ -203,7 +203,7 @@ Let's set up our forwarder and signer:
 const user = Wallet.Mnemonic("");
 const relayer = Wallet.Mnemonic("");
 
-const forwarder = new RelayHubForwarderFactory().createNew(
+const forwarder = await new RelayHubForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.MULTINONCE,
     user

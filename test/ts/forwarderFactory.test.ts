@@ -185,7 +185,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -236,7 +236,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -287,7 +287,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
