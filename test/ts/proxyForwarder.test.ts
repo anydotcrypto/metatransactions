@@ -11,7 +11,6 @@ import {
   ProxyAccountDeployerFactory,
   MsgSenderExampleFactory,
   ProxyAccountFactory,
-  ProxyAccountForwarderFactory,
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   ProxyAccountDeployer,
@@ -28,10 +27,12 @@ import { AddressZero } from "ethers/constants";
 import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
+import { flipBit } from "../utils/bitflip-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
 
+<<<<<<< HEAD
 async function createHubs(
   provider: Provider,
   [admin, user1, user2, user3]: Wallet[]
@@ -39,28 +40,36 @@ async function createHubs(
   const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
+=======
+async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
+  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
+  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
+
+  const proxyDeployerCreation = await admin.sendTransaction(
+    proxyDeployerCreationTx
+  );
+  const proxyResult = await proxyDeployerCreation.wait(1);
+
+  const proxyDeployer = proxyDeployerFactory.attach(
+    proxyResult.contractAddress!
+>>>>>>> master
   );
 
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(
     AddressZero
   );
 
-  const proxyAccountForwarderFactory = new ProxyAccountForwarderFactory();
-
   return {
     proxyDeployer,
     admin,
     user1,
-    user2,
-    user3,
     msgSenderExample,
-    proxyAccountForwarderFactory,
   };
 }
 
 describe("Proxy Forwarder", () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
-    const { proxyDeployer, admin, user1 } = await loadFixture(createHubs);
+    const { proxyDeployer, user1 } = await loadFixture(createHubs);
 
     const baseAccount = await proxyDeployer.baseAccount();
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
@@ -82,7 +91,6 @@ describe("Proxy Forwarder", () => {
       to: encoded.to,
       data: encoded.data,
     });
-    const receipt = await tx.wait(1);
 
     const computedProxyAddress = proxyForwarder.address;
     const proxyAccountContract = new ProxyAccountFactory(user1).attach(
@@ -134,7 +142,7 @@ describe("Proxy Forwarder", () => {
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Multinonce replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -251,11 +259,11 @@ describe("Proxy Forwarder", () => {
       proxyForwarder.address,
       "Proxy account address"
     );
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
+    expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
+    expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
     expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "0x0000000000000000000000000000000000000001",
+      "Bitflip replay protection"
     );
     expect(forwardParams.signer).to.eq(
       admin.address,
@@ -310,11 +318,13 @@ describe("Proxy Forwarder", () => {
           proxyForwarder.address,
           "Proxy account address"
         );
-        expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-        expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
+
+        expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
+        const bitFlipped = flipBit(new BigNumber("0"), new BigNumber(i));
+        expect(decodedReplayProtection[1]).to.eq(bitFlipped, "Nonce2");
         expect(forwardParams.replayProtectionAuthority).to.eq(
-          "0x0000000000000000000000000000000000000000",
-          "Built-in replay protection"
+          "0x0000000000000000000000000000000000000001",
+          "Bitflip replay protection"
         );
         expect(forwardParams.signer).to.eq(
           user1.address,
@@ -436,11 +446,11 @@ describe("Proxy Forwarder", () => {
     expect(deploymentParams.to).to.eq(proxyAccount.address);
     expect(deploymentParams.signer).to.eq(admin.address);
     expect(deploymentParams.initCode).to.eq(initCode);
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0")); // Picks a randon number greater than 6174
+    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"));
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
       "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+      "Nonce replay protection"
     );
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 

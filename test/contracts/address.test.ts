@@ -5,12 +5,10 @@ import { deployerAddress } from "../../src/deployment/deployer";
 import {
   VERSION,
   PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
-  MULTI_SEND_SALT_STRING,
   RELAY_HUB_SALT_STRING,
   BASE_ACCOUNT_SALT_STRING,
   BASE_ACCOUNT_ADDRESS,
   RELAY_HUB_ADDRESS,
-  MULTI_SEND_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
 } from "../../src/deployment/addresses";
 import {
@@ -18,7 +16,6 @@ import {
   RelayHubFactory,
   ProxyAccountFactory,
 } from "../../src";
-import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 import { ContractFactory } from "ethers";
 
 const checkAddress = (

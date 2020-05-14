@@ -16,7 +16,7 @@ contract ProxyAccount is ReplayProtection {
      * Due to create clone, we need to use an init() method.
      */
     function init(address _owner) public {
-        require(owner == address(0), "Signer is already set");
+        require(owner == address(0), "Owner is already set");
         owner = _owner;
     }
 
@@ -43,7 +43,7 @@ contract ProxyAccount is ReplayProtection {
         bytes memory encodedData = abi.encode(_target, _value, _callData);
 
         // // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature));
+        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
         // Call out to the target contract
         (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));

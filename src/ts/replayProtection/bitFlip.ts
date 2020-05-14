@@ -1,14 +1,13 @@
-import { defaultAbiCoder, BigNumber } from "ethers/utils";
+import { defaultAbiCoder, BigNumber, BigNumberish } from "ethers/utils";
 import { Wallet } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 import BN from "bn.js";
 
 /**
- * We re-purpose the on-chai nonce (uint) as a bitmap
- * and simply flip bits in the map. It only supports
- * concurrent transactions (e.g. processing 1000 withdrawals, order
- * does not matter).
+ * The signer can flip a bit for every new transaction. Each
+ * queue supports 256 bit flips. It only supports concurrent &
+ * out-of-order transactions (e.g. processsing 10000 withdrawals).
  */
 export class BitFlipReplayProtection extends ReplayProtectionAuthority {
   private index: BigNumber; // Keep track of bitmap index
@@ -33,11 +32,11 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    */
   private async searchBitmaps() {
     let foundEmptyBit = false;
-    let bitToFlip = new BigNumber("0");
+    let bitToFlip: number;
 
     // Lets confirm they are defined
     if (!this.index || !this.bitmap) {
-      const min = 6174; // Magic number to separate MultiNonce and BitFlip
+      const min = 0; // Magic number to separate MultiNonce and BitFlip
       const max = Number.MAX_SAFE_INTEGER;
       // Would prefer something better than Math.random()
       this.index = new BigNumber(
@@ -54,7 +53,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
       bitToFlip = this.findEmptyBit(this.bitmap);
 
       // Did we find one?
-      if (bitToFlip.eq(new BigNumber("-1"))) {
+      if (bitToFlip === -1) {
         // No, let's try the next bitmap
         this.index = this.index.add(1);
         this.bitmap = await this.accessNonceStore(this.index);
@@ -62,10 +61,11 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
         // We found an empty bit
         foundEmptyBit = true;
 
-        const flipped = this.flipBit(this.bitmap, bitToFlip);
-        this.bitmap = flipped;
+        const flippedWithBitmap = this.flipBit(this.bitmap, bitToFlip);
+        this.bitmap = flippedWithBitmap;
         const newIndex = this.index;
-        return { newIndex, bitToFlip };
+        const singleBitFlipped = this.flipBit(new BigNumber("0"), bitToFlip);
+        return { newIndex, singleBitFlipped };
       }
     }
 
@@ -75,22 +75,17 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * A simple function that returns the index of the first 0 bit in the bitmap.
    * @param bitmap Bitmap to find an empty bit.
    */
-  public findEmptyBit(bitmap: BigNumber) {
-    const emptyBitmap = new BigNumber("0");
+  public findEmptyBit(bitmap: BigNumber): number {
+    const bitmapBN = new BN(bitmap.toString());
+    let c = new BN(1);
+
     for (let i = 0; i < 256; i++) {
-      const flipped = this.flipBit(emptyBitmap, new BigNumber(i));
-
-      // Convert BigNumber to BN
-      const bitmapBN = new BN(bitmap.toString());
-      const flippedBN = new BN(flipped.toString());
-
-      // bitmap & flipped = flipped'
-      // If flipped' is 0, then neither bitmap or flipped shared a flipped bit.
-      if (bitmapBN.and(flippedBN).eq(new BN("0"))) {
-        return new BigNumber(i);
+      if (bitmapBN.and(c).isZero()) {
+        return i;
       }
+      c = c.add(c);
     }
-    return new BigNumber("-1");
+    return -1;
   }
 
   /**
@@ -98,7 +93,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param bits 256 bits
    * @param toFlip index to flip (0,...,255)
    */
-  public flipBit(bits: BigNumber, bitToFlip: BigNumber): BigNumber {
+  public flipBit(bits: BigNumber, bitToFlip: number): BigNumber {
     return new BigNumber(bits).add(new BigNumber(2).pow(bitToFlip));
   }
 
@@ -112,8 +107,11 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
   public async getEncodedReplayProtection() {
     try {
       this.lock.acquire();
-      const { newIndex, bitToFlip } = await this.searchBitmaps();
-      return defaultAbiCoder.encode(["uint", "uint"], [newIndex, bitToFlip]);
+      const { newIndex, singleBitFlipped } = await this.searchBitmaps();
+      return defaultAbiCoder.encode(
+        ["uint", "uint"],
+        [newIndex, singleBitFlipped]
+      );
     } finally {
       this.lock.release();
     }
@@ -123,6 +121,6 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * Return address of replay protection authority
    */
   public getAddress() {
-    return "0x0000000000000000000000000000000000000000";
+    return "0x0000000000000000000000000000000000000001";
   }
 }
