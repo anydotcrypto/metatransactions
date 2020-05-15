@@ -51,7 +51,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["address", "uint", "bytes"],
-      [data.to, data.value ? data.value : 0, data.data]
+      [data.to, data.value, data.data]
     );
   }
 
