@@ -474,7 +474,6 @@ describe("Proxy Forwarder", () => {
 
     // Sign meta-deployment
     let deployProxy = await forwarder.createProxyContract();
-    deployProxy.revertIfFail = true;
 
     // Sign the meta-tx
     const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
@@ -487,9 +486,9 @@ describe("Proxy Forwarder", () => {
       data: msgSenderExampleData,
     });
 
-    const multiSendEncodedTx = await multiSender.batch(admin, [
-      deployProxy,
-      metaTx,
+    const multiSendEncodedTx = multiSender.batch([
+      { ...deployProxy, revertOnFail: false },
+      { ...metaTx, revertOnFail: true },
     ]);
 
     const tx = await admin.sendTransaction({
@@ -532,9 +531,9 @@ describe("Proxy Forwarder", () => {
       data: msgSenderExampleData,
     });
 
-    const multiSendEncodedTx = await multiSender.batch(admin, [
-      deployProxy,
-      metaTx,
+    const multiSendEncodedTx = multiSender.batch([
+      { ...deployProxy, revertOnFail: false },
+      { ...metaTx, revertOnFail: true },
     ]);
 
     const tx = await admin.sendTransaction({

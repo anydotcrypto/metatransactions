@@ -18,8 +18,7 @@ import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 const expect = chai.expect;
 chai.use(solidity);
 
-let dummyAccount: MultiSend;
-type multiSend = typeof dummyAccount.functions;
+type multiSend = MultiSend["functions"];
 
 async function deployContracts(
   provider: Provider,
@@ -51,8 +50,8 @@ describe("MultiSend", () => {
 
       const multiSender = new MultiSender();
 
-      const batched = await multiSender.batch(admin, [
-        { to: msgSenderCon.address, data: callData },
+      const batched = multiSender.batch([
+        { to: msgSenderCon.address, data: callData, revertOnFail: false },
       ]);
 
       const tx = admin.sendTransaction({
@@ -76,11 +75,11 @@ describe("MultiSend", () => {
 
       const multiSender = new MultiSender();
 
-      const batched = await multiSender.batch(admin, [
-        { to: counterCon.address, data: callData },
-        { to: counterCon.address, data: callData },
-        { to: counterCon.address, data: callData },
-        { to: counterCon.address, data: callData },
+      const batched = multiSender.batch([
+        { to: counterCon.address, data: callData, revertOnFail: true },
+        { to: counterCon.address, data: callData, revertOnFail: true },
+        { to: counterCon.address, data: callData, revertOnFail: true },
+        { to: counterCon.address, data: callData, revertOnFail: true },
       ]);
 
       await admin.sendTransaction({
@@ -109,14 +108,15 @@ describe("MultiSend", () => {
 
       const multiSender = new MultiSender();
 
-      const batched = await multiSender.batch(admin, [
-        { to: counterCon.address, data: callData },
+      const batched = multiSender.batch([
+        { to: counterCon.address, data: callData, revertOnFail: true },
         {
           to: msgSenderCon.address,
           data: msgSenderCallData,
+          revertOnFail: true,
         },
-        { to: counterCon.address, data: callData },
-        { to: counterCon.address, data: callData },
+        { to: counterCon.address, data: callData, revertOnFail: true },
+        { to: counterCon.address, data: callData, revertOnFail: true },
       ]);
 
       const tx = admin.sendTransaction({
@@ -149,15 +149,15 @@ describe("MultiSend", () => {
 
       const multiSender = new MultiSender();
 
-      const batched = await multiSender.batch(admin, [
-        { to: counterCon.address, data: callData },
+      const batched = multiSender.batch([
+        { to: counterCon.address, data: callData, revertOnFail: true },
         {
           to: msgSenderCon.address,
           data: failCallData,
-          revertIfFail: false,
+          revertOnFail: false,
         },
-        { to: counterCon.address, data: callData },
-        { to: counterCon.address, data: callData },
+        { to: counterCon.address, data: callData, revertOnFail: true },
+        { to: counterCon.address, data: callData, revertOnFail: true },
       ]);
 
       await admin.sendTransaction({
@@ -186,15 +186,15 @@ describe("MultiSend", () => {
 
       const multiSender = new MultiSender();
 
-      const batched = await multiSender.batch(admin, [
-        { to: counterCon.address, data: callData },
+      const batched = multiSender.batch([
+        { to: counterCon.address, data: callData, revertOnFail: true },
         {
           to: msgSenderCon.address,
           data: failCallData,
-          revertIfFail: true,
+          revertOnFail: true,
         },
-        { to: counterCon.address, data: callData },
-        { to: counterCon.address, data: callData },
+        { to: counterCon.address, data: callData, revertOnFail: true },
+        { to: counterCon.address, data: callData, revertOnFail: true },
       ]);
       const tx = admin.sendTransaction({
         to: batched.to,
@@ -217,26 +217,26 @@ describe("MultiSend", () => {
 
       const multiSender = new MultiSender();
 
-      const batched = await multiSender.batch(admin, [
+      const batched = multiSender.batch([
         {
           to: msgSenderCon.address,
           data: failCallData,
-          revertIfFail: false,
+          revertOnFail: false,
         },
         {
           to: msgSenderCon.address,
           data: failCallData,
-          revertIfFail: false,
+          revertOnFail: false,
         },
         {
           to: msgSenderCon.address,
           data: failCallData,
-          revertIfFail: false,
+          revertOnFail: false,
         },
         {
           to: msgSenderCon.address,
           data: failCallData,
-          revertIfFail: false,
+          revertOnFail: false,
         },
       ]);
       const tx = await admin.sendTransaction({

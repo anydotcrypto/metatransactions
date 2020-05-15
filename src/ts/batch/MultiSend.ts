@@ -1,23 +1,23 @@
-import { MinimalTx } from "../forwarders/forwarder";
-import { MultiSendFactory } from "../../typedContracts/MultiSendFactory";
+import { abi } from "../../typedContracts/MultiSend.json";
+import { Interface } from "ethers/utils";
+import { MinimalTx, RevertableMinimalTx } from "../forwarders/forwarder";
 import { MULTI_SEND_ADDRESS } from "../../deployment/addresses";
-import { Signer } from "ethers";
+import { MultiSend } from "../../typedContracts/MultiSend";
 
 /**
  * Batch a list of meta-transactions before it hits the forwarder.
- * Useful for deploying proxy contract and then sending meta-tx
- * in a single Ethereum Transaction.
  */
 export class MultiSender {
   /**
    * Given a list of minimal transactions, it'll prepare a single
    * minimal transaction that is sent via the MultiSend contract.
-   * @param signer Signer's wallet
+   * Note each RevertableMinimalTx has a "revertOnFail" parameter which if set to true
+   * and the tx fails it will roll back the entire batch.
    * @param batch List of minimal transactions
    * @returns A minimal transaction for the MultiSend contract
    */
-  public async batch(signer: Signer, batch: MinimalTx[]): Promise<MinimalTx> {
-    const multiSend = new MultiSendFactory(signer).attach(MULTI_SEND_ADDRESS);
+  public batch(batch: RevertableMinimalTx[]): MinimalTx {
+    const multiSend = new Interface(abi) as MultiSend["interface"];
     const to: string[] = [];
     const data: string[] = [];
     const revertIfFail: boolean[] = [];
@@ -25,24 +25,17 @@ export class MultiSender {
     for (const tx of batch) {
       to.push(tx.to);
       data.push(tx.data);
-
-      // Cannot do the ? : trick as undefined/false
-      // have the same behaviour.
-      if (tx.revertIfFail === undefined) {
-        revertIfFail.push(true);
-      } else {
-        revertIfFail.push(tx.revertIfFail);
-      }
+      revertIfFail.push(tx.revertOnFail);
     }
 
-    const encodedTransactions = multiSend.interface.functions.batch.encode([
+    const encodedTransactions = multiSend.functions.batch.encode([
       to,
       data,
       revertIfFail,
     ]);
 
     return {
-      to: multiSend.address,
+      to: MULTI_SEND_ADDRESS,
       data: encodedTransactions,
     };
   }

@@ -14,7 +14,10 @@ import { Create2Options } from "ethers/utils/address";
 export interface MinimalTx {
   to: string;
   data: string;
-  revertIfFail?: boolean;
+}
+
+export interface RevertableMinimalTx extends MinimalTx {
+  revertOnFail: boolean;
 }
 
 export interface ForwardParams {
@@ -109,7 +112,7 @@ export abstract class Forwarder<T> {
   public async signAndEncodeMetaTransaction(data: T): Promise<MinimalTx> {
     const forwardParams = await this.signMetaTransaction(data);
     const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
-    return { to: forwardParams.to, data: encodedData, revertIfFail: true };
+    return { to: forwardParams.to, data: encodedData };
   }
 
   /**
@@ -123,7 +126,7 @@ export abstract class Forwarder<T> {
     const deploymentParams = await this.signMetaDeployment(initCode);
     const encodedData = await this.encodeSignedMetaDeployment(deploymentParams);
 
-    return { to: deploymentParams.to, data: encodedData, revertIfFail: false };
+    return { to: deploymentParams.to, data: encodedData };
   }
 
   /**

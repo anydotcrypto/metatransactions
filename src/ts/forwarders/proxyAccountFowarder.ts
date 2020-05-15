@@ -7,6 +7,7 @@ import {
   ProxyAccountCallData,
   DeploymentParams,
   MinimalTx,
+  RevertableMinimalTx,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -70,7 +71,6 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     return {
       to: this.proxyDeployer.address,
       data: callData,
-      revertIfFail: false,
     };
   }
 
