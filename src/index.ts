@@ -50,5 +50,6 @@ import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.j
 export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
 export { EchoFactory } from "./typedContracts/EchoFactory";
+export { CounterFactory } from "./typedContracts/CounterFactory";
 
 export { deployMetaTxContracts } from "./deployment/deploy";

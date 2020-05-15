@@ -1,9 +1,8 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-// Modified by Patrick McCorry: We will use to deploy proxy account & then send first meta-tx.
-/// @title Multi Send - Allows to batch multiple transactions into one.
-/// @author Patrick McCorry
+// Send a batch of transaction.
+// @author Patrick McCorry
 
 contract MultiSend {
 

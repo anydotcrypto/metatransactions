@@ -16,6 +16,10 @@ export interface MinimalTx {
   data: string;
 }
 
+export interface RevertableMinimalTx extends MinimalTx {
+  revertOnFail: boolean;
+}
+
 export interface ForwardParams {
   to: string;
   signer: string;
@@ -101,8 +105,33 @@ export abstract class Forwarder<T> {
   }
 
   /**
+   * Given the calldata, it returns a signed meta-transaction that can be directly included
+   * in an Ethereum Transaction.
+   * @param data ProxyAccountCallData or RelayCallData
+   */
+  public async signAndEncodeMetaTransaction(data: T): Promise<MinimalTx> {
+    const forwardParams = await this.signMetaTransaction(data);
+    const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
+    return { to: forwardParams.to, data: encodedData };
+  }
+
+  /**
+   * Given the initData, it returns a signed meta-deployment that can be directly included
+   * in an Ethereum Transaction.
+   * @param data ProxyAccountCallData or RelayCallData
+   */
+  public async signAndEncodeMetaDeployment(
+    initCode: string
+  ): Promise<MinimalTx> {
+    const deploymentParams = await this.signMetaDeployment(initCode);
+    const encodedData = await this.encodeSignedMetaDeployment(deploymentParams);
+
+    return { to: deploymentParams.to, data: encodedData };
+  }
+
+  /**
    * Takes care of replay protection and signs a meta-transaction.
-   * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
+   * @param data ProxyAccountCallData or RelayCallData
    */
   public async signMetaTransaction(data: T) {
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
@@ -152,10 +181,6 @@ export abstract class Forwarder<T> {
     params: ForwardParams
   ): Promise<string>;
 
-  /**
-   * Authorises the deployment of a smart contract with a deterministic address
-   * @param initCode Bytecode of contract
-   */
   /**
    * Signs a meta-transaction to deploy a contract via CREATE2.
    * Takes care of replay protection.

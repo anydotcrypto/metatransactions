@@ -1,3 +1,5 @@
+set -e
+
 VERSION=$1
 TAG=${2:-latest}
 
