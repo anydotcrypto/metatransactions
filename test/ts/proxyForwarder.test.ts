@@ -28,6 +28,9 @@ import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowar
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
 import { flipBit } from "../utils/bitflip-utils";
+import { MultiSend } from "../../src/typedContracts/MultiSend";
+import { MultiSender } from "../../src/ts/batch/MultiSend";
+import { MULTI_SEND_ADDRESS } from "../../src/deployment/addresses";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -452,5 +455,97 @@ describe("Proxy Forwarder", () => {
         msgSenderExample.interface.events.WhoIsSender.name
       )
       .withArgs(admin.address);
+  }).timeout(50000);
+
+  it("Deploy the proxy contract and a meta-tx with MultiSend", async () => {
+    const { proxyDeployer, admin, user1, msgSenderExample } = await loadFixture(
+      createHubs
+    );
+
+    const forwarder = await createForwarder(
+      proxyDeployer,
+      user1,
+      ReplayProtectionType.MULTINONCE
+    );
+    const multiSender = new MultiSender();
+
+    // Double-check the proxy contract is not yet deployed
+    expect(await forwarder.isContractDeployed()).to.be.false;
+
+    // Sign meta-deployment
+    let deployProxy = await forwarder.createProxyContract();
+    deployProxy.revertIfFail = true;
+
+    // Sign the meta-tx
+    const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
+      []
+    );
+
+    const metaTx = await forwarder.signAndEncodeMetaTransaction({
+      to: msgSenderExample.address,
+      value: new BigNumber("0"),
+      data: msgSenderExampleData,
+    });
+
+    const multiSendEncodedTx = await multiSender.batch(admin, [
+      deployProxy,
+      metaTx,
+    ]);
+
+    const tx = await admin.sendTransaction({
+      to: multiSendEncodedTx.to,
+      data: multiSendEncodedTx.data,
+      gasLimit: 5000000,
+    });
+
+    await tx.wait(1);
+
+    const messageSent = await msgSenderExample.sentTest(forwarder.address);
+    expect(messageSent).to.be.true;
+  }).timeout(50000);
+
+  it("Proxy contract is already deployed. The deploy proxy contract will fail, but the meta-transaction is still processed using MultiSend.", async () => {
+    const { proxyDeployer, admin, user1, msgSenderExample } = await loadFixture(
+      createHubs
+    );
+
+    const forwarder = await createForwarder(
+      proxyDeployer,
+      user1,
+      ReplayProtectionType.MULTINONCE
+    );
+    const multiSender = new MultiSender();
+
+    // Sign meta-deployment
+    let deployProxy = await forwarder.createProxyContract();
+
+    await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
+
+    // Sign the meta-tx
+    const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
+      []
+    );
+
+    const metaTx = await forwarder.signAndEncodeMetaTransaction({
+      to: msgSenderExample.address,
+      value: new BigNumber("0"),
+      data: msgSenderExampleData,
+    });
+
+    const multiSendEncodedTx = await multiSender.batch(admin, [
+      deployProxy,
+      metaTx,
+    ]);
+
+    const tx = await admin.sendTransaction({
+      to: multiSendEncodedTx.to,
+      data: multiSendEncodedTx.data,
+      gasLimit: 5000000,
+    });
+
+    await tx.wait(1);
+
+    const messageSent = await msgSenderExample.sentTest(forwarder.address);
+    expect(messageSent).to.be.true;
   }).timeout(50000);
 });

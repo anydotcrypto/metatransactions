@@ -51,7 +51,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["address", "uint", "bytes"],
-      [data.to, data.value, data.data]
+      [data.to, data.value ? data.value : 0, data.data]
     );
   }
 
@@ -67,7 +67,11 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     );
 
     // 115k gas inc the transaction cost.
-    return { to: this.proxyDeployer.address, data: callData };
+    return {
+      to: this.proxyDeployer.address,
+      data: callData,
+      revertIfFail: false,
+    };
   }
 
   /**

@@ -10,13 +10,16 @@ import {
   BASE_ACCOUNT_ADDRESS,
   RELAY_HUB_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
+  MULTI_SEND_SALT_STRING,
 } from "../../src/deployment/addresses";
 import {
   ProxyAccountDeployerFactory,
   RelayHubFactory,
   ProxyAccountFactory,
+  MultiNonceReplayProtection,
 } from "../../src";
 import { ContractFactory } from "ethers";
+import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 
 const checkAddress = (
   saltString: string,
@@ -56,6 +59,14 @@ describe("Contract addresses", () => {
     checkAddress(
       VERSION + "|" + RELAY_HUB_SALT_STRING,
       new RelayHubFactory(),
+      RELAY_HUB_ADDRESS
+    );
+  });
+
+  it("RelayHubForwarder", () => {
+    checkAddress(
+      VERSION + "|" + MULTI_SEND_SALT_STRING,
+      new MultiSendFactory(),
       RELAY_HUB_ADDRESS
     );
   });
