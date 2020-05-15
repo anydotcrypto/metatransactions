@@ -2,6 +2,20 @@
 
 We have put together a few examples on how to use the meta-transaction library. All examples focus on meta-deploying an Echo Contract and then sending a meta-transaction to broadcast a message.
 
+## Install the packages
+
+You will need node_modules to run the example:
+
+```
+pnpm i
+```
+
+If you want to make sure everything is set up:
+
+```
+npm run test
+```
+
 ## Generate seed & wallet address 
 
 To run the example you will need a 12-word seed:
