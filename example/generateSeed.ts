@@ -7,7 +7,7 @@ import { Wallet } from "ethers";
   let wallet = Wallet.createRandom();
   let randomMnemonic = wallet.mnemonic;
 
-  console.log("Please keep both safe for the competition");
+  console.log("Please fill in the USER_MNEMONIC in the example script");
   console.log("Wallet address: " + wallet.address);
   console.log("12-word seed: " + randomMnemonic);
 })().catch((e) => {

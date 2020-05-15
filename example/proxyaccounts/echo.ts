@@ -9,8 +9,7 @@ import {
 
 // npm run generateSeed
 // Top up the address and put the 12-word seed here
-export const USER_MNEMONIC =
-  "prize wear use ripple mask dose address space cost clinic topple brick";
+export const USER_MNEMONIC = "";
 
 /**
  * Set up the provider and wallet
@@ -25,7 +24,7 @@ async function setup() {
     console.log(
       "Please execute npm run generateSeed. \nTake the 12-word seed and fill in USER_MNEMONIC (top of file). \nTop up the address with some ropsten ETH and then try again!."
     );
-    process.exit(0); // thanks to Sascha for pointing this out.
+    process.exit(0);
   }
 
   const adminMnemonicWallet = ethers.Wallet.fromMnemonic(USER_MNEMONIC);
