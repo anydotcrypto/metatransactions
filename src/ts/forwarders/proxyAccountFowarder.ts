@@ -7,7 +7,6 @@ import {
   ProxyAccountCallData,
   DeploymentParams,
   MinimalTx,
-  RevertableMinimalTx,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -52,7 +51,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["address", "uint", "bytes"],
-      [data.to, data.value, data.data]
+      [data.to, data.value ? data.value : 0, data.data]
     );
   }
 
