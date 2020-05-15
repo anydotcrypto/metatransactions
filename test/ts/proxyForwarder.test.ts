@@ -15,6 +15,7 @@ import {
   BitFlipReplayProtection,
   ProxyAccountDeployer,
   deployMetaTxContracts,
+  ProxyAccountForwarderFactory,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -32,10 +33,7 @@ import { flipBit } from "../utils/bitflip-utils";
 const expect = chai.expect;
 chai.use(solidity);
 
-async function createHubs(
-  provider: Provider,
-  [admin, user1, user2, user3]: Wallet[]
-) {
+async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
   const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
@@ -453,4 +451,38 @@ describe("Proxy Forwarder", () => {
       )
       .withArgs(admin.address);
   }).timeout(50000);
+
+  it("Sign a single meta-transaction, but omit the value field for the ProxyAccountCallDatae", async () => {
+    const { admin, msgSenderExample } = await loadFixture(createHubs);
+
+    const forwarder = await new ProxyAccountForwarderFactory().createNew(
+      ChainID.MAINNET,
+      ReplayProtectionType.NONCE,
+      admin
+    );
+
+    // deploy the proxy contract
+    const deployProxy = await forwarder.createProxyContract();
+    await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
+
+    // omit the value field
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+    const forwardParams = await forwarder.signMetaTransaction({
+      to: msgSenderExample.address,
+      data: callData,
+    });
+    const txData = await forwarder.encodeSignedMetaTransaction(forwardParams);
+
+    const tx = admin.sendTransaction({
+      to: forwardParams.to,
+      data: txData,
+    });
+
+    await expect(tx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(forwarder.address);
+  });
 });
