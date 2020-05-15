@@ -11,6 +11,7 @@ import {
   RELAY_HUB_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
   MULTI_SEND_SALT_STRING,
+  MULTI_SEND_ADDRESS,
 } from "../../src/deployment/addresses";
 import {
   ProxyAccountDeployerFactory,
@@ -63,11 +64,11 @@ describe("Contract addresses", () => {
     );
   });
 
-  it("RelayHubForwarder", () => {
+  it("MultiSend", () => {
     checkAddress(
       VERSION + "|" + MULTI_SEND_SALT_STRING,
       new MultiSendFactory(),
-      RELAY_HUB_ADDRESS
+      MULTI_SEND_ADDRESS
     );
   });
 });

@@ -25,7 +25,7 @@ async function deployContracts(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
 ) {
-  const { relayHubAddress } = await deployMetaTxContracts(admin, true);
+  const { relayHubAddress } = await deployMetaTxContracts(admin);
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
   const msgSenderCon = await msgSenderFactory.deploy(relayHubAddress);
   const counterCon = await new CounterFactory(admin).deploy();
@@ -254,9 +254,7 @@ describe("MultiSend", () => {
     (a) => a.batch,
     "the length of to array is less than data and revertIfFail. Batch fails.",
     async () => {
-      const { admin, counterCon, msgSenderCon } = await loadFixture(
-        deployContracts
-      );
+      const { admin, counterCon } = await loadFixture(deployContracts);
 
       const to = [counterCon.address];
       const data = ["0x", "0x"];
@@ -284,9 +282,7 @@ describe("MultiSend", () => {
     (a) => a.batch,
     "the length of data array is more to and revertIfFail. Batch fails.",
     async () => {
-      const { admin, counterCon, msgSenderCon } = await loadFixture(
-        deployContracts
-      );
+      const { admin, counterCon } = await loadFixture(deployContracts);
 
       const to = [counterCon.address, counterCon.address];
       const data = ["0x", "0x", "0x"];
