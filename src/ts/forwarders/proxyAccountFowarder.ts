@@ -67,7 +67,10 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     );
 
     // 115k gas inc the transaction cost.
-    return { to: this.proxyDeployer.address, data: callData };
+    return {
+      to: this.proxyDeployer.address,
+      data: callData,
+    };
   }
 
   /**

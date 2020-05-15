@@ -49,5 +49,6 @@ export { RelayHubForwarderFactory } from "./ts/forwarders/relayHubForwarderFacto
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
+export { CounterFactory } from "./typedContracts/CounterFactory";
 
 export { deployMetaTxContracts } from "./deployment/deploy";
