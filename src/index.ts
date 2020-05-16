@@ -22,6 +22,12 @@ export {
   RELAY_HUB_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
   BASE_ACCOUNT_ADDRESS,
+  MULTI_SEND_ADDRESS,
+  VERSION,
+  BASE_ACCOUNT_SALT_STRING,
+  MULTI_SEND_SALT_STRING,
+  PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
+  RELAY_HUB_SALT_STRING
 } from "./deployment/addresses";
 
 export {
@@ -52,5 +58,6 @@ export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactor
 export { EchoFactory } from "./typedContracts/EchoFactory";
 export { CounterFactory } from "./typedContracts/CounterFactory";
 export { MultiSender } from "./ts/batch/MultiSend"
+
 
 export { deployMetaTxContracts } from "./deployment/deploy";
