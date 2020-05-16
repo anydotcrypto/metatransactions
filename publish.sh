@@ -18,6 +18,8 @@ echo "Tag $TAG"
 pnpm run clean
 pnpm i --frozen-lockfile
 pnpm run build
+pnpm run build-ts
+pnpm run publish-contracts
 pnpm run test
 pnpm --filter . exec -- npm version $VERSION
 git commit -am "Version bump $VERSION"

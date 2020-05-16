@@ -25,7 +25,6 @@
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run build && npm run runtest -- --timeout='30000'",
     "clean": "rm -rf ./dist && rm -rf ./build",
-    "prepublishOnly": "npm run clean && npm run build && npm run build-ts && npm run publish-contracts",
     "preinstall": "node -e \"!process.env.npm_config_user_agent.startsWith('pnpm/') && !console.log('Install pnpm globally using \\`npm i -g pnpm\\` then do \\`pnpm i\\` to install dependencies in this repository\\n') && process.exit(1)\"",
     "preuninstall": "node -e \"!process.env.npm_config_user_agent.startsWith('pnpm/') && !console.log('Install pnpm globally using \\`npm i -g pnpm\\` then do \\`pnpm i\\` to install dependencies in this repository\\n') && process.exit(1)\""
   },

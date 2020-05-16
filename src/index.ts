@@ -51,5 +51,6 @@ export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
 export { EchoFactory } from "./typedContracts/EchoFactory";
 export { CounterFactory } from "./typedContracts/CounterFactory";
+export { MultiSender } from "./ts/batch/MultiSend"
 
 export { deployMetaTxContracts } from "./deployment/deploy";
