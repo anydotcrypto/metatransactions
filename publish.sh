@@ -22,6 +22,5 @@ pnpm run build-ts
 pnpm run publish-contracts
 pnpm run test
 pnpm --filter . exec -- npm version $VERSION
-git commit -am "Version bump $VERSION"
 git push
 pnpm publish --access public --tag $TAG
