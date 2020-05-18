@@ -22,7 +22,6 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
-import { getForwardRevertReason } from "../utils/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
