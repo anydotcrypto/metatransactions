@@ -11,6 +11,7 @@ contract ProxyAccount is ReplayProtection {
 
     address public owner;
     event Deployed(address owner, address addr);
+    event Forward(bool success, bytes reason);
 
     /**
      * Due to create clone, we need to use an init() method.
@@ -45,9 +46,18 @@ contract ProxyAccount is ReplayProtection {
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
-        // Call out to the target contract
-        (bool success,) = _target.call.value(_value)(abi.encodePacked(_callData));
-        require(success, "Forwarding call failed.");
+        (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
+
+        if(success) {
+            emit Forward(success, "");
+        } else {
+            // 4 bytes = sighash
+            // 64 bytes = length of string
+            // If we slice offchain, then we can verify the sighash
+            // too. https://twitter.com/ricmoo/status/1262156359853920259
+            // IF we slice onchain, then we lose that information.
+            emit Forward(success, revertReason);
+        }
     }
 
     /**
