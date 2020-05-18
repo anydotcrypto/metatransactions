@@ -388,7 +388,7 @@ describe("ProxyAccountDeployer", () => {
 
   fnIt<accountFunctions>(
     (a) => a.forward,
-    "a forward fails and we decode the revert message that was emitted..",
+    "the forwarded transaction fails and we decode the revert message that was emitted..",
     async () => {
       const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
         createProxyAccountDeployer
