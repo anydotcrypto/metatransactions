@@ -184,14 +184,14 @@ describe("RelayHub Contract", () => {
         data: revertCallData,
       });
 
-      const tx = await sender.sendTransaction({
+      const tx = sender.sendTransaction({
         to: minimalTx.to,
         data: minimalTx.data,
       });
-      const receipt = await tx.wait(1);
-      const reasons = getForwardRevertReason(relayHub.interface, receipt);
 
-      expect(reasons[0]).to.eq("Will always revert");
+      await expect(tx)
+        .to.emit(relayHub, relayHub.interface.events.Revert.name)
+        .withArgs("Will always revert");
     }
   );
 
@@ -397,11 +397,8 @@ describe("RelayHub Contract", () => {
         );
 
       await expect(tx)
-        .to.emit(relayHub, relayHub.interface.events.Forward.name)
-        .withArgs(
-          false,
-          "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001257696c6c20616c77617973207265766572740000000000000000000000000000"
-        );
+        .to.emit(relayHub, relayHub.interface.events.Revert.name)
+        .withArgs("Will always revert");
     }
   );
 

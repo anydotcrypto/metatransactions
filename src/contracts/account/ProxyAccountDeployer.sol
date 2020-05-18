@@ -11,7 +11,7 @@ contract ProxyAccount is ReplayProtection {
 
     address public owner;
     event Deployed(address owner, address addr);
-    event Forward(bool success, bytes reason);
+    event Revert(string reason);
 
     /**
      * Due to create clone, we need to use an init() method.
@@ -48,15 +48,14 @@ contract ProxyAccount is ReplayProtection {
 
         (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
 
-        if(success) {
-            emit Forward(success, "");
-        } else {
+        if(!success) {
+            assembly {revertReason := add(revertReason, 68)}
             // 4 bytes = sighash
             // 64 bytes = length of string
             // If we slice offchain, then we can verify the sighash
             // too. https://twitter.com/ricmoo/status/1262156359853920259
             // IF we slice onchain, then we lose that information.
-            emit Forward(success, revertReason);
+            emit Revert(string(revertReason));
         }
     }
 

@@ -33,7 +33,6 @@ import { Wallet } from "ethers/wallet";
 import { ForwardParams } from "../../src/ts/forwarders/forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ethers } from "ethers";
-import { getForwardRevertReason } from "../utils/test-utils";
 
 const expect = chai.expect;
 let hubClass: ProxyAccountDeployer;
@@ -358,8 +357,8 @@ describe("ProxyAccountDeployer", () => {
       });
 
       await expect(tx1)
-        .to.emit(proxyAccount, proxyAccount.interface.events.Forward.name)
-        .withArgs(false, "0x");
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs("");
 
       const revertCallDataLongMessage = msgSenderCon.interface.functions.willRevertLongMessage.encode(
         []
@@ -378,17 +377,16 @@ describe("ProxyAccountDeployer", () => {
       });
 
       await expect(tx2)
-        .to.emit(proxyAccount, proxyAccount.interface.events.Forward.name)
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
         .withArgs(
-          false,
-          "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000006a546869732069732061207265616c6c79206c6f6e6720726576657274206d65737361676520746f206d616b6520737572652077652063616e2063617463682069742e20546865726520617265206e6f2068696464656e20717569726b7320627920736f6c69646974792e00000000000000000000000000000000000000000000"
+          "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity."
         );
     }
   );
 
   fnIt<accountFunctions>(
     (a) => a.forward,
-    "the forwarded transaction fails and we decode the revert message that was emitted..",
+    "the forwarded transaction fails and we decode the revert message that was emitted.",
     async () => {
       const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
         createProxyAccountDeployer
@@ -429,18 +427,16 @@ describe("ProxyAccountDeployer", () => {
         }
       );
 
-      const tx = await sender.sendTransaction({
+      const tx = sender.sendTransaction({
         to: minimalTxWithMessage.to,
         data: minimalTxWithMessage.data,
       });
 
-      const receipt = await tx.wait(1);
-
-      const reasons = getForwardRevertReason(proxyAccount.interface, receipt);
-
-      expect(reasons[0]).to.eq(
-        "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity."
-      );
+      await expect(tx)
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs(
+          "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity."
+        );
     }
   );
 
@@ -492,8 +488,8 @@ describe("ProxyAccountDeployer", () => {
       });
 
       await expect(tx1)
-        .to.emit(proxyAccount, proxyAccount.interface.events.Forward.name)
-        .withArgs(false, "0x");
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs("");
 
       for (let i = 0; i < 10; i++) {
         const params = await forwarder.signMetaTransaction({
