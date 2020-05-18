@@ -5,12 +5,17 @@ import {
   defaultAbiCoder,
   Interface,
 } from "ethers/utils";
+import { TransactionReceipt } from "ethers/providers";
+
 export function flipBit(bits: BigNumber, bitToFlip: BigNumber): BigNumber {
   return new BigNumber(bits).add(new BigNumber(2).pow(bitToFlip));
 }
 
 // I can't seem to set the type as TransactionReceipt
-export function getForwardRevertReason(logInterface: Interface, receipt: any) {
+export function getForwardRevertReason(
+  logInterface: Interface,
+  receipt: TransactionReceipt
+) {
   const revertReasons = [];
   if (receipt.logs) {
     // Go through each log and try to find a Forward event
