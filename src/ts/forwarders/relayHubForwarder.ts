@@ -38,6 +38,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    * @param data Target contract and the desired calldata
    */
   protected getEncodedCallData(data: RelayHubCallData) {
+    if (!data.to) throw new Error("Cannot encode empty 'to' field.");
     return defaultAbiCoder.encode(["address", "bytes"], [data.to, data.data]);
   }
 
@@ -55,6 +56,10 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {
+    if (!data.to) {
+      throw new Error("Cannot create forward params with empty 'to' field.");
+    }
+
     return {
       to,
       signer: await this.signer.getAddress(),

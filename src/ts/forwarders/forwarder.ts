@@ -42,13 +42,15 @@ export interface DeploymentParams {
   signature: string;
 }
 
-export interface RelayHubCallData {
-  to: string;
+export interface RelayHubCallData extends Partial<MinimalTx> {
+  to?: string;
   data: string;
 }
 
-export interface ProxyAccountCallData extends RelayHubCallData {
+export interface ProxyAccountCallData extends Partial<MinimalTx> {
+  to?: string;
   value?: BigNumberish;
+  data?: string;
 }
 
 /**
@@ -56,7 +58,7 @@ export interface ProxyAccountCallData extends RelayHubCallData {
  * Possible to extend it with additional functionality if another
  * msg.sender solution emerges.
  */
-export abstract class Forwarder<T> {
+export abstract class Forwarder<T extends Partial<MinimalTx>> {
   constructor(
     protected readonly chainID: ChainID,
     public readonly signer: Signer,
@@ -107,26 +109,20 @@ export abstract class Forwarder<T> {
   /**
    * Given the calldata, it returns a signed meta-transaction that can be directly included
    * in an Ethereum Transaction.
-   * @param data ProxyAccountCallData or RelayCallData
+   * @param tx ProxyAccountCallData or RelayCallData
    */
-  public async signAndEncodeMetaTransaction(data: T): Promise<MinimalTx> {
-    const forwardParams = await this.signMetaTransaction(data);
-    const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
-    return { to: forwardParams.to, data: encodedData };
-  }
-
-  /**
-   * Given the initData, it returns a signed meta-deployment that can be directly included
-   * in an Ethereum Transaction.
-   * @param data ProxyAccountCallData or RelayCallData
-   */
-  public async signAndEncodeMetaDeployment(
-    initCode: string
-  ): Promise<MinimalTx> {
-    const deploymentParams = await this.signMetaDeployment(initCode);
-    const encodedData = await this.encodeSignedMetaDeployment(deploymentParams);
-
-    return { to: deploymentParams.to, data: encodedData };
+  public async signAndEncodeMetaTransaction(tx: T): Promise<MinimalTx> {
+    if (tx.to) {
+      const forwardParams = await this.signMetaTransaction(tx);
+      const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
+      return { to: forwardParams.to, data: encodedData };
+    } else if (tx.data) {
+      const deploymentParams = await this.signMetaDeployment(tx.data);
+      const encodedData = await this.encodeSignedMetaDeployment(
+        deploymentParams
+      );
+      return { to: deploymentParams.to, data: encodedData };
+    } else throw new Error("Either 'to' or 'data' must be supplied.");
   }
 
   /**
