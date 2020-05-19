@@ -28,10 +28,8 @@ import { AddressZero } from "ethers/constants";
 import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
-import { flipBit } from "../utils/bitflip-utils";
-import { MultiSend } from "../../src/typedContracts/MultiSend";
+import { flipBit } from "../utils/test-utils";
 import { MultiSender } from "../../src/ts/batch/MultiSend";
-import { MULTI_SEND_ADDRESS } from "../../src/deployment/addresses";
 
 const expect = chai.expect;
 chai.use(solidity);

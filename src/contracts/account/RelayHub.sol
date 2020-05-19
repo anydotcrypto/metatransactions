@@ -11,7 +11,8 @@ import "./ReplayProtection.sol";
  */
 contract RelayHub is ReplayProtection {
 
-     event Deployed(address signer, address addr);
+    event Deployed(address signer, address addr);
+    event Revert(string reason);
 
      /**
      * Each signer has a contract account (signers address => contract address).
@@ -39,8 +40,17 @@ contract RelayHub is ReplayProtection {
         "Signer did not sign this meta-transaction.");
 
         // Check if the user wants to send command from their contract account or signer address
-        (bool success,) = _target.call(abi.encodePacked(_callData, _signer));
-        require(success, "Forwarding call failed.");
+        (bool success, bytes memory revertReason) = _target.call(abi.encodePacked(_callData, _signer));
+
+        if(!success) {
+            assembly {revertReason := add(revertReason, 68)}
+            // 4 bytes = sighash
+            // 64 bytes = length of string
+            // If we slice offchain, then we can verify the sighash
+            // too. https://twitter.com/ricmoo/status/1262156359853920259
+            // IF we slice onchain, then we lose that information.
+            emit Revert(string(revertReason));
+        }
     }
 
 

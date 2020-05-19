@@ -8,7 +8,7 @@ import { Wallet } from "ethers/wallet";
 import { BitFlipReplayProtection } from "../../src/ts/replayProtection/bitFlip";
 import { deployMetaTxContracts } from "../../src";
 import BN from "bn.js";
-import { flipBit } from "../utils/bitflip-utils";
+import { flipBit } from "../utils/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);

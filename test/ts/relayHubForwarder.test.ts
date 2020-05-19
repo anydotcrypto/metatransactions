@@ -23,7 +23,7 @@ import {
   ProxyAccountCallData,
 } from "../../src/ts/forwarders/forwarder";
 import { RelayHubForwarder } from "../../src/ts/forwarders/relayHubForwarder";
-import { flipBit } from "../utils/bitflip-utils";
+import { flipBit } from "../utils/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);

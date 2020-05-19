@@ -6,13 +6,17 @@ import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import { when, anything, spy } from "ts-mockito";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { RelayHubFactory, MultiNonceReplayProtection, deployMetaTxContracts } from "../../src";
+import {
+  RelayHubFactory,
+  MultiNonceReplayProtection,
+  deployMetaTxContracts,
+} from "../../src";
 
 const expect = chai.expect;
 chai.use(solidity);
 
 async function createRelayHub(provider: Provider, [admin]: Wallet[]) {
-  const { relayHubAddress } = await deployMetaTxContracts(admin)
+  const { relayHubAddress } = await deployMetaTxContracts(admin);
   const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
   return {
     relayHub,
