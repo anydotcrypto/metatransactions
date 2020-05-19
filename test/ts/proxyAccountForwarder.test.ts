@@ -54,7 +54,7 @@ async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
   };
 }
 
-describe("Proxy Forwarder", () => {
+describe("Proxy Account Forwarder", () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
     const { proxyDeployer, user1 } = await loadFixture(createHubs);
 

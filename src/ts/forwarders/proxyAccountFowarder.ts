@@ -7,6 +7,7 @@ import {
   ProxyAccountCallData,
   DeploymentParams,
   MinimalTx,
+  RequiredTo,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -47,8 +48,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
-  protected getEncodedCallData(data: ProxyAccountCallData) {
-    if (!data.to) throw new Error("Cannot encode empty 'to' field.");
+  protected getEncodedCallData(data: RequiredTo<ProxyAccountCallData>) {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["address", "uint", "bytes"],
@@ -123,14 +123,10 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    */
   protected async getForwardParams(
     to: string,
-    data: ProxyAccountCallData,
+    data: RequiredTo<ProxyAccountCallData>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {
-    if (!data.to) {
-      throw new Error("Cannot create forward params with empty 'to' field.");
-    }
-
     return {
       to,
       signer: await this.signer.getAddress(),
