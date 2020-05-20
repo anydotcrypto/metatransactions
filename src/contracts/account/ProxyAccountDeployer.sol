@@ -3,11 +3,12 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "./ReplayProtection.sol";
+import "../ops/MultiSendInternal.sol";
 
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ProxyAccount is ReplayProtection {
+contract ProxyAccount is ReplayProtection, MultiSendInternal {
 
     address public owner;
     event Deployed(address owner, address addr);
@@ -22,14 +23,12 @@ contract ProxyAccount is ReplayProtection {
     }
 
     /**
-     * Each signer has a proxy account (signers address => contract address).
-     * We check the signer has authorised the target contract and function call. Then, we pass it to the
-     * signer's proxy account to perform the final execution (to help us bypass msg.sender problem).
+     * We check the signature has authorised the call before executing it.
      * @param _target Target contract
      * @param _value Quantity of eth in account contract to send to target
      * @param _callData Function name plus arguments
-     * @param _replayProtection Replay protection (e.g. multinonce)
-     * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * @param _replayProtection Replay protection
+     * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
     function forward(
@@ -49,13 +48,7 @@ contract ProxyAccount is ReplayProtection {
         (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
 
         if(!success) {
-            assembly {revertReason := add(revertReason, 68)}
-            // 4 bytes = sighash
-            // 64 bytes = length of string
-            // If we slice offchain, then we can verify the sighash
-            // too. https://twitter.com/ricmoo/status/1262156359853920259
-            // IF we slice onchain, then we lose that information.
-            emit Revert(string(revertReason));
+            emit Revert(_getRevertMsg(revertReason));
         }
     }
 
@@ -76,8 +69,8 @@ contract ProxyAccount is ReplayProtection {
         require(owner == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature), "Owner of proxy account must authorise deploying contract");
 
         // We can just abuse the replay protection as the salt :)
+        // Reverts on failure. No point to emit Revert().
         address deployed = Create2.deploy(keccak256(abi.encode(owner, _replayProtection)), _initCode);
-
         emit Deployed(owner, deployed);
     }
 

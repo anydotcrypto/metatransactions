@@ -43,13 +43,7 @@ contract RelayHub is ReplayProtection {
         (bool success, bytes memory revertReason) = _target.call(abi.encodePacked(_callData, _signer));
 
         if(!success) {
-            assembly {revertReason := add(revertReason, 68)}
-            // 4 bytes = sighash
-            // 64 bytes = length of string
-            // If we slice offchain, then we can verify the sighash
-            // too. https://twitter.com/ricmoo/status/1262156359853920259
-            // IF we slice onchain, then we lose that information.
-            emit Revert(string(revertReason));
+            emit Revert(_getRevertMsg(revertReason));
         }
     }
 

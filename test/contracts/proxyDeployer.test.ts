@@ -71,7 +71,10 @@ async function createProxyAccountDeployer(
 
   const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
   const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
-  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(
+    admin,
+    true
+  );
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
   );

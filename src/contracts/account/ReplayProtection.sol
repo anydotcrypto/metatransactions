@@ -136,4 +136,20 @@ contract ReplayProtection {
     function queueIndex(address _signer, uint _queue, address _authority) internal pure returns(bytes32) {
         return keccak256(abi.encode(_signer, _queue, _authority));
     }
+
+    // https://ethereum.stackexchange.com/questions/83528/how-can-i-get-the-revert-reason-of-a-call-in-solidity-so-that-i-can-use-it-in-th/83529#83529
+    /// @dev Get the revert message from a call
+    /// @notice This is needed in order to get the human-readable revert message from a call
+    /// @param _returnData Response of the call
+    /// @return Revert message string
+    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
+        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
+        if (_returnData.length < 68) return 'Transaction reverted silently';
+
+        assembly {
+            // Slice the sighash.
+            _returnData := add(_returnData, 0x04)
+        }
+        return abi.decode(_returnData, (string)); // All that remains is the revert string
+    }
 }

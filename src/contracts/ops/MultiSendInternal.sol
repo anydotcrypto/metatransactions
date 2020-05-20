@@ -1,28 +1,16 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-
-import "./MultiSendInternal.sol";
-
 // Send a batch of transaction.
 // @author Patrick McCorry
 
-contract MultiSend {
+contract MultiSendInternal {
 
     /// @dev Sends multiple transactions and reverts all if one fails.
     /// @param _to Target contracts
     /// @param _data Calldata for target contract
     /// @param _revertIfFail Do we revert entire transaction if the corresponding .call() fails?
-    function batch(address[] memory _to, bytes[] memory _data, bool[] memory _revertIfFail) public
-    {
-        batchInternal(_to, _data, _revertIfFail);
-    }
-
-    /// @dev Sends multiple transactions and reverts all if one fails.
-    /// @param _to Target contracts
-    /// @param _data Calldata for target contract
-    /// @param _revertIfFail Do we revert entire transaction if the corresponding .call() fails?
-    function batchInternal(address[] memory _to, bytes[] memory _data, bool[] memory _revertIfFail) public
+    function batchInternal(address[] memory _to, bytes[] memory _data, bool[] memory _revertIfFail) internal
     {
         require(_to.length == _data.length && _data.length == _revertIfFail.length, "All arrays must have the same length");
 

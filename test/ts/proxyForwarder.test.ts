@@ -16,6 +16,8 @@ import {
   ProxyAccountDeployer,
   deployMetaTxContracts,
   ProxyAccountForwarderFactory,
+  EchoFactory,
+  ProxyAccount,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -35,7 +37,10 @@ const expect = chai.expect;
 chai.use(solidity);
 
 async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
-  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(
+    admin,
+    true
+  );
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
   );
@@ -44,11 +49,14 @@ async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
     AddressZero
   );
 
+  const echo = await new EchoFactory(admin).deploy();
+
   return {
     proxyDeployer,
     admin,
     user1,
     msgSenderExample,
+    echo,
   };
 }
 
@@ -69,7 +77,7 @@ describe("Proxy Forwarder", () => {
 
     const encoded = await proxyForwarder.createProxyContract();
 
-    const tx = await user1.sendTransaction({
+    await user1.sendTransaction({
       to: encoded.to,
       data: encoded.data,
     });
@@ -511,7 +519,7 @@ describe("Proxy Forwarder", () => {
     );
     const multiSender = new MultiSender();
 
-    // Sign meta-deployment
+    // Deploy proxy contract
     let deployProxy = await forwarder.createProxyContract();
 
     await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
@@ -543,7 +551,8 @@ describe("Proxy Forwarder", () => {
     const messageSent = await msgSenderExample.sentTest(forwarder.address);
     expect(messageSent).to.be.true;
   }).timeout(50000);
-  it("Sign a single meta-transaction, but omit the value field for the ProxyAccountCallDatae", async () => {
+
+  it("Sign a single meta-transaction, but omit the value field for the ProxyAccountCallData", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
 
     const forwarder = await new ProxyAccountForwarderFactory().createNew(
@@ -576,4 +585,108 @@ describe("Proxy Forwarder", () => {
       )
       .withArgs(forwarder.address);
   });
+
+  it("Send one transaction via delegatecall multisend. setting: bitflip", async () => {
+    const { msgSenderExample, proxyDeployer, admin, user1 } = await loadFixture(
+      createHubs
+    );
+
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      user1.address
+    );
+    const forwarder = new ProxyAccountForwarder(
+      ChainID.MAINNET,
+      proxyDeployer.address,
+      user1,
+      proxyAccountAddress,
+      new BitFlipReplayProtection(user1, proxyAccountAddress)
+    );
+
+    // Deploy proxy contract
+    let deployProxy = await forwarder.createProxyContract();
+
+    await user1.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
+
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+
+    const multiSender = new MultiSender(forwarder.address);
+
+    const batched = multiSender.batch([
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+    ]);
+
+    const minimalTx = await forwarder.signAndEncodeMetaTransaction({
+      to: batched.to,
+      data: batched.data,
+    });
+
+    const tx = admin.sendTransaction({
+      to: minimalTx.to,
+      data: minimalTx.data,
+    });
+
+    await expect(tx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(forwarder.address);
+  }).timeout(500000);
+
+  it("Send two transactions via delegatecall multisend. setting: bitflip", async () => {
+    const {
+      msgSenderExample,
+      echo,
+      proxyDeployer,
+      admin,
+      user1,
+    } = await loadFixture(createHubs);
+
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      user1.address
+    );
+    const forwarder = new ProxyAccountForwarder(
+      ChainID.MAINNET,
+      proxyDeployer.address,
+      user1,
+      proxyAccountAddress,
+      new BitFlipReplayProtection(user1, proxyAccountAddress)
+    );
+
+    // Deploy proxy contract
+    let deployProxy = await forwarder.createProxyContract();
+
+    await user1.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
+
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+    const echoData = echo.interface.functions.sendMessage.encode(["hello"]);
+    const multiSender = new MultiSender(forwarder.address);
+
+    const batched = multiSender.batch([
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: echo.address, data: echoData, revertOnFail: false },
+    ]);
+
+    const minimalTx = await forwarder.signAndEncodeMetaTransaction({
+      to: batched.to,
+      data: batched.data,
+    });
+
+    const tx = await admin.sendTransaction({
+      to: minimalTx.to,
+      data: minimalTx.data,
+    });
+
+    const receipt = await tx.wait(1);
+    // await expect(tx)
+    //   .to.emit(echo, echo.interface.events.Broadcast.name)
+    //   .withArgs("hello");
+
+    const acc = new ProxyAccountFactory(admin).attach(forwarder.address);
+    console.log(acc.interface.parseLog(receipt["logs"]![0]));
+
+    const sentTest = await msgSenderExample.sentTest(forwarder.address);
+
+    expect(sentTest).to.be.true;
+  }).timeout(500000);
 });

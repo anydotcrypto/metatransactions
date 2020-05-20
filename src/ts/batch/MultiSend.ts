@@ -8,6 +8,12 @@ import { MultiSend } from "../../typedContracts/MultiSend";
  * Batch a list of meta-transactions before it hits the forwarder.
  */
 export class MultiSender {
+  private sender: string;
+
+  constructor(multiSendAddress?: string) {
+    this.sender = multiSendAddress ? multiSendAddress : MULTI_SEND_ADDRESS;
+  }
+
   /**
    * Given a list of minimal transactions, it'll prepare a single
    * minimal transaction that is sent via the MultiSend contract.
@@ -28,14 +34,14 @@ export class MultiSender {
       revertIfFail.push(tx.revertOnFail);
     }
 
-    const encodedTransactions = multiSend.functions.batch.encode([
+    const encodedTransactions = multiSend.functions.batchInternal.encode([
       to,
       data,
       revertIfFail,
     ]);
 
     return {
-      to: MULTI_SEND_ADDRESS,
+      to: this.sender,
       data: encodedTransactions,
     };
   }
