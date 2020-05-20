@@ -13,6 +13,7 @@ import { Create2Options } from "ethers/utils/address";
 
 export interface MinimalTx {
   to: string;
+  value?: string;
   data: string;
 }
 
@@ -26,6 +27,7 @@ export interface ForwardParams {
   target: string;
   value: string;
   data: string;
+  callType: CallType;
   replayProtection: string;
   replayProtectionAuthority: string;
   chainId: number;
@@ -47,8 +49,14 @@ export interface RelayHubCallData {
   data: string;
 }
 
+export enum CallType {
+  CALL = 0,
+  DELEGATECALL = 1,
+}
+
 export interface ProxyAccountCallData extends RelayHubCallData {
   value?: BigNumberish;
+  callType?: CallType;
 }
 
 /**

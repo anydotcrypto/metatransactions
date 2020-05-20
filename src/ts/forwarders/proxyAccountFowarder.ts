@@ -7,6 +7,7 @@ import {
   ProxyAccountCallData,
   DeploymentParams,
   MinimalTx,
+  CallType,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -50,8 +51,13 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   protected getEncodedCallData(data: ProxyAccountCallData) {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
-      ["address", "uint", "bytes"],
-      [data.to, data.value ? data.value : 0, data.data]
+      ["uint", "address", "uint", "bytes"],
+      [
+        data.callType ? data.callType : CallType.CALL,
+        data.to,
+        data.value ? data.value : 0,
+        data.data,
+      ]
     );
   }
 
@@ -83,14 +89,25 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   ): Promise<string> {
     const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
 
-    return proxyAccount.interface.functions.forward.encode([
-      params.target,
-      params.value,
-      params.data,
-      params.replayProtection,
-      params.replayProtectionAuthority,
-      params.signature,
-    ]);
+    if (params.callType == CallType.CALL) {
+      return proxyAccount.interface.functions.forward.encode([
+        params.target,
+        params.value,
+        params.data,
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signature,
+      ]);
+    } else {
+      return proxyAccount.interface.functions.delegate.encode([
+        params.target,
+        params.value,
+        params.data,
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signature,
+      ]);
+    }
   }
 
   /**
@@ -132,6 +149,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
       target: data.to,
       value: data.value ? data.value.toString() : "0",
       data: data.data,
+      callType: data.callType ? data.callType : CallType.CALL,
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,

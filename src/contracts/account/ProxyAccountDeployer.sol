@@ -3,12 +3,11 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "./ReplayProtection.sol";
-import "../ops/MultiSendInternal.sol";
 
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ProxyAccount is ReplayProtection, MultiSendInternal {
+contract ProxyAccount is ReplayProtection {
 
     address public owner;
     event Deployed(address owner, address addr);
@@ -40,12 +39,43 @@ contract ProxyAccount is ReplayProtection, MultiSendInternal {
         bytes memory _signature) public {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(_target, _value, _callData);
+        bytes memory encodedData = abi.encode(0, _target, _value, _callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
         (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
+
+        if(!success) {
+            emit Revert(_getRevertMsg(revertReason));
+        }
+    }
+
+    /**
+     * We check the signature has authorised the delegate call before executing it.
+     * Caution: Delegatecall can overwrite memory in this contract, so take care.
+     * @param _target Target contract
+     * @param _value Quantity of eth in account contract to send to target
+     * @param _callData Function name plus arguments
+     * @param _replayProtection Replay protection
+     * @param _replayProtectionAuthority Address of external replay protection
+     * @param _signature Signature from signer
+     */
+    function delegate(
+        address _target,
+        uint _value, 
+        bytes memory _callData,
+        bytes memory _replayProtection,
+        address _replayProtectionAuthority,
+        bytes memory _signature) public {
+
+        // Assumes that ProxyAccountDeployer is ReplayProtection. 
+        bytes memory encodedData = abi.encode(1, _target, _value, _callData);
+
+        // // Reverts if fails.
+        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+
+        (bool success, bytes memory revertReason) = _target.delegatecall(abi.encodePacked(_callData));
 
         if(!success) {
             emit Revert(_getRevertMsg(revertReason));

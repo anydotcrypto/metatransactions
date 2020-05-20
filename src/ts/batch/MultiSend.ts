@@ -26,16 +26,19 @@ export class MultiSender {
     const multiSend = new Interface(abi) as MultiSend["interface"];
     const to: string[] = [];
     const data: string[] = [];
+    const value: string[] = [];
     const revertIfFail: boolean[] = [];
 
     for (const tx of batch) {
       to.push(tx.to);
       data.push(tx.data);
+      value.push(tx.value ? tx.value : "0");
       revertIfFail.push(tx.revertOnFail);
     }
 
-    const encodedTransactions = multiSend.functions.batchInternal.encode([
+    const encodedTransactions = multiSend.functions.batch.encode([
       to,
+      value,
       data,
       revertIfFail,
     ]);

@@ -10,7 +10,7 @@ contract MultiSendInternal {
     /// @param _to Target contracts
     /// @param _data Calldata for target contract
     /// @param _revertIfFail Do we revert entire transaction if the corresponding .call() fails?
-    function batchInternal(address[] memory _to, bytes[] memory _data, bool[] memory _revertIfFail) internal
+    function batchInternal(address[] memory _to, bytes[] memory _data, bool[] memory _revertIfFail) public
     {
         require(_to.length == _data.length && _data.length == _revertIfFail.length, "All arrays must have the same length");
 

@@ -258,12 +258,14 @@ describe("MultiSend", () => {
 
       const to = [counterCon.address];
       const data = ["0x", "0x"];
+      const value = ["0", "0"];
       const revertIfFail = [false, false];
 
       const multiSend = new MultiSendFactory(admin).attach(MULTI_SEND_ADDRESS);
 
       const callData = multiSend.interface.functions.batch.encode([
         to,
+        value,
         data,
         revertIfFail,
       ]);
@@ -286,12 +288,14 @@ describe("MultiSend", () => {
 
       const to = [counterCon.address, counterCon.address];
       const data = ["0x", "0x", "0x"];
+      const value = ["0", "0"];
       const revertIfFail = [false, false];
 
       const multiSend = new MultiSendFactory(admin).attach(MULTI_SEND_ADDRESS);
 
       const callData = multiSend.interface.functions.batch.encode([
         to,
+        value,
         data,
         revertIfFail,
       ]);
@@ -314,12 +318,14 @@ describe("MultiSend", () => {
 
       const to = [counterCon.address, counterCon.address];
       const data = ["0x", "0x"];
+      const value = ["0", "0"];
       const revertIfFail = [false, false, true, true];
 
       const multiSend = new MultiSendFactory(admin).attach(MULTI_SEND_ADDRESS);
 
       const callData = multiSend.interface.functions.batch.encode([
         to,
+        value,
         data,
         revertIfFail,
       ]);

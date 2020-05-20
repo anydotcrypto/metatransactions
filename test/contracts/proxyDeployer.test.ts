@@ -361,7 +361,7 @@ describe("ProxyAccountDeployer", () => {
 
       await expect(tx1)
         .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
-        .withArgs("");
+        .withArgs("Transaction reverted silently");
 
       const revertCallDataLongMessage = msgSenderCon.interface.functions.willRevertLongMessage.encode(
         []
@@ -492,7 +492,7 @@ describe("ProxyAccountDeployer", () => {
 
       await expect(tx1)
         .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
-        .withArgs("");
+        .withArgs("Transaction reverted silently");
 
       for (let i = 0; i < 10; i++) {
         const params = await forwarder.signMetaTransaction({
