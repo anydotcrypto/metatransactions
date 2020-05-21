@@ -43,20 +43,26 @@ export interface DeploymentParams {
 }
 
 export interface RelayHubCallData {
-  to: string;
+  to?: string;
   data: string;
 }
 
-export interface ProxyAccountCallData extends RelayHubCallData {
+export interface ProxyAccountCallData {
+  to?: string;
   value?: BigNumberish;
+  data?: string;
 }
+
+type RequiredPick<T, TRequired extends keyof T> = T &
+  Pick<Required<T>, TRequired>;
+export type RequiredTo<T extends { to?: string }> = RequiredPick<T, "to">;
 
 /**
  * Provides common functionality for the RelayHub and the ProxyAccounts.
  * Possible to extend it with additional functionality if another
  * msg.sender solution emerges.
  */
-export abstract class Forwarder<T> {
+export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
   constructor(
     protected readonly chainID: ChainID,
     public readonly signer: Signer,
@@ -71,7 +77,7 @@ export abstract class Forwarder<T> {
    * Encodes calldata for the meta-transaction signature.
    * @param data Target contract, calldata, and sometimes value
    */
-  protected abstract getEncodedCallData(data: T): string;
+  protected abstract getEncodedCallData(data: RequiredTo<TParams>): string;
 
   /**
    * A meta-transaction includes:
@@ -107,33 +113,30 @@ export abstract class Forwarder<T> {
   /**
    * Given the calldata, it returns a signed meta-transaction that can be directly included
    * in an Ethereum Transaction.
-   * @param data ProxyAccountCallData or RelayCallData
+   * @param tx ProxyAccountCallData or RelayCallData
    */
-  public async signAndEncodeMetaTransaction(data: T): Promise<MinimalTx> {
-    const forwardParams = await this.signMetaTransaction(data);
-    const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
-    return { to: forwardParams.to, data: encodedData };
-  }
-
-  /**
-   * Given the initData, it returns a signed meta-deployment that can be directly included
-   * in an Ethereum Transaction.
-   * @param data ProxyAccountCallData or RelayCallData
-   */
-  public async signAndEncodeMetaDeployment(
-    initCode: string
-  ): Promise<MinimalTx> {
-    const deploymentParams = await this.signMetaDeployment(initCode);
-    const encodedData = await this.encodeSignedMetaDeployment(deploymentParams);
-
-    return { to: deploymentParams.to, data: encodedData };
+  public async signAndEncodeMetaTransaction(tx: TParams): Promise<MinimalTx> {
+    if (tx.to) {
+      // we can cast here since we know to is defined
+      const forwardParams = await this.signMetaTransaction(
+        tx as RequiredTo<TParams>
+      );
+      const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
+      return { to: forwardParams.to, data: encodedData };
+    } else if (tx.data) {
+      const deploymentParams = await this.signMetaDeployment(tx.data);
+      const encodedData = await this.encodeSignedMetaDeployment(
+        deploymentParams
+      );
+      return { to: deploymentParams.to, data: encodedData };
+    } else throw new Error("Either 'to' or 'data' must be supplied.");
   }
 
   /**
    * Takes care of replay protection and signs a meta-transaction.
    * @param data ProxyAccountCallData or RelayCallData
    */
-  public async signMetaTransaction(data: T) {
+  public async signMetaTransaction(data: RequiredTo<TParams>) {
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = this.getEncodedCallData(data);
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -167,7 +170,7 @@ export abstract class Forwarder<T> {
    */
   protected abstract async getForwardParams(
     to: string,
-    data: T,
+    data: RequiredTo<TParams>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams>;

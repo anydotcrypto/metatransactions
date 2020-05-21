@@ -6,6 +6,7 @@ import {
   RelayHubCallData,
   Forwarder,
   DeploymentParams,
+  RequiredTo,
 } from "./forwarder";
 import { Signer } from "ethers";
 
@@ -37,7 +38,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    * Standard encoding for contract call data
    * @param data Target contract and the desired calldata
    */
-  protected getEncodedCallData(data: RelayHubCallData) {
+  protected getEncodedCallData(data: RequiredTo<RelayHubCallData>) {
     return defaultAbiCoder.encode(["address", "bytes"], [data.to, data.data]);
   }
 
@@ -51,7 +52,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    */
   protected async getForwardParams(
     to: string,
-    data: RelayHubCallData,
+    data: RequiredTo<RelayHubCallData>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {

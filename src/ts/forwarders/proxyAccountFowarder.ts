@@ -7,6 +7,7 @@ import {
   ProxyAccountCallData,
   DeploymentParams,
   MinimalTx,
+  RequiredTo,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -47,11 +48,11 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
-  protected getEncodedCallData(data: ProxyAccountCallData) {
+  protected getEncodedCallData(data: RequiredTo<ProxyAccountCallData>) {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["address", "uint", "bytes"],
-      [data.to, data.value ? data.value : 0, data.data]
+      [data.to, data.value ? data.value : 0, data.data ? data.data : "0x"]
     );
   }
 
@@ -122,7 +123,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    */
   protected async getForwardParams(
     to: string,
-    data: ProxyAccountCallData,
+    data: RequiredTo<ProxyAccountCallData>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {
@@ -131,7 +132,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
       signer: await this.signer.getAddress(),
       target: data.to,
       value: data.value ? data.value.toString() : "0",
-      data: data.data,
+      data: data.data ? data.data : "0x",
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,
