@@ -6,7 +6,6 @@ import {
   RelayHubCallData,
   Forwarder,
   DeploymentParams,
-  CallType,
 } from "./forwarder";
 import { Signer } from "ethers";
 
@@ -62,7 +61,6 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
       target: data.to,
       value: "0",
       data: data.data,
-      callType: CallType.CALL, // Not supported in RelayHub yet
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,

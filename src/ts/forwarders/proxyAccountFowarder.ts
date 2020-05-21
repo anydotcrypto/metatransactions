@@ -1,15 +1,27 @@
-import { defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
+import {
+  defaultAbiCoder,
+  solidityKeccak256,
+  Interface,
+  arrayify,
+  keccak256,
+} from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "../..";
+import {
+  ChainID,
+  ProxyAccountDeployer,
+  ProxyAccountFactory,
+  ProxyAccount,
+} from "../..";
 import {
   ForwardParams,
   Forwarder,
   ProxyAccountCallData,
   DeploymentParams,
   MinimalTx,
-  CallType,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
+import { abi } from "../../typedContracts/ProxyAccount.json";
+
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
 import {
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
@@ -51,13 +63,8 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   protected getEncodedCallData(data: ProxyAccountCallData) {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
-      ["uint", "address", "uint", "bytes"],
-      [
-        data.callType ? data.callType : CallType.CALL,
-        data.to,
-        data.value ? data.value : 0,
-        data.data,
-      ]
+      ["address", "uint", "bytes"],
+      [data.to, data.value ? data.value : 0, data.data]
     );
   }
 
@@ -89,25 +96,14 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   ): Promise<string> {
     const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
 
-    if (params.callType == CallType.CALL) {
-      return proxyAccount.interface.functions.forward.encode([
-        params.target,
-        params.value,
-        params.data,
-        params.replayProtection,
-        params.replayProtectionAuthority,
-        params.signature,
-      ]);
-    } else {
-      return proxyAccount.interface.functions.delegate.encode([
-        params.target,
-        params.value,
-        params.data,
-        params.replayProtection,
-        params.replayProtectionAuthority,
-        params.signature,
-      ]);
-    }
+    return proxyAccount.interface.functions.forward.encode([
+      params.target,
+      params.value,
+      params.data,
+      params.replayProtection,
+      params.replayProtectionAuthority,
+      params.signature,
+    ]);
   }
 
   /**
@@ -130,6 +126,59 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   }
 
   /**
+   * Batches a list of transactions into a single meta-transaction.
+   * It supports both meta-transactions & meta-deployment.
+   * @param dataList List of transactions to batch
+   */
+  public async signAndEncodeBatchTransaction(dataList: ProxyAccountCallData[]) {
+    // Separate out the calls to encode
+    const to = [];
+    const value = [];
+    const callData = [];
+    const revertOnFail = [];
+
+    for (const data of dataList) {
+      to.push(data.to);
+      value.push(data.value ? data.value : "0");
+      callData.push(data.data);
+      revertOnFail.push(false);
+    }
+
+    // Prepare the meta-transaction & sign it
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+    const encodedCallData = defaultAbiCoder.encode(
+      ["address[]", "uint[]", "bytes[]", "bool[]"],
+      [to, value, callData, revertOnFail]
+    );
+    const encodedMetaTx = this.encodeMetaTransactionToSign(
+      encodedCallData,
+      encodedReplayProtection,
+      this.replayProtectionAuthority.getAddress(),
+      this.address
+    );
+
+    const signature = await this.signer.signMessage(
+      arrayify(keccak256(encodedMetaTx))
+    );
+
+    const proxyAccountInterface = new Interface(
+      abi
+    ) as ProxyAccount["interface"];
+
+    const encodedBatch = proxyAccountInterface.functions.batch.encode([
+      to,
+      value,
+      callData,
+      revertOnFail,
+      encodedReplayProtection,
+      this.replayProtectionAuthority.getAddress(),
+      signature,
+    ]);
+
+    return { to: this.address, data: encodedBatch };
+  }
+
+  /**
    * Fetch forward parameters.
    * @param to ProxyAccount contract
    * @param data Target contract, value and calldata
@@ -149,7 +198,6 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
       target: data.to,
       value: data.value ? data.value.toString() : "0",
       data: data.data,
-      callType: data.callType ? data.callType : CallType.CALL,
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,

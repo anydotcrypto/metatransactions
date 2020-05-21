@@ -31,7 +31,6 @@ import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
 import { flipBit } from "../utils/test-utils";
 import { MultiSender } from "../../src/ts/batch/MultiSend";
-import { CallType } from "../../src/ts/forwarders/forwarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -609,20 +608,21 @@ describe("Proxy Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
 
-    const multiSender = new MultiSender();
+    // const multiSender = new MultiSender();
 
-    const batched = multiSender.batch([
-      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+    // const batched = multiSender.batch([
+    //   { to: msgSenderExample.address, data: callData, revertOnFail: false },
+    // ]);
+
+    const minimalTx = await forwarder.signAndEncodeBatchTransaction([
+      {
+        to: msgSenderExample.address,
+        data: callData,
+      },
     ]);
 
-    const minimalTx = await forwarder.signAndEncodeMetaTransaction({
-      to: batched.to,
-      data: batched.data,
-      callType: CallType.DELEGATECALL,
-    });
-
     const tx = admin.sendTransaction({
-      to: forwarder.address,
+      to: minimalTx.to,
       data: minimalTx.data,
     });
 
@@ -661,18 +661,17 @@ describe("Proxy Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
     const echoData = echo.interface.functions.sendMessage.encode(["hello"]);
-    const multiSender = new MultiSender();
+    // const multiSender = new MultiSender();
 
-    const batched = multiSender.batch([
-      { to: msgSenderExample.address, data: callData, revertOnFail: false },
-      { to: echo.address, data: echoData, revertOnFail: false },
+    // const batched = multiSender.batch([
+    //   { to: msgSenderExample.address, data: callData, revertOnFail: false },
+    //   { to: echo.address, data: echoData, revertOnFail: false },
+    // ]);
+
+    const minimalTx = await forwarder.signAndEncodeBatchTransaction([
+      { to: msgSenderExample.address, data: callData },
+      { to: echo.address, data: echoData },
     ]);
-
-    const minimalTx = await forwarder.signAndEncodeMetaTransaction({
-      to: batched.to,
-      data: batched.data,
-      callType: CallType.DELEGATECALL,
-    });
 
     const tx = admin.sendTransaction({
       to: minimalTx.to,
