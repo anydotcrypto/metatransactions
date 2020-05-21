@@ -262,7 +262,7 @@ describe("ProxyAccountDeployer", () => {
 
   fnIt<accountFunctions>(
     (a) => a.forward,
-    "returns encoded forward calldata that we send in a transaction",
+    "sends a transaction using MULTINONCE and it is successful",
     async () => {
       const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
         createProxyAccountDeployer
@@ -307,6 +307,208 @@ describe("ProxyAccountDeployer", () => {
       await expect(tx)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(proxyAddress);
+    }
+  );
+
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "sends two transactions and both revert. We catch the empty revert message and the long revert message.",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
+      const proxyAccount = new ProxyAccountFactory(sender).attach(proxyAddress);
+
+      const revertNoMessageCallData = msgSenderCon.interface.functions.willRevertNoMessage.encode(
+        []
+      );
+
+      const minimalTxNoMessage = await forwarder.signAndEncodeMetaTransaction({
+        to: msgSenderCon.address,
+        data: revertNoMessageCallData,
+      });
+
+      const tx1 = sender.sendTransaction({
+        to: minimalTxNoMessage.to,
+        data: minimalTxNoMessage.data,
+      });
+
+      await expect(tx1)
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs("");
+
+      const revertCallDataLongMessage = msgSenderCon.interface.functions.willRevertLongMessage.encode(
+        []
+      );
+
+      const minimalTxWithMessage = await forwarder.signAndEncodeMetaTransaction(
+        {
+          to: msgSenderCon.address,
+          data: revertCallDataLongMessage,
+        }
+      );
+
+      const tx2 = sender.sendTransaction({
+        to: minimalTxWithMessage.to,
+        data: minimalTxWithMessage.data,
+      });
+
+      await expect(tx2)
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs(
+          "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity."
+        );
+    }
+  );
+
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "the forwarded transaction fails and we decode the revert message that was emitted.",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
+      const proxyAccount = new ProxyAccountFactory(sender).attach(proxyAddress);
+
+      const revertCallDataLongMessage = msgSenderCon.interface.functions.willRevertLongMessage.encode(
+        []
+      );
+
+      const minimalTxWithMessage = await forwarder.signAndEncodeMetaTransaction(
+        {
+          to: msgSenderCon.address,
+          data: revertCallDataLongMessage,
+        }
+      );
+
+      const tx = sender.sendTransaction({
+        to: minimalTxWithMessage.to,
+        data: minimalTxWithMessage.data,
+      });
+
+      await expect(tx)
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs(
+          "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity."
+        );
+    }
+  );
+
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "forward sends several transactions, but the first forward fails. All subsequent transactions should still pass.",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [owner.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
+      const proxyAccount = new ProxyAccountFactory(sender).attach(proxyAddress);
+
+      const revertNoMessageCallData = msgSenderCon.interface.functions.willRevertNoMessage.encode(
+        []
+      );
+
+      const minimalTxNoMessage = await forwarder.signAndEncodeMetaTransaction({
+        to: msgSenderCon.address,
+        data: revertNoMessageCallData,
+      });
+
+      const tx1 = sender.sendTransaction({
+        to: minimalTxNoMessage.to,
+        data: minimalTxNoMessage.data,
+      });
+
+      await expect(tx1)
+        .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+        .withArgs("");
+
+      for (let i = 0; i < 10; i++) {
+        const params = await forwarder.signMetaTransaction({
+          to: msgSenderCon.address,
+          value: new BigNumber("0"),
+          data: msgSenderCall,
+        });
+
+        const tx = sender.sendTransaction({
+          to: proxyAddress,
+          gasLimit: 500000,
+          gasPrice: parseEther("0.000001"),
+          data: await forwarder.encodeSignedMetaTransaction(params),
+        });
+
+        await expect(tx)
+          .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+          .withArgs(proxyAddress);
+      }
     }
   );
 

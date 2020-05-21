@@ -22,7 +22,6 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
-import { flipBit } from "../utils/bitflip-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -104,7 +103,7 @@ describe("RelayHub Contract", () => {
 
   fnIt<relayHubFunctions>(
     (a) => a.forward,
-    "sending two transactions should work with no replay protection conflicts",
+    "sending two transactions with no replay protection conflicts is successful ",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
         createRelayHub
@@ -158,6 +157,91 @@ describe("RelayHub Contract", () => {
       await expect(tx)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
+    }
+  );
+
+  fnIt<relayHubFunctions>(
+    (a) => a.forward,
+    "forwarded transaction fails and we can extract the revert reason offchain.",
+    async () => {
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
+      const forwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        owner,
+        relayHub.address,
+        new MultiNonceReplayProtection(30, owner, relayHub.address)
+      );
+
+      const revertCallData = msgSenderCon.interface.functions.willRevert.encode(
+        []
+      );
+
+      let minimalTx = await forwarder.signAndEncodeMetaTransaction({
+        to: msgSenderCon.address,
+        data: revertCallData,
+      });
+
+      const tx = sender.sendTransaction({
+        to: minimalTx.to,
+        data: minimalTx.data,
+      });
+
+      await expect(tx)
+        .to.emit(relayHub, relayHub.interface.events.Revert.name)
+        .withArgs("Will always revert");
+    }
+  );
+
+  fnIt<relayHubFunctions>(
+    (a) => a.forward,
+    "sending several transactions, but the first forward fails. All subsequent transactions should pass.",
+    async () => {
+      const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
+        createRelayHub
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        owner,
+        relayHub.address,
+        new MultiNonceReplayProtection(30, owner, relayHub.address)
+      );
+
+      const revertCallData = msgSenderCon.interface.functions.willRevert.encode(
+        []
+      );
+
+      let minimalTx = await forwarder.signAndEncodeMetaTransaction({
+        to: msgSenderCon.address,
+        data: revertCallData,
+      });
+
+      await sender.sendTransaction({ to: minimalTx.to, data: minimalTx.data });
+
+      for (let i = 0; i < 5; i++) {
+        // Send off first transaction!
+        let params = await forwarder.signMetaTransaction({
+          to: msgSenderCon.address,
+          data: msgSenderCall,
+        });
+
+        let tx = relayHub
+          .connect(sender)
+          .forward(
+            params.target,
+            params.data,
+            params.replayProtection,
+            params.replayProtectionAuthority,
+            params.signer,
+            params.signature
+          );
+
+        await expect(tx)
+          .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+          .withArgs(owner.address);
+      }
     }
   );
 
@@ -310,7 +394,10 @@ describe("RelayHub Contract", () => {
           params.signer,
           params.signature
         );
-      await expect(tx).to.be.revertedWith("Forwarding call failed.");
+
+      await expect(tx)
+        .to.emit(relayHub, relayHub.interface.events.Revert.name)
+        .withArgs("Will always revert");
     }
   );
 

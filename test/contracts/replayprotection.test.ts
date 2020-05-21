@@ -14,7 +14,7 @@ import { defaultAbiCoder, keccak256, arrayify, BigNumber } from "ethers/utils";
 import { AddressZero } from "ethers/constants";
 import { Contract } from "ethers";
 import BN from "bn.js";
-import { flipBit } from "../utils/bitflip-utils";
+import { flipBit } from "../utils/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);

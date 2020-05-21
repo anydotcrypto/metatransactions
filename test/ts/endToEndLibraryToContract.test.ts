@@ -18,7 +18,7 @@ import {
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { ChainID } from "../../src/ts/forwarders/forwarderFactory";
-import { flipBit } from "../utils/bitflip-utils";
+import { flipBit } from "../utils/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
