@@ -134,7 +134,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
       value: data.value ? data.value.toString() : "0",
       data: data.data ? data.data : "0x",
       replayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
+      replayProtectionAuthority: this.replayProtectionAuthority.address,
       chainId: this.chainID,
       signature,
     };

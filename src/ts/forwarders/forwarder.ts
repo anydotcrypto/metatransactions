@@ -142,7 +142,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
+      this.replayProtectionAuthority.address,
       this.address
     );
 
@@ -194,7 +194,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       initCode,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
+      this.replayProtectionAuthority.address,
       this.address
     );
 
@@ -207,7 +207,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
       signer: await this.signer.getAddress(),
       initCode,
       replayProtection: encodedReplayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
+      replayProtectionAuthority: this.replayProtectionAuthority.address,
       chainId: this.chainID,
       signature: signature,
     };

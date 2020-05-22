@@ -63,7 +63,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
       value: "0",
       data: data.data,
       replayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
+      replayProtectionAuthority: this.replayProtectionAuthority.address,
       chainId: this.chainID,
       signature,
     };

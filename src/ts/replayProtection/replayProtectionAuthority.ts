@@ -13,16 +13,14 @@ export abstract class ReplayProtectionAuthority {
   /**
    * Replay protection is dedicated for a single user
    * @param signer Signer's wallet
+   * @param forwarderAddress Address of the forwarder using the replay protection
+   * @param address address for the authority.
    */
   constructor(
     protected readonly signer: Signer,
-    protected readonly forwarderAddress: string
+    protected readonly forwarderAddress: string,
+    public readonly address: string
   ) {}
-
-  /**
-   * On-chain contract address for the authority.
-   */
-  abstract getAddress(): string;
 
   /**
    * Fetch and encode the latest replay protection
@@ -57,7 +55,7 @@ export abstract class ReplayProtectionAuthority {
     const onchainId = keccak256(
       defaultAbiCoder.encode(
         ["address", "uint", "address"],
-        [await this.signer.getAddress(), index, this.getAddress()]
+        [await this.signer.getAddress(), index, this.address]
       )
     );
 
