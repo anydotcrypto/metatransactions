@@ -33,7 +33,7 @@ contract ContractCall {
      * @param _value Quantity of eth in account contract to send to target
      * @param _callData Function name plus arguments
      */
-    function call(address _target, uint _value, bytes memory _callData) internal returns(bool) {
+    function forwardCall(address _target, uint _value, bytes memory _callData) internal returns(bool) {
         (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
 
         if(!success) {

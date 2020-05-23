@@ -38,7 +38,6 @@ contract ReplayProtection {
      *
      * Why is there no signing authority? An attacker can supply an address that returns a fixed signer
      * so we need to restrict it to a "pre-approved" list of authorities (DAO).
-
      * @param _callData Function name and data to be called
      * @param _replayProtectionAuthority What replay protection will we check?
      * @param _replayProtection Encoded replay protection

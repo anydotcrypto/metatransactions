@@ -443,9 +443,11 @@ describe("Proxy Account Forwarder", () => {
     // All deployments are performed via the proxy account directly.
     const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
     const tx = await proxyAccount.delegate(
-      deploymentParams.target,
-      deploymentParams.value,
-      deploymentParams.data,
+      {
+        target: deploymentParams.target,
+        value: deploymentParams.value,
+        callData: deploymentParams.data,
+      },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
       deploymentParams.signature

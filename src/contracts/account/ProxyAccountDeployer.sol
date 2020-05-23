@@ -13,6 +13,20 @@ contract ProxyAccount is ReplayProtection, ContractCall {
     event Deployed(address owner, address addr);
     event Revert(string reason);
 
+    struct MetaTx {
+        address target;
+        uint value;
+        bytes callData;
+    }
+
+    struct RevertableMetaTx {
+        address target;
+        uint value;
+        bytes callData;
+        bool revertOnFail;
+        CallType callType;
+    }
+
     /**
      * Due to create clone, we need to use an init() method.
      */
@@ -23,94 +37,79 @@ contract ProxyAccount is ReplayProtection, ContractCall {
 
     /**
      * We check the signature has authorised the call before executing it.
-     * @param _target Target contract
-     * @param _value Quantity of eth in account contract to send to target
-     * @param _callData Function name plus arguments
+     * @param _metaTx A single meta-transaction that includes target, value and calldata
      * @param _replayProtection Replay protection
      * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
     function forward(
-        address _target,
-        uint _value, 
-        bytes memory _callData,
+        MetaTx memory _metaTx,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(CallType.CALL, _target, _value, _callData);
+        bytes memory encodedData = abi.encode(CallType.CALL, _metaTx.target, _metaTx.value, _metaTx.callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
-        call(_target, _value, _callData); // We do not want this to revert. Save the replay protection 
+        forwardCall(_metaTx.target, _metaTx.value, _metaTx.callData); // We do not want this to revert. Save the replay protection 
     }
 
     /**
      * We check the signature has authorised the call before executing it.
      * WARNING: Be VERY VERY VERY cautious of contracts that can modify / store state. 
      * Intended use is when msg.sender is required for code execution (e.g. CREATE2). 
-     * @param _target Target contract
-     * @param _value Quantity of eth in account contract to send to target
-     * @param _callData Function name plus arguments
+     * @param _metaTx A single meta-transaction that includes target, value and calldata
      * @param _replayProtection Replay protection
      * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
     function delegate(
-        address _target,
-        uint _value, 
-        bytes memory _callData,
+        MetaTx memory _metaTx,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(CallType.DELEGATE, _target, _value, _callData);
+        bytes memory encodedData = abi.encode(CallType.DELEGATE, _metaTx.target, _metaTx.value, _metaTx.callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
-        delegate(_target, _callData); // We do not want this to revert. Save the replay protection 
+        delegate(_metaTx.target, _metaTx.callData); // We do not want this to revert. Save the replay protection 
     }
 
     /**
      * A batch of meta-transactions or meta-deployments.
      * One replay-protection check covers all transactions. 
-     * @param _target List of target contract (Set to address(0) for a meta-deployment)
-     * @param _value List of wei to send in each transaction
-     * @param _callData List of function names + data for each transaction.
+     * @param _metaTxList List of revertable meta-transactions
      * @param _replayProtection Replay protection
      * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
-    function batch(address[] memory _target,
-        uint[] memory _value, 
-        bytes[] memory _callData,
-        bool[] memory _revertOnFail,
-        CallType[] memory _callType,
+    function batch(RevertableMetaTx[] memory _metaTxList,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        require(_target.length == _value.length && _value.length == _callData.length && _callData.length == _revertOnFail.length && _revertOnFail.length == _callType.length, "Target, value, calldata, revertOnFail & callType must have the same length");
-        bytes memory encodedData = abi.encode(CallType.BATCH, _target, _value, _callData, _revertOnFail, _callType);
+        bytes memory encodedData = abi.encode(CallType.BATCH, _metaTxList);
 
         // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
         // Go through each revertable meta transaction and/or meta-deployment.
-        for(uint i=0; i<_target.length; i++) {
+        for(uint i=0; i<_metaTxList.length; i++) {
 
             bool success = false; 
 
-            if(_callType[i] == CallType.CALL) {
-                success = call(_target[i], _value[i], _callData[i]);
-            } else if(_callType[i] == CallType.DELEGATE) {
-                success = delegate(_target[i], _callData[i]);
+            if(_metaTxList[i].callType == CallType.CALL) {
+                success = forwardCall(_metaTxList[i].target, _metaTxList[i].value, _metaTxList[i].callData);
+            } else if(_metaTxList[i].callType == CallType.DELEGATE) {
+                success = delegate(_metaTxList[i].target, _metaTxList[i].callData);
             }
 
             // Should we fail on revert?
-            if(_revertOnFail[i]) {
+            if(_metaTxList[i].revertOnFail) {
                 require(success, "Transaction reverted.");  
             }
         }

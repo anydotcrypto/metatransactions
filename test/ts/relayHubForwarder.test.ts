@@ -10,6 +10,8 @@ import {
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   deployMetaTxContracts,
+  RELAY_HUB_ADDRESS,
+  EchoFactory,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -40,6 +42,8 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
     relayHub.address
   );
 
+  const echoCon = await new EchoFactory(admin).deploy();
+
   const forwarderFactory = new RelayHubForwarderFactory();
   return {
     relayHub,
@@ -49,6 +53,7 @@ async function createHubs(provider: Provider, [admin, user1, user2]: Wallet[]) {
     user2,
     msgSenderExample,
     forwarderFactory,
+    echoCon,
   };
 }
 
@@ -249,4 +254,172 @@ describe("RelayHub Forwarder", () => {
     expect(decode[1]).to.eq(msgSenderExample.address);
     expect(decode[2]).to.eq(callData);
   }).timeout(50000);
+
+  it("Send one transaction via the batch. It should succeed.", async () => {
+    const { msgSenderExample, admin } = await loadFixture(createHubs);
+
+    const forwarder = new RelayHubForwarder(
+      ChainID.MAINNET,
+      admin,
+      RELAY_HUB_ADDRESS,
+      new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+    );
+
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+
+    const metaTxList = [
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+    ];
+
+    const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
+
+    const tx = admin.sendTransaction({
+      to: minimaltx.to,
+      data: minimaltx.data,
+    });
+
+    await expect(tx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(admin.address);
+  }).timeout(500000);
+
+  it("Send one transaction via the batch without defining revertOnFail. It should succeed.", async () => {
+    const { msgSenderExample, admin } = await loadFixture(createHubs);
+
+    const forwarder = new RelayHubForwarder(
+      ChainID.MAINNET,
+      admin,
+      RELAY_HUB_ADDRESS,
+      new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+    );
+
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+
+    const metaTxList = [{ to: msgSenderExample.address, data: callData }];
+
+    const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
+
+    const tx = admin.sendTransaction({
+      to: minimaltx.to,
+      data: minimaltx.data,
+    });
+
+    await expect(tx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(admin.address);
+  }).timeout(500000);
+
+  it("Send two transactions via the batch. It should succeed.", async () => {
+    const { msgSenderExample, admin, echoCon } = await loadFixture(createHubs);
+
+    const forwarder = new RelayHubForwarder(
+      ChainID.MAINNET,
+      admin,
+      RELAY_HUB_ADDRESS,
+      new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+    );
+
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+    const echoData = echoCon.interface.functions.sendMessage.encode(["hello"]);
+
+    const metaTxList = [
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: echoCon.address, data: echoData, revertOnFail: false },
+    ];
+
+    const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
+
+    const tx = admin.sendTransaction({
+      to: minimaltx.to,
+      data: minimaltx.data,
+    });
+
+    await expect(tx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(admin.address);
+
+    const lastMessage = await echoCon.lastMessage();
+    expect(lastMessage).to.eq("hello");
+  }).timeout(500000);
+
+  it("Send two transactions via the batch. First transaction reverts, but revert message is emitted.", async () => {
+    const { msgSenderExample, admin, relayHub, echoCon } = await loadFixture(
+      createHubs
+    );
+
+    const forwarder = new RelayHubForwarder(
+      ChainID.MAINNET,
+      admin,
+      RELAY_HUB_ADDRESS,
+      new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+    );
+
+    const callData = msgSenderExample.interface.functions.willRevertLongMessage.encode(
+      []
+    );
+    const echoData = echoCon.interface.functions.sendMessage.encode(["hello"]);
+
+    const metaTxList = [
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: echoCon.address, data: echoData, revertOnFail: false },
+    ];
+
+    const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
+
+    const tx = admin.sendTransaction({
+      to: minimaltx.to,
+      data: minimaltx.data,
+    });
+
+    await expect(tx)
+      .to.emit(relayHub, relayHub.interface.events.Revert.name)
+      .withArgs(
+        "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity."
+      );
+
+    const lastMessage = await echoCon.lastMessage();
+    expect(lastMessage).to.eq("hello");
+  }).timeout(500000);
+
+  it("Send two transactions via the batch. Second transaction reverts with revertOnFail=true. The Ethereum transaction fails.", async () => {
+    const { msgSenderExample, admin, echoCon } = await loadFixture(createHubs);
+
+    const forwarder = new RelayHubForwarder(
+      ChainID.MAINNET,
+      admin,
+      RELAY_HUB_ADDRESS,
+      new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+    );
+
+    const callData = msgSenderExample.interface.functions.willRevertLongMessage.encode(
+      []
+    );
+    const echoData = echoCon.interface.functions.sendMessage.encode(["hello"]);
+
+    const metaTxList = [
+      { to: echoCon.address, data: echoData, revertOnFail: false },
+      { to: msgSenderExample.address, data: callData, revertOnFail: true },
+    ];
+
+    const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
+
+    const tx = admin.sendTransaction({
+      to: minimaltx.to,
+      data: minimaltx.data,
+    });
+
+    await expect(tx).to.be.revertedWith("Meta-transaction failed");
+
+    const lastMessage = await echoCon.lastMessage();
+    expect(lastMessage).to.eq("");
+  }).timeout(500000);
 });

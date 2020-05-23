@@ -195,9 +195,7 @@ describe("ProxyAccountDeployer", () => {
       const tx = proxyAccount
         .connect(sender)
         .forward(
-          params.target,
-          params.value,
-          params.data,
+          { target: params.target, value: params.value, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signature
@@ -555,9 +553,7 @@ describe("ProxyAccountDeployer", () => {
       const tx = proxyAccount
         .connect(sender)
         .forward(
-          params.target,
-          params.value,
-          params.data,
+          { target: params.target, value: params.value, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           "0x0000000000000000000000000000000000000000"
@@ -635,9 +631,7 @@ describe("ProxyAccountDeployer", () => {
       await proxyAccount
         .connect(sender)
         .delegate(
-          params.target,
-          params.value,
-          params.data,
+          { target: params.target, value: params.value, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signature
@@ -877,16 +871,23 @@ describe("ProxyAccountDeployer", () => {
 
       const callData = msgSenderCon.interface.functions.test.encode([]);
 
-      const to = [msgSenderCon.address];
-      const value = [0];
-      const data = [callData];
-      const revertOnFail = [false];
-      const typeOfCall = [CallType.CALL];
+      const metaTxList = [
+        {
+          target: msgSenderCon.address,
+          value: 0,
+          callData: callData,
+          revertOnFail: false,
+          callType: CallType.CALL,
+        },
+      ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
+        [
+          "uint",
+          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
       );
 
       // @ts-ignore
@@ -905,11 +906,7 @@ describe("ProxyAccountDeployer", () => {
       ) as ProxyAccount["interface"];
 
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
+        metaTxList,
         replayProtection,
         AddressZero,
         signature,
@@ -957,16 +954,23 @@ describe("ProxyAccountDeployer", () => {
         []
       );
 
-      const to = [msgSenderCon.address];
-      const value = [0];
-      const data = [callData];
-      const revertOnFail = [false];
-      const typeOfCall = [CallType.CALL];
+      const metaTxList = [
+        {
+          target: msgSenderCon.address,
+          value: 0,
+          callData: callData,
+          revertOnFail: false,
+          callType: CallType.CALL,
+        },
+      ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
+        [
+          "uint",
+          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
       );
 
       // @ts-ignore
@@ -985,11 +989,7 @@ describe("ProxyAccountDeployer", () => {
       ) as ProxyAccount["interface"];
 
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
+        metaTxList,
         replayProtection,
         AddressZero,
         signature,
@@ -1042,16 +1042,23 @@ describe("ProxyAccountDeployer", () => {
         []
       );
 
-      const to = [msgSenderCon.address];
-      const value = [0];
-      const data = [callData];
-      const revertOnFail = [true];
-      const typeOfCall = [CallType.CALL];
+      const metaTxList = [
+        {
+          target: msgSenderCon.address,
+          value: 0,
+          callData: callData,
+          revertOnFail: true,
+          callType: CallType.CALL,
+        },
+      ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
+        [
+          "uint",
+          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
       );
 
       // @ts-ignore
@@ -1070,11 +1077,7 @@ describe("ProxyAccountDeployer", () => {
       ) as ProxyAccount["interface"];
 
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
+        metaTxList,
         replayProtection,
         AddressZero,
         signature,
@@ -1121,16 +1124,30 @@ describe("ProxyAccountDeployer", () => {
       ]);
       const callData = msgSenderCon.interface.functions.test.encode([]);
 
-      const to = [msgSenderCon.address, echoCon.address];
-      const value = [0, 0];
-      const data = [callData, echoData];
-      const revertOnFail = [true, true];
-      const typeOfCall = [CallType.CALL, CallType.CALL];
+      const metaTxList = [
+        {
+          target: msgSenderCon.address,
+          value: 0,
+          callData: callData,
+          revertOnFail: true,
+          callType: CallType.CALL,
+        },
+        {
+          target: echoCon.address,
+          value: 0,
+          callData: echoData,
+          revertOnFail: true,
+          callType: CallType.CALL,
+        },
+      ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
+        [
+          "uint",
+          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
       );
 
       // @ts-ignore
@@ -1149,11 +1166,7 @@ describe("ProxyAccountDeployer", () => {
       ) as ProxyAccount["interface"];
 
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
+        metaTxList,
         replayProtection,
         AddressZero,
         signature,
@@ -1205,16 +1218,30 @@ describe("ProxyAccountDeployer", () => {
       ]);
       const callData = msgSenderCon.interface.functions.test.encode([]);
 
-      const to = [msgSenderCon.address, echoCon.address];
-      const value = [0, 0];
-      const data = [callData, echoData];
-      const revertOnFail = [true, true];
-      const typeOfCall = [CallType.DELEGATE, CallType.CALL];
+      const metaTxList = [
+        {
+          target: msgSenderCon.address,
+          value: 0,
+          callData: callData,
+          revertOnFail: true,
+          callType: CallType.DELEGATE,
+        },
+        {
+          target: echoCon.address,
+          value: 0,
+          callData: echoData,
+          revertOnFail: true,
+          callType: CallType.CALL,
+        },
+      ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
+        [
+          "uint",
+          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
       );
 
       // @ts-ignore
@@ -1233,11 +1260,7 @@ describe("ProxyAccountDeployer", () => {
       ) as ProxyAccount["interface"];
 
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
+        metaTxList,
         replayProtection,
         AddressZero,
         signature,
@@ -1257,410 +1280,6 @@ describe("ProxyAccountDeployer", () => {
     }
   ).timeout(500000);
 
-  fnIt<accountFunctions>(
-    (a) => a.batch,
-    "to has an extra to entry. It should fail.",
-    async () => {
-      const { msgSenderCon, proxyDeployer, admin, echoCon } = await loadFixture(
-        createProxyAccountDeployer
-      );
-
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        admin.address
-      );
-      const forwarder = new ProxyAccountForwarder(
-        ChainID.MAINNET,
-        proxyDeployer.address,
-        admin,
-        proxyAccountAddress,
-        new BitFlipReplayProtection(admin, proxyAccountAddress)
-      );
-
-      // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
-
-      await admin.sendTransaction({
-        to: deployProxy.to,
-        data: deployProxy.data,
-      });
-
-      const echoData = echoCon.interface.functions.sendMessage.encode([
-        "hello",
-      ]);
-      const callData = msgSenderCon.interface.functions.test.encode([]);
-
-      const to = [msgSenderCon.address, echoCon.address, msgSenderCon.address];
-      const value = [0, 0];
-      const data = [callData, echoData];
-      const revertOnFail = [true, true];
-      const typeOfCall = [CallType.CALL, CallType.CALL];
-
-      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
-      );
-
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
-        encodedCallData,
-        replayProtection,
-        AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
-      );
-
-      const proxyAccountInterface = new Interface(
-        abi
-      ) as ProxyAccount["interface"];
-
-      const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
-        replayProtection,
-        AddressZero,
-        signature,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: forwarder.address,
-        data: encodedBatch,
-      });
-
-      await expect(tx).to.be.revertedWith(
-        "Target, value, calldata, revertOnFail & callType must have the same length"
-      );
-    }
-  ).timeout(500000);
-
-  fnIt<accountFunctions>(
-    (a) => a.batch,
-    "value has an extra to entry. It should fail.",
-    async () => {
-      const { msgSenderCon, proxyDeployer, admin, echoCon } = await loadFixture(
-        createProxyAccountDeployer
-      );
-
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        admin.address
-      );
-      const forwarder = new ProxyAccountForwarder(
-        ChainID.MAINNET,
-        proxyDeployer.address,
-        admin,
-        proxyAccountAddress,
-        new BitFlipReplayProtection(admin, proxyAccountAddress)
-      );
-
-      // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
-
-      await admin.sendTransaction({
-        to: deployProxy.to,
-        data: deployProxy.data,
-      });
-
-      const echoData = echoCon.interface.functions.sendMessage.encode([
-        "hello",
-      ]);
-      const callData = msgSenderCon.interface.functions.test.encode([]);
-
-      const to = [msgSenderCon.address, echoCon.address];
-      const value = [0, 0, 0];
-      const data = [callData, echoData];
-      const revertOnFail = [true, true];
-      const typeOfCall = [CallType.CALL, CallType.CALL];
-
-      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
-      );
-
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
-        encodedCallData,
-        replayProtection,
-        AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
-      );
-
-      const proxyAccountInterface = new Interface(
-        abi
-      ) as ProxyAccount["interface"];
-
-      const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
-        replayProtection,
-        AddressZero,
-        signature,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: forwarder.address,
-        data: encodedBatch,
-      });
-
-      await expect(tx).to.be.revertedWith(
-        "Target, value, calldata, revertOnFail & callType must have the same length"
-      );
-    }
-  ).timeout(500000);
-
-  fnIt<accountFunctions>(
-    (a) => a.batch,
-    "data has an extra to entry. It should fail.",
-    async () => {
-      const { msgSenderCon, proxyDeployer, admin, echoCon } = await loadFixture(
-        createProxyAccountDeployer
-      );
-
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        admin.address
-      );
-      const forwarder = new ProxyAccountForwarder(
-        ChainID.MAINNET,
-        proxyDeployer.address,
-        admin,
-        proxyAccountAddress,
-        new BitFlipReplayProtection(admin, proxyAccountAddress)
-      );
-
-      // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
-
-      await admin.sendTransaction({
-        to: deployProxy.to,
-        data: deployProxy.data,
-      });
-
-      const echoData = echoCon.interface.functions.sendMessage.encode([
-        "hello",
-      ]);
-      const callData = msgSenderCon.interface.functions.test.encode([]);
-
-      const to = [msgSenderCon.address, echoCon.address];
-      const value = [0, 0];
-      const data = [callData, echoData, echoData];
-      const revertOnFail = [true, true];
-      const typeOfCall = [CallType.CALL, CallType.CALL];
-
-      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
-      );
-
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
-        encodedCallData,
-        replayProtection,
-        AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
-      );
-
-      const proxyAccountInterface = new Interface(
-        abi
-      ) as ProxyAccount["interface"];
-
-      const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
-        replayProtection,
-        AddressZero,
-        signature,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: forwarder.address,
-        data: encodedBatch,
-      });
-
-      await expect(tx).to.be.revertedWith(
-        "Target, value, calldata, revertOnFail & callType must have the same length"
-      );
-    }
-  ).timeout(500000);
-
-  fnIt<accountFunctions>(
-    (a) => a.batch,
-    "revertOnFail has an extra to entry. It should fail.",
-    async () => {
-      const { msgSenderCon, proxyDeployer, admin, echoCon } = await loadFixture(
-        createProxyAccountDeployer
-      );
-
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        admin.address
-      );
-      const forwarder = new ProxyAccountForwarder(
-        ChainID.MAINNET,
-        proxyDeployer.address,
-        admin,
-        proxyAccountAddress,
-        new BitFlipReplayProtection(admin, proxyAccountAddress)
-      );
-
-      // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
-
-      await admin.sendTransaction({
-        to: deployProxy.to,
-        data: deployProxy.data,
-      });
-
-      const echoData = echoCon.interface.functions.sendMessage.encode([
-        "hello",
-      ]);
-      const callData = msgSenderCon.interface.functions.test.encode([]);
-
-      const to = [msgSenderCon.address, echoCon.address];
-      const value = [0, 0];
-      const data = [callData, echoData];
-      const revertOnFail = [true, true, false];
-      const typeOfCall = [CallType.CALL, CallType.CALL];
-
-      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
-      );
-
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
-        encodedCallData,
-        replayProtection,
-        AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
-      );
-
-      const proxyAccountInterface = new Interface(
-        abi
-      ) as ProxyAccount["interface"];
-
-      const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
-        replayProtection,
-        AddressZero,
-        signature,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: forwarder.address,
-        data: encodedBatch,
-      });
-
-      await expect(tx).to.be.revertedWith(
-        "Target, value, calldata, revertOnFail & callType must have the same length"
-      );
-    }
-  ).timeout(500000);
-
-  fnIt<accountFunctions>(
-    (a) => a.batch,
-    "typeOfCall has an extra to entry. It should fail.",
-    async () => {
-      const { msgSenderCon, proxyDeployer, admin, echoCon } = await loadFixture(
-        createProxyAccountDeployer
-      );
-
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        admin.address
-      );
-      const forwarder = new ProxyAccountForwarder(
-        ChainID.MAINNET,
-        proxyDeployer.address,
-        admin,
-        proxyAccountAddress,
-        new BitFlipReplayProtection(admin, proxyAccountAddress)
-      );
-
-      // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
-
-      await admin.sendTransaction({
-        to: deployProxy.to,
-        data: deployProxy.data,
-      });
-
-      const echoData = echoCon.interface.functions.sendMessage.encode([
-        "hello",
-      ]);
-      const callData = msgSenderCon.interface.functions.test.encode([]);
-
-      const to = [msgSenderCon.address, echoCon.address];
-      const value = [0, 0];
-      const data = [callData, echoData];
-      const revertOnFail = [true, true];
-      const typeOfCall = [CallType.CALL, CallType.CALL, CallType.BATCH];
-
-      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-        [CallType.BATCH, to, value, data, revertOnFail, typeOfCall]
-      );
-
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
-        encodedCallData,
-        replayProtection,
-        AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
-      );
-
-      const proxyAccountInterface = new Interface(
-        abi
-      ) as ProxyAccount["interface"];
-
-      const encodedBatch = proxyAccountInterface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertOnFail,
-        typeOfCall,
-        replayProtection,
-        AddressZero,
-        signature,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: forwarder.address,
-        data: encodedBatch,
-      });
-
-      await expect(tx).to.be.revertedWith(
-        "Target, value, calldata, revertOnFail & callType must have the same length"
-      );
-    }
-  ).timeout(500000);
   // TODO: DEPLOYER DOES NOT REVERT IF IT FAILS.
   // We need a deployer that will!
   // fnIt<accountFunctions>(

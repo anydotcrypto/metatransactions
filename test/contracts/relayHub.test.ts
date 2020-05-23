@@ -17,6 +17,7 @@ import {
   RelayHubForwarder,
   RELAY_HUB_ADDRESS,
   deployMetaTxContracts,
+  EchoFactory,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -53,6 +54,8 @@ async function createRelayHub(
   const msgSenderCon = await msgSenderFactory.deploy(relayHubAddress);
   const forwarderFactory = new RelayHubForwarderFactory();
 
+  const echoCon = await new EchoFactory(admin).deploy();
+
   return {
     provider,
     relayHub,
@@ -63,6 +66,7 @@ async function createRelayHub(
     nonceStoreMock,
     bitFlipNonceStore,
     forwarderFactory,
+    echoCon,
   };
 }
 
@@ -89,8 +93,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          params.target,
-          params.data,
+          { target: params.target, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -127,8 +130,7 @@ describe("RelayHub Contract", () => {
       let tx = relayHub
         .connect(sender)
         .forward(
-          params.target,
-          params.data,
+          { target: params.target, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -148,8 +150,7 @@ describe("RelayHub Contract", () => {
       tx = relayHub
         .connect(sender)
         .forward(
-          params.target,
-          params.data,
+          { target: params.target, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -232,8 +233,7 @@ describe("RelayHub Contract", () => {
         let tx = relayHub
           .connect(sender)
           .forward(
-            params.target,
-            params.data,
+            { target: params.target, callData: params.data },
             params.replayProtection,
             params.replayProtectionAuthority,
             params.signer,
@@ -290,8 +290,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          msgSenderCon.address,
-          encodedCallData,
+          { target: msgSenderCon.address, callData: encodedCallData },
           encodedReplayProtection,
           replayProtectionAuthority,
           owner.address,
@@ -346,8 +345,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          msgSenderCon.address,
-          encodedCallData,
+          { target: msgSenderCon.address, callData: encodedCallData },
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
           owner.address,
@@ -387,8 +385,7 @@ describe("RelayHub Contract", () => {
       let tx = relayHub
         .connect(sender)
         .forward(
-          params.target,
-          params.data,
+          { target: params.target, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -429,8 +426,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          params.target,
-          params.data,
+          { target: params.target, callData: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -486,8 +482,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          msgSenderCon.address,
-          msgSenderCall,
+          { target: msgSenderCon.address, callData: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           owner.address,
@@ -546,8 +541,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          msgSenderCon.address,
-          msgSenderCall,
+          { target: msgSenderCon.address, callData: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           owner.address,
@@ -562,8 +556,7 @@ describe("RelayHub Contract", () => {
       const tx2 = relayHub
         .connect(sender)
         .forward(
-          msgSenderCon.address,
-          msgSenderCall,
+          { target: msgSenderCon.address, callData: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           owner.address,
@@ -596,8 +589,7 @@ describe("RelayHub Contract", () => {
       const tx1 = relayHub
         .connect(sender)
         .forward(
-          params1.target,
-          params1.data,
+          { target: params1.target, callData: params1.data },
           params1.replayProtection,
           params1.replayProtectionAuthority,
           params1.signer,
@@ -616,8 +608,7 @@ describe("RelayHub Contract", () => {
       const tx2 = relayHub
         .connect(sender)
         .forward(
-          params2.target,
-          params2.data,
+          { target: params2.target, callData: params2.data },
           params2.replayProtection,
           params2.replayProtectionAuthority,
           params2.signer,
@@ -647,14 +638,13 @@ describe("RelayHub Contract", () => {
 
       const callData = msgSenderCon.interface.functions.test.encode([]);
 
-      const to = [msgSenderCon.address];
-      const data = [callData];
-      const revertOnFail = [false];
-
+      const metaTxList = [
+        { target: msgSenderCon.address, callData, revertOnFail: false },
+      ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "address[]", "bytes[]", "bool[]"],
-        [CallType.BATCH, to, data, revertOnFail]
+        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        [CallType.BATCH, metaTxList]
       );
 
       // @ts-ignore
@@ -669,9 +659,7 @@ describe("RelayHub Contract", () => {
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
-        to,
-        data,
-        revertOnFail,
+        metaTxList,
         replayProtection,
         AddressZero,
         admin.address,
@@ -686,6 +674,190 @@ describe("RelayHub Contract", () => {
       await expect(tx)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(admin.address);
+    }
+  ).timeout(500000);
+
+  fnIt<relayHubFunctions>(
+    (a) => a.batch,
+    "Send two transactions via the batch. It should succeed.",
+    async () => {
+      const { msgSenderCon, admin, relayHub, echoCon } = await loadFixture(
+        createRelayHub
+      );
+
+      const forwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        admin,
+        RELAY_HUB_ADDRESS,
+        new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+      );
+
+      const echoData = echoCon.interface.functions.sendMessage.encode([
+        "hello",
+      ]);
+      const callData = msgSenderCon.interface.functions.test.encode([]);
+
+      const metaTxList = [
+        { target: msgSenderCon.address, callData, revertOnFail: false },
+        { target: echoCon.address, callData: echoData, revertOnFail: false },
+      ];
+      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
+      const encodedCallData = defaultAbiCoder.encode(
+        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        [CallType.BATCH, metaTxList]
+      );
+
+      // @ts-ignore
+      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+        encodedCallData,
+        replayProtection,
+        AddressZero
+      );
+
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
+      );
+
+      const encodedBatch = relayHub.interface.functions.batch.encode([
+        metaTxList,
+        replayProtection,
+        AddressZero,
+        admin.address,
+        signature,
+      ]);
+
+      const tx = admin.sendTransaction({
+        to: forwarder.address,
+        data: encodedBatch,
+      });
+
+      await expect(tx)
+        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+        .withArgs(admin.address);
+
+      const lastMessage = await echoCon.lastMessage();
+      expect(lastMessage).to.eq("hello");
+    }
+  ).timeout(500000);
+
+  fnIt<relayHubFunctions>(
+    (a) => a.batch,
+    "Send two transactions via the batch. First transaction reverts and the message is caught.",
+    async () => {
+      const { msgSenderCon, admin, relayHub, echoCon } = await loadFixture(
+        createRelayHub
+      );
+
+      const forwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        admin,
+        RELAY_HUB_ADDRESS,
+        new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+      );
+
+      const echoData = echoCon.interface.functions.sendMessage.encode([
+        "hello",
+      ]);
+      const callData = msgSenderCon.interface.functions.willRevert.encode([]);
+
+      const metaTxList = [
+        { target: msgSenderCon.address, callData, revertOnFail: false },
+        { target: echoCon.address, callData: echoData, revertOnFail: false },
+      ];
+      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
+      const encodedCallData = defaultAbiCoder.encode(
+        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        [CallType.BATCH, metaTxList]
+      );
+
+      // @ts-ignore
+      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+        encodedCallData,
+        replayProtection,
+        AddressZero
+      );
+
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
+      );
+
+      const encodedBatch = relayHub.interface.functions.batch.encode([
+        metaTxList,
+        replayProtection,
+        AddressZero,
+        admin.address,
+        signature,
+      ]);
+
+      const tx = admin.sendTransaction({
+        to: forwarder.address,
+        data: encodedBatch,
+      });
+
+      await expect(tx)
+        .to.emit(relayHub, relayHub.interface.events.Revert.name)
+        .withArgs("Will always revert");
+
+      const lastMessage = await echoCon.lastMessage();
+      expect(lastMessage).to.eq("hello");
+    }
+  ).timeout(500000);
+
+  fnIt<relayHubFunctions>(
+    (a) => a.batch,
+    "Send two transactions via the batch. First transaction reverts with revertOnFail=true. Full transaction reverts.",
+    async () => {
+      const { msgSenderCon, admin, relayHub, echoCon } = await loadFixture(
+        createRelayHub
+      );
+
+      const forwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        admin,
+        RELAY_HUB_ADDRESS,
+        new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+      );
+
+      const echoData = echoCon.interface.functions.sendMessage.encode([
+        "hello",
+      ]);
+      const callData = msgSenderCon.interface.functions.willRevert.encode([]);
+
+      const metaTxList = [
+        { target: msgSenderCon.address, callData, revertOnFail: true },
+        { target: echoCon.address, callData: echoData, revertOnFail: false },
+      ];
+      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
+      const encodedCallData = defaultAbiCoder.encode(
+        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        [CallType.BATCH, metaTxList]
+      );
+
+      // @ts-ignore
+      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+        encodedCallData,
+        replayProtection,
+        AddressZero
+      );
+
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
+      );
+
+      const encodedBatch = relayHub.interface.functions.batch.encode([
+        metaTxList,
+        replayProtection,
+        AddressZero,
+        admin.address,
+        signature,
+      ]);
+
+      const tx = admin.sendTransaction({
+        to: forwarder.address,
+        data: encodedBatch,
+      });
+
+      await expect(tx).to.be.revertedWith("Meta-transaction failed");
     }
   ).timeout(500000);
 });

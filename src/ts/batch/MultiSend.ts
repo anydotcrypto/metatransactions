@@ -32,8 +32,8 @@ export class MultiSender {
     for (const tx of batch) {
       to.push(tx.to);
       data.push(tx.data);
-      value.push(tx.value ? tx.value : 0); // TODO: Fix
-      revertIfFail.push(tx.revertOnFail);
+      value.push(tx.value ? tx.value : 0);
+      revertIfFail.push(tx.revertOnFail ? tx.revertOnFail : false);
     }
 
     const encodedTransactions = multiSend.functions.batch.encode([

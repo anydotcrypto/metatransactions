@@ -15,66 +15,69 @@ contract RelayHub is ReplayProtection, ContractCall {
 
     event Deployed(address signer, address addr);
 
+    struct MetaTx {
+        address target;
+        bytes callData;
+    }
+
+    struct RevertableMetaTx {
+        address target;
+        bytes callData;
+        bool revertOnFail;
+    }
+
      /**
      * Each signer has a contract account (signers address => contract address).
      * We check the signer has authorised the target contract and function call. Then, we pass it to the
      * signer's contract account to perform the final execution (to help us bypass msg.sender problem).
-     * @param _target Target contract
-     * @param _callData Function name plus arguments
-     * @param _replayProtection Replay protection (e.g. multinonce)
+     * @param _metaTx A single meta-transaction that includes target, value and calldata
      * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
      * @param _signer Signer's address
      * @param _signature Signature from signer
      */
     function forward(
-        address _target,
-        bytes memory _callData,
+        MetaTx memory _metaTx,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         address _signer,
         bytes memory _signature) public {
 
-        bytes memory encodedCallData = abi.encode(CallType.CALL, _target, _callData);
+        bytes memory encodedCallData = abi.encode(CallType.CALL, _metaTx.target, _metaTx.callData);
 
         // // Reverts if fails.
         require(_signer == verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature),
         "Signer did not sign this meta-transaction.");
 
         // Does not revert. Lets us save the replay protection if it fails.
-        call(_target, 0, abi.encodePacked(_callData, _signer));
+        forwardCall(_metaTx.target, 0, abi.encodePacked(_metaTx.callData, _signer));
     }
 
     /**
      * A batch of meta-transactions or meta-deployments.
      * One replay-protection check covers all transactions.
-     * @param _target List of target contract (Set to address(0) for a meta-deployment)
-     * @param _callData List of function names + data for each transaction.
+     * @param _metaTxList A list of revertable meta-transaction that includes target, value and calldata
      * @param _replayProtection Replay protection
      * @param _replayProtectionAuthority Address of external replay protection
      * @param _signer Signer
      * @param _signature Signature from signer
      */
-    function batch(address[] memory _target,
-        bytes[] memory _callData,
-        bool[] memory _revertOnFail,
+    function batch(RevertableMetaTx[] memory _metaTxList,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         address _signer,
         bytes memory _signature) public {
-
-        require(_target.length == _callData.length && _callData.length == _revertOnFail.length, "Target, calldata & revertOnFail must have the same length");
-        bytes memory encodedData = abi.encode(CallType.BATCH, _target,  _callData, _revertOnFail);
+        bytes memory encodedData = abi.encode(CallType.BATCH, _metaTxList);
 
         // Reverts if fails.
         require(_signer == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
         // Go through each revertable meta transaction and/or meta-deployment.
-        for(uint i=0; i<_target.length; i++) {
+        for(uint i=0; i<_metaTxList.length; i++) {
 
             // Nope, let's execute the call!
-            bool success = call(_target[i], 0, abi.encodePacked(_callData[i], _signer));
+            bool success = forwardCall(_metaTxList[i].target, 0, abi.encodePacked(_metaTxList[i].callData, _signer));
 
-            if(_revertOnFail[i]) {
+            if(_metaTxList[i].revertOnFail) {
                 require(success, "Meta-transaction failed");
             }
         }

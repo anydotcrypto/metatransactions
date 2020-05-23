@@ -18,7 +18,7 @@ import {
   ForwardParams,
   Forwarder,
   MinimalTx,
-  RequiredTo,
+  RequiredTarget,
   CallType,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
@@ -37,13 +37,20 @@ export interface ProxyAccountCallData {
   to: string;
   value?: BigNumberish;
   data?: string;
+  callType?: CallType;
+}
+
+export interface RevertableProxyAccountCallData extends ProxyAccountCallData {
+  revertOnFail?: boolean;
 }
 
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
+export class ProxyAccountForwarder extends Forwarder<
+  Partial<ProxyAccountCallData>
+> {
   private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.
@@ -70,7 +77,7 @@ export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
-  protected getEncodedCallData(data: RequiredTo<MinimalTx>) {
+  protected getEncodedCallData(data: RequiredTarget<ProxyAccountCallData>) {
     // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
       ["uint", "address", "uint", "bytes"],
@@ -113,9 +120,7 @@ export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
 
     if (params.callType == CallType.DELEGATE) {
       return proxyAccount.interface.functions.delegate.encode([
-        params.target,
-        params.value,
-        params.data,
+        { target: params.target, value: params.value, callData: params.data },
         params.replayProtection,
         params.replayProtectionAuthority,
         params.signature,
@@ -123,9 +128,7 @@ export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
     }
 
     return proxyAccount.interface.functions.forward.encode([
-      params.target,
-      params.value,
-      params.data,
+      { target: params.target, value: params.value, callData: params.data },
       params.replayProtection,
       params.replayProtectionAuthority,
       params.signature,
@@ -135,29 +138,31 @@ export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
   /**
    * Batches a list of transactions into a single meta-transaction.
    * It supports both meta-transactions & meta-deployment.
-   * @param dataList List of transactions to batch
+   * @param dataList List of meta-transactions to batch
    */
-  public async signAndEncodeBatchTransaction(dataList: MinimalTx[]) {
-    // Separate out the calls to encode
-    const to = [];
-    const value = [];
-    const callData = [];
-    const callType = [];
-    const revertOnFail = [];
+  public async signAndEncodeBatchTransaction(
+    dataList: RevertableProxyAccountCallData[]
+  ): Promise<MinimalTx> {
+    const metaTxList = [];
 
     for (const data of dataList) {
-      to.push(data.to!);
-      value.push(data.value ? data.value : "0");
-      callData.push(data.data ? data.data : "0x");
-      callType.push(data.callType ? data.callType : CallType.CALL);
-      revertOnFail.push(false);
+      metaTxList.push({
+        target: data.to,
+        value: data.value ? data.value : 0,
+        callData: data.data ? data.data : "0x",
+        callType: data.callType ? data.callType : CallType.CALL,
+        revertOnFail: data.revertOnFail ? data.revertOnFail : false,
+      });
     }
 
     // Prepare the meta-transaction & sign it
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = defaultAbiCoder.encode(
-      ["uint", "address[]", "uint[]", "bytes[]", "bool[]", "uint[]"],
-      [CallType.BATCH, to, value, callData, revertOnFail, callType]
+      [
+        "uint",
+        "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+      ],
+      [CallType.BATCH, metaTxList]
     );
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
@@ -174,11 +179,7 @@ export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
     ) as ProxyAccount["interface"];
 
     const encodedBatch = proxyAccountInterface.functions.batch.encode([
-      to,
-      value,
-      callData,
-      revertOnFail,
-      callType,
+      metaTxList,
       encodedReplayProtection,
       this.replayProtectionAuthority.getAddress(),
       signature,
@@ -218,7 +219,7 @@ export class ProxyAccountForwarder extends Forwarder<Partial<MinimalTx>> {
    */
   protected async getForwardParams(
     to: string,
-    data: RequiredTo<MinimalTx>,
+    data: RequiredTarget<ProxyAccountCallData>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {

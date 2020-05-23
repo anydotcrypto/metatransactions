@@ -10,13 +10,11 @@ import {
   getCreate2Address,
 } from "ethers/utils";
 import { Create2Options } from "ethers/utils/address";
-import { RELAY_HUB_ADDRESS } from "../../deployment/addresses";
 
 export interface MinimalTx {
   to: string;
   data: string;
   value?: BigNumberish;
-  callType?: CallType;
 }
 
 export enum CallType {
@@ -26,7 +24,8 @@ export enum CallType {
 }
 
 export interface RevertableMinimalTx extends MinimalTx {
-  revertOnFail: boolean;
+  callType?: CallType;
+  revertOnFail?: boolean;
 }
 
 export interface ForwardParams {
@@ -44,7 +43,7 @@ export interface ForwardParams {
 
 type RequiredPick<T, TRequired extends keyof T> = T &
   Pick<Required<T>, TRequired>;
-export type RequiredTo<T extends { to?: string }> = RequiredPick<T, "to">;
+export type RequiredTarget<T extends { to?: string }> = RequiredPick<T, "to">;
 
 /**
  * Provides common functionality for the RelayHub and the ProxyAccounts.
@@ -66,7 +65,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
    * Encodes calldata for the meta-transaction signature.
    * @param data Target contract, calldata, and sometimes value
    */
-  protected abstract getEncodedCallData(data: RequiredTo<TParams>): string;
+  protected abstract getEncodedCallData(data: RequiredTarget<TParams>): string;
 
   /**
    * A meta-transaction includes:
@@ -105,7 +104,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
    */
   public async signAndEncodeMetaTransaction(tx: TParams): Promise<MinimalTx> {
     const forwardParams = await this.signMetaTransaction(
-      tx as RequiredTo<TParams>
+      tx as RequiredTarget<TParams>
     );
     const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
     return { to: forwardParams.to, data: encodedData };
@@ -115,7 +114,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
    * Takes care of replay protection and signs a meta-transaction.
    * @param data ProxyAccountCallData or RelayCallData
    */
-  public async signMetaTransaction(data: RequiredTo<TParams>) {
+  public async signMetaTransaction(data: RequiredTarget<TParams>) {
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = this.getEncodedCallData(data);
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -148,7 +147,7 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
    */
   protected abstract async getForwardParams(
     to: string,
-    data: RequiredTo<TParams>,
+    data: RequiredTarget<TParams>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams>;
