@@ -1,14 +1,14 @@
 import { defaultAbiCoder } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { RelayHub, ChainID, RelayHubFactory } from "../..";
-import {
-  ForwardParams,
-  RelayHubCallData,
-  Forwarder,
-  DeploymentParams,
-  RequiredTo,
-} from "./forwarder";
+import { ForwardParams, Forwarder, RequiredTo, CallType } from "./forwarder";
 import { Signer } from "ethers";
+
+export interface RelayHubCallData {
+  to: string;
+  data: string;
+  callType?: CallType;
+}
 
 /**
  * A single library for approving meta-transactions and its associated
@@ -19,9 +19,9 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
   /**
    * Sets up the RelayHub Forwarder that relies on the msgSender() standard.
    * It can only be used for a single wallet.
-   * @param chainID MAINNET or ROPSTEN
-   * @param relayHub RelayHub
+   * @param chainID MAINNET or ROPSTE
    * @param signer Signer's wallet
+   * @param relayHubAddress RelayHub address
    * @param replayProtectionAuthority Extends implementation ReplayProtectionAuthority
    */
   constructor(
@@ -39,7 +39,10 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    * @param data Target contract and the desired calldata
    */
   protected getEncodedCallData(data: RequiredTo<RelayHubCallData>) {
-    return defaultAbiCoder.encode(["address", "bytes"], [data.to, data.data]);
+    return defaultAbiCoder.encode(
+      ["uint", "address", "bytes"],
+      [data.callType ? data.callType : CallType.CALL, data.to, data.data]
+    );
   }
 
   /**
@@ -62,6 +65,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
       target: data.to,
       value: "0",
       data: data.data,
+      callType: CallType.CALL,
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
       chainId: this.chainID,
@@ -80,23 +84,6 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     return this.relayHub.interface.functions.forward.encode([
       params.target,
       params.data,
-      params.replayProtection,
-      params.replayProtectionAuthority,
-      params.signer,
-      params.signature,
-    ]);
-  }
-
-  /**
-   * Encodes the meta-deployment such that it can be included
-   * in the data field of an Ethereum transaction
-   * @param params Deployment parameters
-   */
-  public async encodeSignedMetaDeployment(
-    params: DeploymentParams
-  ): Promise<string> {
-    return this.relayHub.interface.functions.deployContract.encode([
-      params.initCode,
       params.replayProtection,
       params.replayProtectionAuthority,
       params.signer,

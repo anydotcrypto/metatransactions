@@ -6,6 +6,7 @@ import {
   defaultAbiCoder,
   solidityKeccak256,
   getCreate2Address,
+  keccak256,
 } from "ethers/utils";
 import {
   ProxyAccountDeployerFactory,
@@ -28,9 +29,10 @@ import {
 import { AddressZero } from "ethers/constants";
 import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
 import { Create2Options } from "ethers/utils/address";
-import { ethers } from "ethers";
+import { ethers, Contract } from "ethers";
 import { flipBit } from "../utils/test-utils";
 import { MultiSender } from "../../src/ts/batch/MultiSend";
+import { deployerAddress, deployerABI } from "../../src/deployment/deployer";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -167,7 +169,7 @@ describe("Proxy Account Forwarder", () => {
       value: new BigNumber(0),
       data: callData,
     });
-
+    // @ts-ignore
     const encoded = await proxyForwarder.encodeSignedMetaTransaction(
       forwardParams
     );
@@ -387,12 +389,6 @@ describe("Proxy Account Forwarder", () => {
       ReplayProtectionType.MULTINONCE
     );
 
-    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-      proxyDeployer.address
-    ).data! as string;
-
-    const deploymentParams = await forwarder.signMetaDeployment(initCode);
-
     await proxyDeployer.connect(admin).createProxyAccount(admin.address);
     const baseAccount = await proxyDeployer.baseAccount();
     const saltHex = solidityKeccak256(["address"], [admin.address]);
@@ -411,15 +407,31 @@ describe("Proxy Account Forwarder", () => {
     };
     const proxyAddress = getCreate2Address(options);
 
-    const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
+    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
+      proxyDeployer.address
+    ).data! as string;
+
+    const salt = "0x123";
+    const deploymentParams = await forwarder.signMetaDeployment(initCode, salt);
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
       deploymentParams.replayProtection
     );
 
-    expect(deploymentParams.to).to.eq(proxyAccount.address);
+    expect(deploymentParams.to).to.eq(proxyAddress);
+    expect(deploymentParams.target).to.eq(deployerAddress);
     expect(deploymentParams.signer).to.eq(admin.address);
-    expect(deploymentParams.initCode).to.eq(initCode);
+    const deployer = new Contract(
+      deployerAddress,
+      deployerABI,
+      forwarder.signer
+    );
+    const data = deployer.interface.functions.deploy.encode([
+      initCode,
+      keccak256(salt),
+    ]);
+
+    expect(deploymentParams.data).to.eq(data);
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"));
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
@@ -429,8 +441,11 @@ describe("Proxy Account Forwarder", () => {
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 
     // All deployments are performed via the proxy account directly.
-    const tx = await proxyAccount.deployContract(
-      deploymentParams.initCode,
+    const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
+    const tx = await proxyAccount.delegate(
+      deploymentParams.target,
+      deploymentParams.value,
+      deploymentParams.data,
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
       deploymentParams.signature
@@ -443,7 +458,8 @@ describe("Proxy Account Forwarder", () => {
 
     // Compute deterministic address
     const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
-      deploymentParams
+      initCode,
+      salt
     );
 
     const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
@@ -570,6 +586,7 @@ describe("Proxy Account Forwarder", () => {
       to: msgSenderExample.address,
       data: callData,
     });
+    // @ts-ignore
     const txData = await forwarder.encodeSignedMetaTransaction(forwardParams);
 
     const tx = admin.sendTransaction({
@@ -585,56 +602,7 @@ describe("Proxy Account Forwarder", () => {
       .withArgs(forwarder.address);
   });
 
-  it("Send one transaction via delegatecall multisend. setting: bitflip", async () => {
-    const { msgSenderExample, proxyDeployer, admin, user1 } = await loadFixture(
-      createHubs
-    );
-
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user1.address
-    );
-    const forwarder = new ProxyAccountForwarder(
-      ChainID.MAINNET,
-      proxyDeployer.address,
-      user1,
-      proxyAccountAddress,
-      new BitFlipReplayProtection(user1, proxyAccountAddress)
-    );
-
-    // Deploy proxy contract
-    let deployProxy = await forwarder.createProxyContract();
-
-    await user1.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
-
-    const callData = msgSenderExample.interface.functions.test.encode([]);
-
-    // const multiSender = new MultiSender();
-
-    // const batched = multiSender.batch([
-    //   { to: msgSenderExample.address, data: callData, revertOnFail: false },
-    // ]);
-
-    const minimalTx = await forwarder.signAndEncodeBatchTransaction([
-      {
-        to: msgSenderExample.address,
-        data: callData,
-      },
-    ]);
-
-    const tx = admin.sendTransaction({
-      to: minimalTx.to,
-      data: minimalTx.data,
-    });
-
-    await expect(tx)
-      .to.emit(
-        msgSenderExample,
-        msgSenderExample.interface.events.WhoIsSender.name
-      )
-      .withArgs(forwarder.address);
-  }).timeout(500000);
-
-  it("Send two transactions via delegatecall multisend. setting: bitflip", async () => {
+  it("Send two transactions via call multisend. setting: bitflip", async () => {
     const {
       msgSenderExample,
       echo,
@@ -661,15 +629,12 @@ describe("Proxy Account Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
     const echoData = echo.interface.functions.sendMessage.encode(["hello"]);
-    // const multiSender = new MultiSender();
-
-    // const batched = multiSender.batch([
-    //   { to: msgSenderExample.address, data: callData, revertOnFail: false },
-    //   { to: echo.address, data: echoData, revertOnFail: false },
-    // ]);
 
     const minimalTx = await forwarder.signAndEncodeBatchTransaction([
-      { to: msgSenderExample.address, data: callData },
+      {
+        to: msgSenderExample.address,
+        data: callData,
+      },
       { to: echo.address, data: echoData },
     ]);
 

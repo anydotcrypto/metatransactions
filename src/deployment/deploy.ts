@@ -30,7 +30,10 @@ async function deployContract(
   });
 }
 
-export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean = false) => {
+export const deployMetaTxContracts = async (
+  admin: Signer,
+  logProgress: boolean = false
+) => {
   // deploy the deployer
   const deployerContract = await deployDeployer(admin);
 
@@ -42,7 +45,7 @@ export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean 
     deployerContract,
     relayHubFactory,
     relayHubSalt
-  );  
+  );
   logProgress && console.log("RelayHub address: " + relayHubAddress);
 
   const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
@@ -72,9 +75,9 @@ export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean 
   logProgress && console.log("MultiSend address: " + multiSendAddress);
 
   return {
-      relayHubAddress,
-      proxyAccountDeployerAddress: proxyAddress,
-      baseAccountAddress: baseAccount,
-      multiSendAddress: multiSendAddress
-  }
+    relayHubAddress,
+    proxyAccountDeployerAddress: proxyAddress,
+    baseAccountAddress: baseAccount,
+    multiSendAddress: multiSendAddress,
+  };
 };

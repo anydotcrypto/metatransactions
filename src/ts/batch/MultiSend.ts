@@ -1,5 +1,5 @@
 import { abi } from "../../typedContracts/MultiSend.json";
-import { Interface } from "ethers/utils";
+import { Interface, BigNumberish } from "ethers/utils";
 import { MinimalTx, RevertableMinimalTx } from "../forwarders/forwarder";
 import { MULTI_SEND_ADDRESS } from "../../deployment/addresses";
 import { MultiSend } from "../../typedContracts/MultiSend";
@@ -26,13 +26,13 @@ export class MultiSender {
     const multiSend = new Interface(abi) as MultiSend["interface"];
     const to: string[] = [];
     const data: string[] = [];
-    const value: string[] = [];
+    const value: BigNumberish[] = [];
     const revertIfFail: boolean[] = [];
 
     for (const tx of batch) {
       to.push(tx.to);
       data.push(tx.data);
-      value.push(tx.value ? tx.value : "0");
+      value.push(tx.value ? tx.value : 0); // TODO: Fix
       revertIfFail.push(tx.revertOnFail);
     }
 

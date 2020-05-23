@@ -3,8 +3,9 @@ import { parseEther } from "ethers/utils";
 
 // create2 factory exists at 0xce0042B868300000d44A59004Da54A005ffdcf9f on all networks
 // there are other versions of this, see https://ethereum-magicians.org/t/erc-2470-singleton-factory/3933
-export const deployerAddress = "0xce0042B868300000d44A59004Da54A005ffdcf9f";
-const deployerABI = [
+export const deployerAddress: string =
+  "0xce0042B868300000d44A59004Da54A005ffdcf9f";
+export const deployerABI = [
   {
     inputs: [
       { internalType: "bytes", name: "_initCode", type: "bytes" },

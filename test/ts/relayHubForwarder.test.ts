@@ -18,12 +18,10 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
-import {
-  Forwarder,
-  ProxyAccountCallData,
-} from "../../src/ts/forwarders/forwarder";
+import { Forwarder } from "../../src/ts/forwarders/forwarder";
 import { RelayHubForwarder } from "../../src/ts/forwarders/relayHubForwarder";
 import { flipBit } from "../utils/test-utils";
+import { ProxyAccountCallData } from "../../src/ts/forwarders/proxyAccountFowarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -243,120 +241,12 @@ describe("RelayHub Forwarder", () => {
       data: callData,
     });
 
-    const decode = defaultAbiCoder.decode(["address", "bytes"], encoded);
-
-    expect(decode[0]).to.eq(msgSenderExample.address);
-    expect(decode[1]).to.eq(callData);
-  }).timeout(50000);
-
-  it("Deploy a new meta-contract with the RelayHub installed.", async () => {
-    const { relayHub, admin } = await loadFixture(createHubs);
-
-    const forwarder = new RelayHubForwarder(
-      ChainID.MAINNET,
-      admin,
-      relayHub.address,
-      new MultiNonceReplayProtection(30, admin, relayHub.address)
+    const decode = defaultAbiCoder.decode(
+      ["uint", "address", "bytes"],
+      encoded
     );
-
-    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-      relayHub.address
-    ).data! as string;
-
-    const deploymentParams = await forwarder.signMetaDeployment(initCode);
-
-    const decodedReplayProtection = defaultAbiCoder.decode(
-      ["uint", "uint"],
-      deploymentParams.replayProtection
-    );
-
-    expect(deploymentParams.to).to.eq(relayHub.address);
-    expect(deploymentParams.signer).to.eq(admin.address);
-    expect(deploymentParams.initCode).to.eq(initCode);
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(deploymentParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Bitflip replay protection"
-    );
-    expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
-
-    const tx = await relayHub.deployContract(
-      deploymentParams.initCode,
-      deploymentParams.replayProtection,
-      deploymentParams.replayProtectionAuthority,
-      deploymentParams.signer,
-      deploymentParams.signature
-    );
-
-    const receipt = await tx.wait(1);
-
-    // Successfully deployed
-    expect(receipt.status).to.eq(1);
-  }).timeout(50000);
-
-  it("Encode the meta-deployment before publishing to the network", async () => {
-    const { relayHub, admin, user2 } = await loadFixture(createHubs);
-
-    const forwarder = new RelayHubForwarder(
-      ChainID.MAINNET,
-      admin,
-      relayHub.address,
-      new MultiNonceReplayProtection(30, admin, relayHub.address)
-    );
-
-    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-      relayHub.address
-    ).data! as string;
-
-    const deploymentParams = await forwarder.signMetaDeployment(initCode);
-
-    const decodedReplayProtection = defaultAbiCoder.decode(
-      ["uint", "uint"],
-      deploymentParams.replayProtection
-    );
-
-    expect(deploymentParams.to).to.eq(relayHub.address);
-    expect(deploymentParams.signer).to.eq(admin.address);
-    expect(deploymentParams.initCode).to.eq(initCode);
-    expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(deploymentParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Bitflip replay protection"
-    );
-    expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
-
-    const encodedMetaDeployment = await forwarder.encodeSignedMetaDeployment(
-      deploymentParams
-    );
-
-    const tx = await user2.sendTransaction({
-      to: deploymentParams.to,
-      data: encodedMetaDeployment,
-    });
-
-    const receipt = await tx.wait(1);
-
-    // Successfully deployed
-    expect(receipt.status).to.eq(1);
-
-    // Compute deterministic address
-    const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
-      deploymentParams
-    );
-
-    const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
-      msgSenderExampleAddress
-    );
-
-    // Try executing a function - it should exist and work
-    const msgSenderTx = msgSenderExample.connect(admin).test();
-    await expect(msgSenderTx)
-      .to.emit(
-        msgSenderExample,
-        msgSenderExample.interface.events.WhoIsSender.name
-      )
-      .withArgs(admin.address);
+    expect(decode[0]).to.eq(0);
+    expect(decode[1]).to.eq(msgSenderExample.address);
+    expect(decode[2]).to.eq(callData);
   }).timeout(50000);
 });

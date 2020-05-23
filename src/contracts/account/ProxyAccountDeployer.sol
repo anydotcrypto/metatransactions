@@ -1,13 +1,13 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/utils/Create2.sol";
 import "./ReplayProtection.sol";
+import "./ContractCall.sol";
 
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ProxyAccount is ReplayProtection {
+contract ProxyAccount is ReplayProtection, ContractCall {
 
     address public owner;
     event Deployed(address owner, address addr);
@@ -39,61 +39,38 @@ contract ProxyAccount is ReplayProtection {
         bytes memory _signature) public {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(_target, _value, _callData);
+        bytes memory encodedData = abi.encode(CallType.CALL, _target, _value, _callData);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
-        forwardCall(_target, _value, _callData);
-    }
-
-    /** 
-     * Executes the call and extracts the revert message if it fails. 
-     * @param _target Target contract
-     * @param _value Quantity of eth in account contract to send to target
-     * @param _callData Function name plus arguments
-     */
-    function forwardCall(address _target, uint _value, bytes memory _callData) internal returns(bool) {
-        (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
-
-        if(!success) {
-            emit Revert(_getRevertMsg(revertReason));
-        }
-
-        return success;
+        call(_target, _value, _callData); // We do not want this to revert. Save the replay protection 
     }
 
     /**
-     * User deploys a contract in a deterministic manner.
-     * It re-uses the replay protection to authorise deployment as part of the salt.
-     * @param _initCode Initialisation code for contract
-     * @param _replayProtection Encoded replay protection
-     * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * We check the signature has authorised the call before executing it.
+     * WARNING: Be VERY VERY VERY cautious of contracts that can modify / store state. 
+     * Intended use is when msg.sender is required for code execution (e.g. CREATE2). 
+     * @param _target Target contract
+     * @param _value Quantity of eth in account contract to send to target
+     * @param _callData Function name plus arguments
+     * @param _replayProtection Replay protection
+     * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
-    function deployContract(
-        bytes memory _initCode,
+    function delegate(
+        address _target,
+        uint _value, 
+        bytes memory _callData,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        // Confirm the user wants to deploy the smart contract
-        require(owner == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature), "Owner of proxy account must authorise deploying contract");
-        deploy(_initCode, _replayProtection);
- 
-    }
+        // Assumes that ProxyAccountDeployer is ReplayProtection. 
+        bytes memory encodedData = abi.encode(CallType.DELEGATE, _target, _value, _callData);
 
-    /**
-     * An INTERNAL function for CREATE2 
-     * Required to ensure only the signer can deploy a contract at this address
-     * (e.g. no one can front-run it with another CREATE2 deployer) 
-     * @param _initCode Initialisation code for contract
-     * @param _replayProtection Encoded replay protection
-     */
-    function deploy(bytes memory _initCode, bytes memory _replayProtection) internal {
-        // We can just abuse the replay protection as the salt :)
-        // Reverts on failure. No point to emit Revert().
-        address deployed = Create2.deploy(keccak256(abi.encode(owner, _replayProtection)), _initCode);
-        emit Deployed(owner, deployed);
+        // // Reverts if fails.
+        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+        delegate(_target, _callData); // We do not want this to revert. Save the replay protection 
     }
 
     /**
@@ -110,12 +87,13 @@ contract ProxyAccount is ReplayProtection {
         uint[] memory _value, 
         bytes[] memory _callData,
         bool[] memory _revertOnFail,
+        CallType[] memory _callType,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        require(_target.length == _value.length && _value.length == _callData.length && _callData.length == _revertOnFail.length, "Target, value. calldata & revertOnFail must have the same length");
-        bytes memory encodedData = abi.encode(_target, _value, _callData, _revertOnFail);
+        require(_target.length == _value.length && _value.length == _callData.length && _callData.length == _revertOnFail.length && _revertOnFail.length == _callType.length, "Target, value, calldata, revertOnFail & callType must have the same length");
+        bytes memory encodedData = abi.encode(CallType.BATCH, _target, _value, _callData, _revertOnFail, _callType);
 
         // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
@@ -123,22 +101,17 @@ contract ProxyAccount is ReplayProtection {
         // Go through each revertable meta transaction and/or meta-deployment.
         for(uint i=0; i<_target.length; i++) {
 
-            // Are we deploying a contract? 
-            if(_target[i] == address(0)) {
+            bool success = false; 
 
-                // Note: Replay protection is re-used for as the salt multiple deployments
-                // This is OK as the initCode is different. If it is the same, it reverts. 
-                deploy(_callData[i], _replayProtection);
-            } else {
+            if(_callType[i] == CallType.CALL) {
+                success = call(_target[i], _value[i], _callData[i]);
+            } else if(_callType[i] == CallType.DELEGATE) {
+                success = delegate(_target[i], _callData[i]);
+            }
 
-                // Nope, let's execute the call!
-                bool success = forwardCall(_target[i], _value[i], _callData[i]);
-
-                // Should we fail on revert?
-                if(_revertOnFail[i]) {
-                    require(success, "Transaction destined for " + _target[i] + " reverted.");  
-                }
-        
+            // Should we fail on revert?
+            if(_revertOnFail[i]) {
+                require(success, "Transaction reverted.");  
             }
         }
     }

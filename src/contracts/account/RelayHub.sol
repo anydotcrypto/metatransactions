@@ -3,16 +3,17 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "./ReplayProtection.sol";
+import "./ContractCall.sol";
 
 /**
  * A minimal relay hub contract.
  * Verifies the signer's signature and replay protection before forwarding calldata to the target.
  * Delegates nonce verification to another contract.
+ * Note it does NOT support delegatecall to avoid memory corruption problems.
  */
-contract RelayHub is ReplayProtection {
+contract RelayHub is ReplayProtection, ContractCall {
 
     event Deployed(address signer, address addr);
-    event Revert(string reason);
 
      /**
      * Each signer has a contract account (signers address => contract address).
@@ -33,42 +34,49 @@ contract RelayHub is ReplayProtection {
         address _signer,
         bytes memory _signature) public {
 
-        bytes memory encodedCallData = abi.encode(_target, _callData);
+        bytes memory encodedCallData = abi.encode(CallType.CALL, _target, _callData);
 
         // // Reverts if fails.
         require(_signer == verify(encodedCallData, _replayProtection, _replayProtectionAuthority, _signature),
         "Signer did not sign this meta-transaction.");
 
-        // Check if the user wants to send command from their contract account or signer address
-        (bool success, bytes memory revertReason) = _target.call(abi.encodePacked(_callData, _signer));
-
-        if(!success) {
-            emit Revert(_getRevertMsg(revertReason));
-        }
+        // Does not revert. Lets us save the replay protection if it fails.
+        call(_target, 0, abi.encodePacked(_callData, _signer));
     }
 
-
     /**
-     * User deploys a contract in a deterministic manner.
-     * It re-uses the replay protection to authorise deployment as part of the salt.
-     * @param _initCode Initialisation code for contract
-     * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * A batch of meta-transactions or meta-deployments.
+     * One replay-protection check covers all transactions.
+     * @param _target List of target contract (Set to address(0) for a meta-deployment)
+     * @param _callData List of function names + data for each transaction.
+     * @param _replayProtection Replay protection
+     * @param _replayProtectionAuthority Address of external replay protection
+     * @param _signer Signer
      * @param _signature Signature from signer
      */
-    function deployContract(
-        bytes memory _initCode,
+    function batch(address[] memory _target,
+        bytes[] memory _callData,
+        bool[] memory _revertOnFail,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         address _signer,
         bytes memory _signature) public {
 
-        // Confirm the user wants to deploy the smart contract
-        require(_signer == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature),
-        "Signer must authorise deploying contract");
+        require(_target.length == _callData.length && _callData.length == _revertOnFail.length, "Target, calldata & revertOnFail must have the same length");
+        bytes memory encodedData = abi.encode(CallType.BATCH, _target,  _callData, _revertOnFail);
 
-        // We can just abuse the replay protection as the salt :)
-        address deployed = Create2.deploy(keccak256(abi.encode(_signer, _replayProtection)), _initCode);
+        // Reverts if fails.
+        require(_signer == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
-        emit Deployed(_signer, deployed);
+        // Go through each revertable meta transaction and/or meta-deployment.
+        for(uint i=0; i<_target.length; i++) {
+
+            // Nope, let's execute the call!
+            bool success = call(_target[i], 0, abi.encodePacked(_callData[i], _signer));
+
+            if(_revertOnFail[i]) {
+                require(success, "Meta-transaction failed");
+            }
+        }
     }
 }

@@ -149,6 +149,7 @@ describe("End to End Library to Contract", () => {
           // No point checking QueueNumber It will be random each time.
           expect(decoded[1]).to.eq(flippedBit);
 
+          //@ts-ignore
           const txData = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({ to: params.to, data: txData });
 
@@ -262,6 +263,8 @@ describe("End to End Library to Contract", () => {
           expect(decoded[0]).to.eq(0);
           expect(decoded[1]).to.eq(counter);
           counter = counter + 1;
+
+          // @ts-ignore
           const txData = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
             to: params.to,
@@ -333,6 +336,8 @@ describe("End to End Library to Contract", () => {
             expect(decoded[0]).to.eq(j);
             const resetCount = reset * 10;
             expect(decoded[1]).to.eq(i + resetCount);
+
+            // @ts-ignore
             const txData = await forwarder.encodeSignedMetaTransaction(params);
             const tx = sender.sendTransaction({
               to: params.to,

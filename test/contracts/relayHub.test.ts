@@ -15,13 +15,18 @@ import {
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   RelayHubForwarder,
+  RELAY_HUB_ADDRESS,
+  deployMetaTxContracts,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
+import { AddressZero } from "ethers/constants";
+
 import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
+import { CallType } from "../../src/ts/forwarders/forwarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -33,12 +38,9 @@ async function createRelayHub(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
 ) {
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const result = await relayHubCreation.wait(1);
-  const relayHub = relayHubFactory.attach(result.contractAddress!);
+  const { relayHubAddress } = await deployMetaTxContracts(admin, true);
 
+  const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
   const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
   await nonceStoreMock.deploy(admin);
   await nonceStoreMock.update.returns(true);
@@ -48,7 +50,7 @@ async function createRelayHub(
   const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
 
   const msgSenderFactory = new MsgSenderExampleFactory(admin);
-  const msgSenderCon = await msgSenderFactory.deploy(result.contractAddress!);
+  const msgSenderCon = await msgSenderFactory.deploy(relayHubAddress);
   const forwarderFactory = new RelayHubForwarderFactory();
 
   return {
@@ -278,8 +280,7 @@ describe("RelayHub Contract", () => {
       const encodedData = forwarder.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        replayProtectionAuthority,
-        relayHub.address
+        replayProtectionAuthority
       );
 
       const signature = await owner.signMessage(
@@ -335,8 +336,7 @@ describe("RelayHub Contract", () => {
       const encodedData = forwarder.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000000",
-        relayHub.address
+        "0x0000000000000000000000000000000000000000"
       );
 
       const signature = await owner.signMessage(
@@ -463,8 +463,8 @@ describe("RelayHub Contract", () => {
         [0, 123]
       );
       const encodedCallData = defaultAbiCoder.encode(
-        ["address", "bytes"],
-        [msgSenderCon.address, msgSenderCall]
+        ["uint", "address", "bytes"],
+        [CallType.CALL, msgSenderCon.address, msgSenderCall]
       );
 
       const forwarder = await forwarderFactory.createNew(
@@ -477,8 +477,7 @@ describe("RelayHub Contract", () => {
       const encodedData = forwarder.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        bitFlipNonceStore.address,
-        relayHub.address
+        bitFlipNonceStore.address
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
@@ -512,7 +511,6 @@ describe("RelayHub Contract", () => {
         sender,
         msgSenderCon,
         bitFlipNonceStore,
-        forwarderFactory,
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
 
@@ -522,22 +520,24 @@ describe("RelayHub Contract", () => {
         [0, 123]
       );
       const encodedCallData = defaultAbiCoder.encode(
-        ["address", "bytes"],
-        [msgSenderCon.address, msgSenderCall]
+        ["uint", "address", "bytes"],
+        [CallType.CALL, msgSenderCon.address, msgSenderCall]
       );
 
-      const forwarder = await forwarderFactory.createNew(
+      // No replay protection authority used. We are using
+      // an external authority and will craft it manually.
+      const forwarder = new RelayHubForwarder(
         ChainID.MAINNET,
-        ReplayProtectionType.MULTINONCE,
-        owner
+        owner,
+        RELAY_HUB_ADDRESS,
+        new BitFlipReplayProtection(owner, RELAY_HUB_ADDRESS) // NOT USED IN TEST
       );
 
       // @ts-ignore:
       const encodedData = forwarder.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        bitFlipNonceStore.address,
-        relayHub.address
+        bitFlipNonceStore.address
       );
       const signature = await owner.signMessage(
         arrayify(keccak256(encodedData))
@@ -629,4 +629,63 @@ describe("RelayHub Contract", () => {
         .withArgs(owner.address);
     }
   );
+
+  fnIt<relayHubFunctions>(
+    (a) => a.batch,
+    "Send one transaction via the batch. It should succeed.",
+    async () => {
+      const { msgSenderCon, admin, relayHub } = await loadFixture(
+        createRelayHub
+      );
+
+      const forwarder = new RelayHubForwarder(
+        ChainID.MAINNET,
+        admin,
+        RELAY_HUB_ADDRESS,
+        new BitFlipReplayProtection(admin, RELAY_HUB_ADDRESS)
+      );
+
+      const callData = msgSenderCon.interface.functions.test.encode([]);
+
+      const to = [msgSenderCon.address];
+      const data = [callData];
+      const revertOnFail = [false];
+
+      const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
+      const encodedCallData = defaultAbiCoder.encode(
+        ["uint", "address[]", "bytes[]", "bool[]"],
+        [CallType.BATCH, to, data, revertOnFail]
+      );
+
+      // @ts-ignore
+      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+        encodedCallData,
+        replayProtection,
+        AddressZero
+      );
+
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
+      );
+
+      const encodedBatch = relayHub.interface.functions.batch.encode([
+        to,
+        data,
+        revertOnFail,
+        replayProtection,
+        AddressZero,
+        admin.address,
+        signature,
+      ]);
+
+      const tx = admin.sendTransaction({
+        to: forwarder.address,
+        data: encodedBatch,
+      });
+
+      await expect(tx)
+        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+        .withArgs(admin.address);
+    }
+  ).timeout(500000);
 });
