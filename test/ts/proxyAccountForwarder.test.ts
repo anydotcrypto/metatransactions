@@ -40,10 +40,7 @@ const expect = chai.expect;
 chai.use(solidity);
 
 async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
-  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(
-    admin,
-    true
-  );
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
   );
@@ -113,8 +110,9 @@ describe("Proxy Account Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });
@@ -167,13 +165,14 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       value: new BigNumber(0),
       data: callData,
     });
     // @ts-ignore
-    const encoded = await proxyForwarder.encodeSignedMetaTransaction(
+    const minimalTx = await proxyForwarder.encodeSignedMetaTransaction(
       forwardParams
     );
 
@@ -196,8 +195,8 @@ describe("Proxy Account Forwarder", () => {
     const proxyAddress = getCreate2Address(options);
 
     const tx = user1.sendTransaction({
-      to: forwardParams.to,
-      data: encoded,
+      to: minimalTx.to,
+      data: minimalTx.data,
     });
 
     await expect(tx)
@@ -228,8 +227,9 @@ describe("Proxy Account Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });
@@ -284,8 +284,9 @@ describe("Proxy Account Forwarder", () => {
 
     for (let j = 0; j < 10; j++) {
       for (let i = 0; i < 256; i++) {
+        // @ts-ignore
         const forwardParams = await proxyForwarder.signMetaTransaction({
-          to: msgSenderExample.address,
+          target: msgSenderExample.address,
           value: new BigNumber(i + j),
           data: callData,
         });
@@ -415,6 +416,7 @@ describe("Proxy Account Forwarder", () => {
     ).data! as string;
 
     const salt = "0x123";
+    // @ts-ignore
     const deploymentParams = await forwarder.signMetaDeployment(
       initCode,
       0,
@@ -500,6 +502,7 @@ describe("Proxy Account Forwarder", () => {
 
     const salt = "0x123";
     const topup = parseEther("0.5");
+    // @ts-ignore
     const deploymentParams = await forwarder.signMetaDeployment(
       initCode,
       topup,
@@ -550,6 +553,7 @@ describe("Proxy Account Forwarder", () => {
     ).data! as string;
 
     const salt = "0x123";
+    // @ts-ignore
     let deploymentParams = await forwarder.signMetaDeployment(
       initCode,
       0,
@@ -598,6 +602,7 @@ describe("Proxy Account Forwarder", () => {
       .withArgs(admin.address);
 
     // Time to redeploy... and it should fail!
+    // @ts-ignore
     deploymentParams = await forwarder.signMetaDeployment(initCode, 0, salt);
     const tx2 = proxyAccount.delegate(
       {
@@ -640,7 +645,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const metaTx = await forwarder.signAndEncodeMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       value: new BigNumber("0"),
       data: msgSenderExampleData,
     });
@@ -685,7 +690,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const metaTx = await forwarder.signAndEncodeMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       value: new BigNumber("0"),
       data: msgSenderExampleData,
     });
@@ -722,16 +727,19 @@ describe("Proxy Account Forwarder", () => {
 
     // omit the value field
     const callData = msgSenderExample.interface.functions.test.encode([]);
+    // @ts-ignore
     const forwardParams = await forwarder.signMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       data: callData,
     });
     // @ts-ignore
-    const txData = await forwarder.encodeSignedMetaTransaction(forwardParams);
+    const minimalTx = await forwarder.encodeSignedMetaTransaction(
+      forwardParams
+    );
 
     const tx = admin.sendTransaction({
-      to: forwardParams.to,
-      data: txData,
+      to: minimalTx.to,
+      data: minimalTx.data,
     });
 
     await expect(tx)
@@ -772,10 +780,10 @@ describe("Proxy Account Forwarder", () => {
 
     const minimalTx = await forwarder.signAndEncodeBatchTransaction([
       {
-        to: msgSenderExample.address,
+        target: msgSenderExample.address,
         data: callData,
       },
-      { to: echo.address, data: echoData },
+      { target: echo.address, data: echoData },
     ]);
 
     const tx = admin.sendTransaction({

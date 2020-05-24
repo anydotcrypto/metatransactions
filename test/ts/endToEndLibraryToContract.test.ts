@@ -68,8 +68,9 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions
         for (let i = 0; i < 10; i++) {
+          // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            to: msgSenderCon.address,
+            target: msgSenderCon.address,
             data: msgSenderCall,
           });
           const flippedBit = flipBit(new BigNumber("0"), new BigNumber(i));
@@ -80,10 +81,10 @@ describe("End to End Library to Contract", () => {
 
           // No point checking QueueNo, it will be a random number each time.
           expect(decoded[1]).to.eq(flippedBit);
-          const txData = await forwarder.encodeSignedMetaTransaction(params);
+          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
-            to: params.to,
-            data: txData,
+            to: minimalTx.to,
+            data: minimalTx.data,
           });
           await expect(tx)
             .to.emit(
@@ -134,8 +135,9 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions
         for (let i = 0; i < 10; i++) {
+          // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            to: msgSenderCon.address,
+            target: msgSenderCon.address,
             value: new BigNumber("0"),
             data: msgSenderCall,
           });
@@ -150,8 +152,11 @@ describe("End to End Library to Contract", () => {
           expect(decoded[1]).to.eq(flippedBit);
 
           //@ts-ignore
-          const txData = await forwarder.encodeSignedMetaTransaction(params);
-          const tx = sender.sendTransaction({ to: params.to, data: txData });
+          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
+          const tx = sender.sendTransaction({
+            to: minimalTx.to,
+            data: minimalTx.data,
+          });
 
           await expect(tx)
             .to.emit(
@@ -186,8 +191,9 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions.
         for (let i = 0; i < 10; i++) {
+          // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            to: msgSenderCon.address,
+            target: msgSenderCon.address,
             data: msgSenderCall,
           });
 
@@ -197,10 +203,10 @@ describe("End to End Library to Contract", () => {
           );
           expect(decoded[1]).to.eq(counter);
           counter = counter + 1;
-          const txData = await forwarder.encodeSignedMetaTransaction(params);
+          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
-            to: params.to,
-            data: txData,
+            to: minimalTx.to,
+            data: minimalTx.data,
           });
           await expect(tx)
             .to.emit(
@@ -251,8 +257,9 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions
         for (let i = 0; i < 10; i++) {
+          // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            to: msgSenderCon.address,
+            target: msgSenderCon.address,
             value: new BigNumber("0"),
             data: msgSenderCall,
           });
@@ -265,10 +272,10 @@ describe("End to End Library to Contract", () => {
           counter = counter + 1;
 
           // @ts-ignore
-          const txData = await forwarder.encodeSignedMetaTransaction(params);
+          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
-            to: params.to,
-            data: txData,
+            to: minimalTx.to,
+            data: minimalTx.data,
           });
           await expect(tx)
             .to.emit(
@@ -323,8 +330,9 @@ describe("End to End Library to Contract", () => {
         for (let i = 0; i < 10; i++) {
           // Iterate over each queue.
           for (let j = 0; j < queues; j++) {
+            // @ts-ignore
             const params = await forwarder.signMetaTransaction({
-              to: msgSenderCon.address,
+              target: msgSenderCon.address,
               value: new BigNumber("0"),
               data: msgSenderCall,
             });
@@ -338,10 +346,12 @@ describe("End to End Library to Contract", () => {
             expect(decoded[1]).to.eq(i + resetCount);
 
             // @ts-ignore
-            const txData = await forwarder.encodeSignedMetaTransaction(params);
+            const minimalTx = await forwarder.encodeSignedMetaTransaction(
+              params
+            );
             const tx = sender.sendTransaction({
-              to: params.to,
-              data: txData,
+              to: minimalTx.to,
+              data: minimalTx.data,
             });
             await expect(tx)
               .to.emit(
@@ -376,8 +386,9 @@ describe("End to End Library to Contract", () => {
         const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
         for (let i = 0; i < 10; i++) {
           for (let j = 0; j < queues; j++) {
+            // @ts-ignore
             const params = await forwarder.signMetaTransaction({
-              to: msgSenderCon.address,
+              target: msgSenderCon.address,
               data: msgSenderCall,
             });
 
@@ -389,10 +400,12 @@ describe("End to End Library to Contract", () => {
             const resetCount = reset * 10;
             expect(decoded[1]).to.eq(i + resetCount);
 
-            const txData = await forwarder.encodeSignedMetaTransaction(params);
+            const minimalTx = await forwarder.encodeSignedMetaTransaction(
+              params
+            );
             const tx = sender.sendTransaction({
-              to: params.to,
-              data: txData,
+              to: minimalTx.to,
+              data: minimalTx.data,
             });
             await expect(tx)
               .to.emit(

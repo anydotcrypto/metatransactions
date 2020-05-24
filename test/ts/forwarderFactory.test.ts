@@ -69,8 +69,9 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
+      // @ts-ignore
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        to: msgSenderExample.address,
+        target: msgSenderExample.address,
         data: callData,
       });
 
@@ -110,8 +111,9 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
+      // @ts-ignore
       const forwardParams = await relayForwarder.signMetaTransaction({
-        to: msgSenderExample.address,
+        target: msgSenderExample.address,
         data: callData,
       });
 
@@ -150,8 +152,9 @@ describe("Forwarder Factory", () => {
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
+    // @ts-ignore
     const forwardParams = await relayForwarder.signMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       data: callData,
     });
 
@@ -193,8 +196,9 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
+      // @ts-ignore
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        to: msgSenderExample.address,
+        target: msgSenderExample.address,
         value: new BigNumber("10"),
         data: callData,
       });
@@ -244,8 +248,9 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
+      // @ts-ignore
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        to: msgSenderExample.address,
+        target: msgSenderExample.address,
         value: new BigNumber("10"),
         data: callData,
       });
@@ -294,8 +299,9 @@ describe("Forwarder Factory", () => {
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      to: msgSenderExample.address,
+      target: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });

@@ -39,7 +39,7 @@ async function createRelayHub(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
 ) {
-  const { relayHubAddress } = await deployMetaTxContracts(admin, true);
+  const { relayHubAddress } = await deployMetaTxContracts(admin);
 
   const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
   const nonceStoreMock = new Doppelganger(IReplayProtectionJson.interface);
@@ -85,8 +85,10 @@ describe("RelayHub Contract", () => {
         relayHub.address,
         new MultiNonceReplayProtection(30, owner, relayHub.address)
       );
+
+      // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 
@@ -122,8 +124,9 @@ describe("RelayHub Contract", () => {
       );
 
       // Send off first transaction!
+      // @ts-ignore
       let params = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 
@@ -142,8 +145,9 @@ describe("RelayHub Contract", () => {
         .withArgs(owner.address);
 
       // Send off second transaction!
+      // @ts-ignore
       params = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 
@@ -182,7 +186,7 @@ describe("RelayHub Contract", () => {
       );
 
       let minimalTx = await forwarder.signAndEncodeMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: revertCallData,
       });
 
@@ -217,7 +221,7 @@ describe("RelayHub Contract", () => {
       );
 
       let minimalTx = await forwarder.signAndEncodeMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: revertCallData,
       });
 
@@ -225,8 +229,9 @@ describe("RelayHub Contract", () => {
 
       for (let i = 0; i < 5; i++) {
         // Send off first transaction!
+        // @ts-ignore
         let params = await forwarder.signMetaTransaction({
-          to: msgSenderCon.address,
+          target: msgSenderCon.address,
           data: msgSenderCall,
         });
 
@@ -377,8 +382,9 @@ describe("RelayHub Contract", () => {
       );
 
       // Send off first transaction!
+      // @ts-ignore
       let params = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 
@@ -418,8 +424,9 @@ describe("RelayHub Contract", () => {
       );
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
+      // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 
@@ -581,8 +588,9 @@ describe("RelayHub Contract", () => {
         relayHub.address,
         new BitFlipReplayProtection(owner, relayHub.address)
       );
+      // @ts-ignore
       const params1 = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 
@@ -600,8 +608,9 @@ describe("RelayHub Contract", () => {
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
 
+      // @ts-ignore
       const params2 = await forwarder.signMetaTransaction({
-        to: msgSenderCon.address,
+        target: msgSenderCon.address,
         data: msgSenderCall,
       });
 

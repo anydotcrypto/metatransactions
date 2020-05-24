@@ -17,7 +17,6 @@ import {
   ProxyAccountDeployerFactory,
   RelayHubFactory,
   ProxyAccountFactory,
-  MultiNonceReplayProtection,
 } from "../../src";
 import { ContractFactory } from "ethers";
 import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";

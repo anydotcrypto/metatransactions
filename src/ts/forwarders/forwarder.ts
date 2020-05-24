@@ -6,21 +6,18 @@ import {
   BigNumberish,
   arrayify,
   keccak256,
-  solidityKeccak256,
-  getCreate2Address,
 } from "ethers/utils";
-import { Create2Options } from "ethers/utils/address";
-
-export interface MinimalTx {
-  to: string;
-  data: string;
-  value?: BigNumberish;
-}
 
 export enum CallType {
   CALL,
   DELEGATE,
   BATCH,
+}
+
+export interface MinimalTx {
+  to: string;
+  data: string;
+  value?: BigNumberish;
 }
 
 export interface RevertableMinimalTx extends MinimalTx {
@@ -43,14 +40,17 @@ export interface ForwardParams {
 
 type RequiredPick<T, TRequired extends keyof T> = T &
   Pick<Required<T>, TRequired>;
-export type RequiredTarget<T extends { to?: string }> = RequiredPick<T, "to">;
+export type RequiredTarget<T extends { target?: string }> = RequiredPick<
+  T,
+  "target"
+>;
 
 /**
  * Provides common functionality for the RelayHub and the ProxyAccounts.
  * Possible to extend it with additional functionality if another
  * msg.sender solution emerges.
  */
-export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
+export abstract class Forwarder<TParams> {
   constructor(
     protected readonly chainID: ChainID,
     public readonly signer: Signer,
@@ -106,15 +106,14 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
     const forwardParams = await this.signMetaTransaction(
       tx as RequiredTarget<TParams>
     );
-    const encodedData = await this.encodeSignedMetaTransaction(forwardParams);
-    return { to: forwardParams.to, data: encodedData };
+    return await this.encodeSignedMetaTransaction(forwardParams);
   }
 
   /**
    * Takes care of replay protection and signs a meta-transaction.
    * @param data ProxyAccountCallData or RelayCallData
    */
-  public async signMetaTransaction(data: RequiredTarget<TParams>) {
+  protected async signMetaTransaction(data: RequiredTarget<TParams>) {
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = this.getEncodedCallData(data);
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -159,16 +158,5 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
    */
   protected abstract async encodeSignedMetaTransaction(
     params: ForwardParams
-  ): Promise<string>;
-
-  /**
-   * Checks if the ProxyContract is already deployed.
-   * @returns TRUE if deployed, FALSE if not deployed.
-   */
-  public async isContractDeployed(): Promise<boolean> {
-    const code = await this.signer.provider!.getCode(this.address);
-    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
-    const codeIsEmpty = !code || code === "0x" || code === "0x0";
-    return !codeIsEmpty;
-  }
+  ): Promise<MinimalTx>;
 }

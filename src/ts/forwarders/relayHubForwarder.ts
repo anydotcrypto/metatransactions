@@ -11,12 +11,12 @@ import {
 import { Signer } from "ethers";
 
 export interface RelayHubCallData {
-  to: string;
+  target: string;
   data: string;
 }
 
 export interface RevertableRelayHubCallData extends RelayHubCallData {
-  revertOnFail?: boolean;
+  revertOnFail: boolean;
 }
 
 /**
@@ -50,7 +50,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
   protected getEncodedCallData(data: RequiredTarget<RelayHubCallData>) {
     return defaultAbiCoder.encode(
       ["uint", "address", "bytes"],
-      [CallType.CALL, data.to, data.data]
+      [CallType.CALL, data.target, data.data]
     );
   }
 
@@ -71,7 +71,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     return {
       to,
       signer: await this.signer.getAddress(),
-      target: data.to,
+      target: data.target,
       value: "0",
       data: data.data,
       callType: CallType.CALL,
@@ -93,7 +93,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
 
     for (const data of dataList) {
       metaTxList.push({
-        target: data.to,
+        target: data.target,
         callData: data.data,
         revertOnFail: data.revertOnFail ? data.revertOnFail : false,
       });
@@ -133,14 +133,17 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    */
   public async encodeSignedMetaTransaction(
     params: ForwardParams
-  ): Promise<string> {
-    return this.relayHub.interface.functions.forward.encode([
-      { target: params.target, callData: params.data },
-      params.replayProtection,
-      params.replayProtectionAuthority,
-      params.signer,
-      params.signature,
-    ]);
+  ): Promise<MinimalTx> {
+    return {
+      to: params.to,
+      data: this.relayHub.interface.functions.forward.encode([
+        { target: params.target, callData: params.data },
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signer,
+        params.signature,
+      ]),
+    };
   }
 
   /**

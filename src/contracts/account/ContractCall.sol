@@ -1,8 +1,6 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "./ReplayProtection.sol";
-
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
