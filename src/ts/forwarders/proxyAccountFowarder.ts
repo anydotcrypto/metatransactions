@@ -28,10 +28,11 @@ import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDe
 import {
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
   BASE_ACCOUNT_ADDRESS,
+  DELEGATE_DEPLOYER_ADDRESS,
 } from "../../deployment/addresses";
-import { Signer, Contract } from "ethers";
+import { Signer } from "ethers";
 
-import { deployerAddress, deployerABI } from "../../deployment/deployer";
+import { DelegateDeployerFactory } from "../../typedContracts/DelegateDeployerFactory";
 
 export interface ProxyAccountCallData {
   to: string;
@@ -73,6 +74,27 @@ export class ProxyAccountForwarder extends Forwarder<
     );
   }
 
+  /**
+   * Computes the deterministic address for a deployed contract
+   * @param initData Initialisation code for the contract
+   * @param salt One-time use value.
+   */
+  public buildDeployedContractAddress(
+    initData: string,
+    extraData: string
+  ): string {
+    const byteCodeHash = solidityKeccak256(["bytes"], [initData]);
+    const saltHash = keccak256(extraData);
+    const saltHex = solidityKeccak256(["bytes32"], [saltHash]);
+
+    const options: Create2Options = {
+      from: this.address,
+      salt: saltHex,
+      initCodeHash: byteCodeHash,
+    };
+
+    return getCreate2Address(options);
+  }
   /**
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
@@ -196,16 +218,24 @@ export class ProxyAccountForwarder extends Forwarder<
    */
   public async signMetaDeployment(
     initCode: string,
+    value: BigNumberish,
     extraData: string
   ): Promise<ForwardParams> {
-    const deployer = new Contract(deployerAddress, deployerABI, this.signer);
+    const deployer = new DelegateDeployerFactory(this.signer).attach(
+      DELEGATE_DEPLOYER_ADDRESS
+    );
 
     const data = deployer.interface.functions.deploy.encode([
       initCode,
+      value,
       keccak256(extraData),
     ]);
 
-    const tx = { to: deployerAddress, data: data, callType: CallType.DELEGATE };
+    const tx = {
+      to: DELEGATE_DEPLOYER_ADDRESS,
+      data: data,
+      callType: CallType.DELEGATE,
+    };
 
     return await this.signMetaTransaction(tx);
   }

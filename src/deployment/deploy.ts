@@ -1,5 +1,9 @@
 import { Contract, ContractFactory, Signer } from "ethers";
-import { RelayHubFactory, ProxyAccountDeployerFactory } from "..";
+import {
+  RelayHubFactory,
+  ProxyAccountDeployerFactory,
+  DelegateDeployerFactory,
+} from "..";
 import { keccak256, toUtf8Bytes, getCreate2Address } from "ethers/utils";
 import { MultiSendFactory } from "../typedContracts/MultiSendFactory";
 import { deployerAddress, deployDeployer } from "./deployer";
@@ -63,6 +67,18 @@ export const deployMetaTxContracts = async (
   const baseAccount = await proxyDeployer.baseAccount();
   logProgress && console.log("BaseAccount address: " + baseAccount);
 
+  const delegateDeployerFactory = new DelegateDeployerFactory(admin);
+  const delegateDeployerSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
+  );
+  const delegateDeployerAddress = await deployContract(
+    deployerContract,
+    delegateDeployerFactory,
+    delegateDeployerSalt
+  );
+  logProgress &&
+    console.log("DelegateDeployer address: " + delegateDeployerAddress);
+
   const multiSendFactory = new MultiSendFactory(admin);
   const multiSendSalt = keccak256(
     toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
@@ -79,5 +95,6 @@ export const deployMetaTxContracts = async (
     proxyAccountDeployerAddress: proxyAddress,
     baseAccountAddress: baseAccount,
     multiSendAddress: multiSendAddress,
+    delegateDeployerAddress: delegateDeployerAddress,
   };
 };

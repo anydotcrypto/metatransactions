@@ -7,7 +7,7 @@ contract MsgSenderExample is MsgSender {
     mapping(address => bool) public sentTest;
     event WhoIsSender(address signer);
 
-    constructor(address _relayHub) public {
+    constructor(address _relayHub) public payable {
         relayHub = _relayHub;
     }
 

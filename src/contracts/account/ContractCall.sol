@@ -8,7 +8,7 @@ import "./ReplayProtection.sol";
  */
 contract ContractCall {
 
-    enum CallType {CALL, DELEGATE, BATCH}
+    enum CallType {CALL, DELEGATE, BATCH, DEPLOY}
     event Revert(string reason);
 
     // https://ethereum.stackexchange.com/questions/83528/how-can-i-get-the-revert-reason-of-a-call-in-solidity-so-that-i-can-use-it-in-th/83529#83529
@@ -57,4 +57,5 @@ contract ContractCall {
 
         return success;
     }
+
 }

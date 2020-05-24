@@ -626,7 +626,7 @@ describe("ProxyAccountDeployer", () => {
         proxyDeployer.address
       ).data! as string;
 
-      const params = await forwarder.signMetaDeployment(initCode, "0x123");
+      const params = await forwarder.signMetaDeployment(initCode, 0, "0x123");
 
       await proxyAccount
         .connect(sender)
@@ -639,7 +639,7 @@ describe("ProxyAccountDeployer", () => {
 
       const msgSenderExampleAddress = getCreate2Address({
         from: forwarder.address,
-        salt: keccak256("0x123"),
+        salt: solidityKeccak256(["bytes32"], [keccak256("0x123")]),
         initCode: initCode,
       });
 
@@ -681,7 +681,7 @@ describe("ProxyAccountDeployer", () => {
       ).data! as string;
 
       // Deploy the proxy using CREATE2
-      const params = await forwarder.signMetaDeployment(initCode, "0x123");
+      const params = await forwarder.signMetaDeployment(initCode, 0, "0x123");
 
       // @ts-ignore
       const encodedMetaDeployment = await forwarder.encodeSignedMetaTransaction(
@@ -694,7 +694,7 @@ describe("ProxyAccountDeployer", () => {
 
       const msgSenderExampleAddress = getCreate2Address({
         from: forwarder.address,
-        salt: keccak256("0x123"),
+        salt: solidityKeccak256(["bytes32"], [keccak256("0x123")]),
         initCode: initCode,
       });
 

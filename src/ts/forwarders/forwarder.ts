@@ -162,23 +162,6 @@ export abstract class Forwarder<TParams extends Partial<MinimalTx>> {
   ): Promise<string>;
 
   /**
-   * Computes the deterministic address for a deployed contract
-   * @param params Meta-deployment parameters
-   */
-  public buildDeployedContractAddress(initData: string, salt: string): string {
-    const byteCodeHash = solidityKeccak256(["bytes"], [initData]);
-    const saltHex = keccak256(salt);
-
-    const options: Create2Options = {
-      from: this.address,
-      salt: saltHex,
-      initCodeHash: byteCodeHash,
-    };
-
-    return getCreate2Address(options);
-  }
-
-  /**
    * Checks if the ProxyContract is already deployed.
    * @returns TRUE if deployed, FALSE if not deployed.
    */
