@@ -94,7 +94,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     for (const data of dataList) {
       metaTxList.push({
         target: data.target,
-        callData: data.data,
+        data: data.data,
         revertOnFail: data.revertOnFail ? data.revertOnFail : false,
       });
     }
@@ -102,7 +102,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     // Prepare the meta-transaction & sign it
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = defaultAbiCoder.encode(
-      ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+      ["uint", "tuple(address target, bytes data, bool revertOnFail)[]"],
       [CallType.BATCH, metaTxList]
     );
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -137,7 +137,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     return {
       to: params.to,
       data: this.relayHub.interface.functions.forward.encode([
-        { target: params.target, callData: params.data },
+        { target: params.target, data: params.data },
         params.replayProtection,
         params.replayProtectionAuthority,
         params.signer,

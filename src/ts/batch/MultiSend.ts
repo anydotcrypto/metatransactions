@@ -1,6 +1,10 @@
 import { abi } from "../../typedContracts/MultiSend.json";
 import { Interface, BigNumberish } from "ethers/utils";
-import { MinimalTx, RevertableMinimalTx } from "../forwarders/forwarder";
+import {
+  MinimalTx,
+  RevertableMinimalTx,
+  CallType,
+} from "../forwarders/forwarder";
 import { MULTI_SEND_ADDRESS } from "../../deployment/addresses";
 import { MultiSend } from "../../typedContracts/MultiSend";
 
@@ -24,23 +28,23 @@ export class MultiSender {
    */
   public batch(batch: RevertableMinimalTx[]): MinimalTx {
     const multiSend = new Interface(abi) as MultiSend["interface"];
-    const to: string[] = [];
-    const data: string[] = [];
-    const value: BigNumberish[] = [];
-    const revertIfFail: boolean[] = [];
+    const transactions = [];
 
-    for (const tx of batch) {
-      to.push(tx.to);
-      data.push(tx.data);
-      value.push(tx.value ? tx.value : 0);
-      revertIfFail.push(tx.revertOnFail ? tx.revertOnFail : false);
+    for (let i = 0; i < batch.length; i++) {
+      transactions.push({
+        to: batch[i].to,
+        value: batch[i].value ? (batch[i].value as BigNumberish) : 0,
+        data: batch[i].data,
+        revertOnFail: batch[i].revertOnFail
+          ? (batch[i].revertOnFail as boolean)
+          : false,
+        callType: batch[i].callType
+          ? (batch[i].callType as number)
+          : CallType.CALL,
+      });
     }
-
     const encodedTransactions = multiSend.functions.batch.encode([
-      to,
-      value,
-      data,
-      revertIfFail,
+      transactions,
     ]);
 
     return {

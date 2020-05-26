@@ -415,12 +415,12 @@ describe("Proxy Account Forwarder", () => {
       proxyDeployer.address
     ).data! as string;
 
-    const salt = "0x123";
+    const extraData = "0x123";
     // @ts-ignore
     const deploymentParams = await forwarder.signMetaDeployment(
       initCode,
       0,
-      salt
+      extraData
     );
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
@@ -436,7 +436,7 @@ describe("Proxy Account Forwarder", () => {
     const data = deployer.interface.functions.deploy.encode([
       initCode,
       0,
-      keccak256(salt),
+      keccak256(extraData),
     ]);
 
     expect(deploymentParams.data).to.eq(data);
@@ -454,7 +454,7 @@ describe("Proxy Account Forwarder", () => {
       {
         target: deploymentParams.target,
         value: deploymentParams.value,
-        callData: deploymentParams.data,
+        data: deploymentParams.data,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
@@ -469,7 +469,7 @@ describe("Proxy Account Forwarder", () => {
     // Compute deterministic address
     const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
       initCode,
-      salt
+      extraData
     );
 
     const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
@@ -500,13 +500,13 @@ describe("Proxy Account Forwarder", () => {
       proxyDeployer.address
     ).data! as string;
 
-    const salt = "0x123";
+    const extraData = "0x123";
     const topup = parseEther("0.5");
     // @ts-ignore
     const deploymentParams = await forwarder.signMetaDeployment(
       initCode,
       topup,
-      salt
+      extraData
     );
     // All deployments are performed via the proxy account directly.
     const proxyAccount = new ProxyAccountFactory(admin).attach(
@@ -522,7 +522,7 @@ describe("Proxy Account Forwarder", () => {
       {
         target: deploymentParams.target,
         value: deploymentParams.value,
-        callData: deploymentParams.data,
+        data: deploymentParams.data,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
@@ -531,7 +531,7 @@ describe("Proxy Account Forwarder", () => {
 
     const msgSenderAddress = forwarder.buildDeployedContractAddress(
       initCode,
-      salt
+      extraData
     );
 
     const balance = await provider.getBalance(msgSenderAddress);
@@ -552,12 +552,12 @@ describe("Proxy Account Forwarder", () => {
       proxyDeployer.address
     ).data! as string;
 
-    const salt = "0x123";
+    const extraData = "0x123";
     // @ts-ignore
     let deploymentParams = await forwarder.signMetaDeployment(
       initCode,
       0,
-      salt
+      extraData
     );
     // All deployments are performed via the proxy account directly.
     const proxyAccount = new ProxyAccountFactory(admin).attach(
@@ -566,13 +566,13 @@ describe("Proxy Account Forwarder", () => {
 
     const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
       initCode,
-      salt
+      extraData
     );
     const tx1 = proxyAccount.delegate(
       {
         target: deploymentParams.target,
         value: deploymentParams.value,
-        callData: deploymentParams.data,
+        data: deploymentParams.data,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
@@ -603,12 +603,16 @@ describe("Proxy Account Forwarder", () => {
 
     // Time to redeploy... and it should fail!
     // @ts-ignore
-    deploymentParams = await forwarder.signMetaDeployment(initCode, 0, salt);
+    deploymentParams = await forwarder.signMetaDeployment(
+      initCode,
+      0,
+      extraData
+    );
     const tx2 = proxyAccount.delegate(
       {
         target: deploymentParams.target,
         value: deploymentParams.value,
-        callData: deploymentParams.data,
+        data: deploymentParams.data,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,

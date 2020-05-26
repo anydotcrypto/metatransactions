@@ -73,6 +73,21 @@ async function createRelayHub(
 describe("RelayHub Contract", () => {
   fnIt<relayHubFunctions>(
     (a) => a.forward,
+    "verify the multinonce and bitflip values are correct",
+    async () => {
+      const { relayHub } = await loadFixture(createRelayHub);
+
+      const relayhub_multinonce = await relayHub.multiNonceAddress();
+      const relayhub_bitflip = await relayHub.bitFlipAddress();
+      expect(relayhub_multinonce).to.eq(AddressZero);
+      expect(relayhub_bitflip).to.eq(
+        "0x0000000000000000000000000000000000000001"
+      );
+    }
+  );
+
+  fnIt<relayHubFunctions>(
+    (a) => a.forward,
     "for msgSender emits expected signer address",
     async () => {
       const { relayHub, owner, sender, msgSenderCon } = await loadFixture(
@@ -95,7 +110,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          { target: params.target, callData: params.data },
+          { target: params.target, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -133,7 +148,7 @@ describe("RelayHub Contract", () => {
       let tx = relayHub
         .connect(sender)
         .forward(
-          { target: params.target, callData: params.data },
+          { target: params.target, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -154,7 +169,7 @@ describe("RelayHub Contract", () => {
       tx = relayHub
         .connect(sender)
         .forward(
-          { target: params.target, callData: params.data },
+          { target: params.target, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -238,7 +253,7 @@ describe("RelayHub Contract", () => {
         let tx = relayHub
           .connect(sender)
           .forward(
-            { target: params.target, callData: params.data },
+            { target: params.target, data: params.data },
             params.replayProtection,
             params.replayProtectionAuthority,
             params.signer,
@@ -295,7 +310,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          { target: msgSenderCon.address, callData: encodedCallData },
+          { target: msgSenderCon.address, data: encodedCallData },
           encodedReplayProtection,
           replayProtectionAuthority,
           owner.address,
@@ -350,7 +365,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          { target: msgSenderCon.address, callData: encodedCallData },
+          { target: msgSenderCon.address, data: encodedCallData },
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
           owner.address,
@@ -391,7 +406,7 @@ describe("RelayHub Contract", () => {
       let tx = relayHub
         .connect(sender)
         .forward(
-          { target: params.target, callData: params.data },
+          { target: params.target, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -433,7 +448,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          { target: params.target, callData: params.data },
+          { target: params.target, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signer,
@@ -489,7 +504,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          { target: msgSenderCon.address, callData: msgSenderCall },
+          { target: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           owner.address,
@@ -548,7 +563,7 @@ describe("RelayHub Contract", () => {
       const tx = relayHub
         .connect(sender)
         .forward(
-          { target: msgSenderCon.address, callData: msgSenderCall },
+          { target: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           owner.address,
@@ -563,7 +578,7 @@ describe("RelayHub Contract", () => {
       const tx2 = relayHub
         .connect(sender)
         .forward(
-          { target: msgSenderCon.address, callData: msgSenderCall },
+          { target: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           owner.address,
@@ -597,7 +612,7 @@ describe("RelayHub Contract", () => {
       const tx1 = relayHub
         .connect(sender)
         .forward(
-          { target: params1.target, callData: params1.data },
+          { target: params1.target, data: params1.data },
           params1.replayProtection,
           params1.replayProtectionAuthority,
           params1.signer,
@@ -617,7 +632,7 @@ describe("RelayHub Contract", () => {
       const tx2 = relayHub
         .connect(sender)
         .forward(
-          { target: params2.target, callData: params2.data },
+          { target: params2.target, data: params2.data },
           params2.replayProtection,
           params2.replayProtectionAuthority,
           params2.signer,
@@ -648,11 +663,11 @@ describe("RelayHub Contract", () => {
       const callData = msgSenderCon.interface.functions.test.encode([]);
 
       const metaTxList = [
-        { target: msgSenderCon.address, callData, revertOnFail: false },
+        { target: msgSenderCon.address, data: callData, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        ["uint", "tuple(address target, bytes data, bool revertOnFail)[]"],
         [CallType.BATCH, metaTxList]
       );
 
@@ -693,7 +708,6 @@ describe("RelayHub Contract", () => {
       const { msgSenderCon, admin, relayHub, echoCon } = await loadFixture(
         createRelayHub
       );
-
       const forwarder = new RelayHubForwarder(
         ChainID.MAINNET,
         admin,
@@ -707,12 +721,12 @@ describe("RelayHub Contract", () => {
       const callData = msgSenderCon.interface.functions.test.encode([]);
 
       const metaTxList = [
-        { target: msgSenderCon.address, callData, revertOnFail: false },
-        { target: echoCon.address, callData: echoData, revertOnFail: false },
+        { target: msgSenderCon.address, data: callData, revertOnFail: false },
+        { target: echoCon.address, data: echoData, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        ["uint", "tuple(address target, bytes data, bool revertOnFail)[]"],
         [CallType.BATCH, metaTxList]
       );
 
@@ -770,12 +784,12 @@ describe("RelayHub Contract", () => {
       const callData = msgSenderCon.interface.functions.willRevert.encode([]);
 
       const metaTxList = [
-        { target: msgSenderCon.address, callData, revertOnFail: false },
-        { target: echoCon.address, callData: echoData, revertOnFail: false },
+        { target: msgSenderCon.address, data: callData, revertOnFail: false },
+        { target: echoCon.address, data: echoData, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        ["uint", "tuple(address target, bytes data, bool revertOnFail)[]"],
         [CallType.BATCH, metaTxList]
       );
 
@@ -833,12 +847,12 @@ describe("RelayHub Contract", () => {
       const callData = msgSenderCon.interface.functions.willRevert.encode([]);
 
       const metaTxList = [
-        { target: msgSenderCon.address, callData, revertOnFail: true },
-        { target: echoCon.address, callData: echoData, revertOnFail: false },
+        { target: msgSenderCon.address, data: callData, revertOnFail: true },
+        { target: echoCon.address, data: echoData, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
       const encodedCallData = defaultAbiCoder.encode(
-        ["uint", "tuple(address target, bytes callData, bool revertOnFail)[]"],
+        ["uint", "tuple(address target, bytes data, bool revertOnFail)[]"],
         [CallType.BATCH, metaTxList]
       );
 

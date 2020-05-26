@@ -2,11 +2,11 @@ pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
 /**
- * We deploy a new contract to bypass the msg.sender problem.
+ * Common CALL functionality for the proxy contract and relayhub
  */
 contract ContractCall {
 
-    enum CallType {CALL, DELEGATE, BATCH, DEPLOY}
+    enum CallType {CALL, DELEGATE, BATCH}
     event Revert(string reason);
 
     // https://ethereum.stackexchange.com/questions/83528/how-can-i-get-the-revert-reason-of-a-call-in-solidity-so-that-i-can-use-it-in-th/83529#83529
@@ -14,7 +14,7 @@ contract ContractCall {
     /// @notice This is needed in order to get the human-readable revert message from a call
     /// @param _returnData Response of the call
     /// @return Revert message string
-    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
+    function getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
         // If the _res length is less than 68, then the transaction failed silently (without a revert message)
         if (_returnData.length < 68) return 'Transaction reverted silently';
 
@@ -32,10 +32,10 @@ contract ContractCall {
      * @param _callData Function name plus arguments
      */
     function forwardCall(address _target, uint _value, bytes memory _callData) internal returns(bool) {
-        (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
+        (bool success, bytes memory revertReason) = _target.call{value: _value}(abi.encodePacked(_callData));
 
         if(!success) {
-            emit Revert(_getRevertMsg(revertReason));
+            emit Revert(getRevertMsg(revertReason));
         }
 
         return success;
@@ -50,7 +50,7 @@ contract ContractCall {
         (bool success, bytes memory revertReason) = _target.delegatecall(abi.encodePacked(_callData));
 
         if(!success) {
-            emit Revert(_getRevertMsg(revertReason));
+            emit Revert(getRevertMsg(revertReason));
         }
 
         return success;

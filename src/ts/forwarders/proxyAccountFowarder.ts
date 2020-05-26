@@ -84,12 +84,11 @@ export class ProxyAccountForwarder extends Forwarder<
     extraData: string
   ): string {
     const byteCodeHash = solidityKeccak256(["bytes"], [initData]);
-    const saltHash = keccak256(extraData);
-    const saltHex = solidityKeccak256(["bytes32"], [saltHash]);
+    const salt = keccak256(extraData);
 
     const options: Create2Options = {
       from: this.address,
-      salt: saltHex,
+      salt: salt,
       initCodeHash: byteCodeHash,
     };
 
@@ -142,7 +141,7 @@ export class ProxyAccountForwarder extends Forwarder<
 
     if (params.callType == CallType.DELEGATE) {
       callData = proxyAccount.interface.functions.delegate.encode([
-        { target: params.target, value: params.value, callData: params.data },
+        { target: params.target, value: params.value, data: params.data },
         params.replayProtection,
         params.replayProtectionAuthority,
         params.signature,
@@ -150,7 +149,7 @@ export class ProxyAccountForwarder extends Forwarder<
     } else {
       // We assume it is a CALL - safe default.
       callData = proxyAccount.interface.functions.forward.encode([
-        { target: params.target, value: params.value, callData: params.data },
+        { target: params.target, value: params.value, data: params.data },
         params.replayProtection,
         params.replayProtectionAuthority,
         params.signature,
@@ -174,7 +173,7 @@ export class ProxyAccountForwarder extends Forwarder<
       metaTxList.push({
         target: data.target,
         value: data.value ? data.value : 0,
-        callData: data.data ? data.data : "0x",
+        data: data.data ? data.data : "0x",
         callType: data.callType ? data.callType : CallType.CALL,
         revertOnFail: data.revertOnFail ? data.revertOnFail : false,
       });
@@ -185,7 +184,7 @@ export class ProxyAccountForwarder extends Forwarder<
     const encodedCallData = defaultAbiCoder.encode(
       [
         "uint",
-        "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+        "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
       ],
       [CallType.BATCH, metaTxList]
     );

@@ -9,6 +9,7 @@ import {
   DelegateDeployer,
   EchoFactory,
   DelegateDeployerFactory,
+  CallWrapperFactory,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -16,7 +17,6 @@ import {
   keccak256,
   defaultAbiCoder,
   getCreate2Address,
-  solidityKeccak256,
   parseEther,
 } from "ethers/utils";
 const expect = chai.expect;
@@ -29,10 +29,13 @@ async function setup(provider: Provider, [admin]: Wallet[]) {
   const delegateDeployer = new DelegateDeployerFactory(admin).attach(
     delegateDeployerAddress
   );
+
+  const callWrapper = await new CallWrapperFactory(admin).deploy();
   return {
     provider,
     admin,
     delegateDeployer,
+    callWrapper,
   };
 }
 
@@ -46,16 +49,14 @@ describe("DelegateDeployer", () => {
       const initCode = new EchoFactory(admin).getDeployTransaction()
         .data! as string;
 
-      const extraData = keccak256(
-        defaultAbiCoder.encode(["string"], ["hello"])
-      );
+      const salt = keccak256(defaultAbiCoder.encode(["string"], ["hello"]));
       const echoAddress = getCreate2Address({
         from: delegateDeployer.address,
-        salt: solidityKeccak256(["bytes32"], [extraData]),
+        salt: salt,
         initCode: initCode,
       });
 
-      const deployTx = delegateDeployer.deploy(initCode, 0, extraData);
+      const deployTx = delegateDeployer.deploy(initCode, 0, salt);
 
       await expect(deployTx)
         .to.emit(
@@ -83,17 +84,15 @@ describe("DelegateDeployer", () => {
       const initCode = new EchoFactory(admin).getDeployTransaction()
         .data! as string;
 
-      const extraData = keccak256(
-        defaultAbiCoder.encode(["string"], ["hello"])
-      );
+      const salt = keccak256(defaultAbiCoder.encode(["string"], ["hello"]));
 
       const echoAddress = getCreate2Address({
         from: delegateDeployer.address,
-        salt: solidityKeccak256(["bytes32"], [extraData]),
+        salt: salt,
         initCode: initCode,
       });
 
-      const deployTx = delegateDeployer.deploy(initCode, 0, extraData);
+      const deployTx = delegateDeployer.deploy(initCode, 0, salt);
 
       await expect(deployTx)
         .to.emit(
@@ -102,7 +101,7 @@ describe("DelegateDeployer", () => {
         )
         .withArgs(echoAddress);
 
-      const deployTx2 = delegateDeployer.deploy(initCode, 0, extraData);
+      const deployTx2 = delegateDeployer.deploy(initCode, 0, salt);
 
       await expect(deployTx2).to.be.revertedWith("CREATE2 failed to deploy.");
     }
@@ -112,7 +111,7 @@ describe("DelegateDeployer", () => {
     (a) => a.deploy,
     "a contract with 1 eth, but fails as Echo Constructor is not payable.",
     async () => {
-      const { admin, provider, delegateDeployer } = await loadFixture(setup);
+      const { admin, callWrapper, delegateDeployer } = await loadFixture(setup);
 
       const initCode = new EchoFactory(admin).getDeployTransaction()
         .data! as string;
@@ -120,13 +119,21 @@ describe("DelegateDeployer", () => {
       const extraData = keccak256(
         defaultAbiCoder.encode(["string"], ["hello"])
       );
-
       const topup = parseEther("1");
-      const deployTx = delegateDeployer.deploy(initCode, topup, extraData, {
-        value: topup,
-      });
 
-      await expect(deployTx).to.be.revertedWith("CREATE2 failed to deploy.");
+      await admin.sendTransaction({ to: callWrapper.address, value: topup });
+
+      const data = delegateDeployer.interface.functions.deploy.encode([
+        initCode,
+        topup,
+        extraData,
+      ]);
+
+      const deployTx = callWrapper.delegateCall(delegateDeployer.address, data);
+
+      await expect(deployTx)
+        .to.emit(callWrapper, callWrapper.interface.events.Revert.name)
+        .withArgs("CREATE2 failed to deploy.");
     }
   );
 
@@ -134,36 +141,49 @@ describe("DelegateDeployer", () => {
     (a) => a.deploy,
     "a contract with 1 eth and it passes.",
     async () => {
-      const { admin, provider, delegateDeployer } = await loadFixture(setup);
+      const {
+        admin,
+        provider,
+        delegateDeployer,
+        callWrapper,
+      } = await loadFixture(setup);
 
       const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-        admin.address
+        callWrapper.address
       ).data! as string;
 
-      const extraData = keccak256(
-        defaultAbiCoder.encode(["string"], ["hello"])
-      );
+      const salt = keccak256(defaultAbiCoder.encode(["string"], ["hello"]));
 
       const msgSenderAddress = getCreate2Address({
-        from: delegateDeployer.address,
-        salt: solidityKeccak256(["bytes32"], [extraData]),
+        from: callWrapper.address,
+        salt: salt,
         initCode: initCode,
       });
 
       const topup = parseEther("1");
-      const deployTx = delegateDeployer.deploy(initCode, topup, extraData, {
+
+      const data = delegateDeployer.interface.functions.deploy.encode([
+        initCode,
+        topup,
+        salt,
+      ]);
+
+      await callWrapper.delegateCall(delegateDeployer.address, data, {
         value: topup,
       });
-
-      await expect(deployTx)
-        .to.emit(
-          delegateDeployer,
-          delegateDeployer.interface.events.Deployed.name
-        )
-        .withArgs(msgSenderAddress);
-
       const balance = await provider.getBalance(msgSenderAddress);
       expect(balance).to.eq(topup);
+
+      const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
+        msgSenderAddress
+      );
+
+      await expect(msgSenderExample.test())
+        .to.emit(
+          msgSenderExample,
+          msgSenderExample.interface.events.WhoIsSender.name
+        )
+        .withArgs(admin.address);
     }
   );
 
@@ -171,64 +191,34 @@ describe("DelegateDeployer", () => {
     (a) => a.deploy,
     "a contract with 1 eth, but fails due to lack of balance.",
     async () => {
-      const { admin, provider, delegateDeployer } = await loadFixture(setup);
+      const {
+        admin,
+        provider,
+        delegateDeployer,
+        callWrapper,
+      } = await loadFixture(setup);
 
       const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
         admin.address
       ).data! as string;
 
-      const extraData = keccak256(
-        defaultAbiCoder.encode(["string"], ["hello"])
-      );
+      const salt = keccak256(defaultAbiCoder.encode(["string"], ["hello"]));
 
       const topup = parseEther("2");
-      const deployTx = delegateDeployer.deploy(initCode, topup, extraData, {
-        value: parseEther("1"),
+      const data = delegateDeployer.interface.functions.deploy.encode([
+        initCode,
+        topup,
+        salt,
+      ]);
+      const val = parseEther("1");
+      const tx = callWrapper.delegateCall(delegateDeployer.address, data, {
+        value: val,
+        gasLimit: 500000,
       });
 
-      await expect(deployTx).to.be.revertedWith("CREATE2 failed to deploy.");
-    }
-  );
-
-  fnIt<delegateDeployer>(
-    (a) => a.deploy,
-    "a contract with 1 eth, but overly funded transaction & some coins are lost. (ONLY USE GLOBAL DEPLOYER WITH DELEGATECALL).",
-    async () => {
-      const { admin, provider, delegateDeployer } = await loadFixture(setup);
-
-      const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-        admin.address
-      ).data! as string;
-
-      const extraData = keccak256(
-        defaultAbiCoder.encode(["string"], ["hello"])
-      );
-
-      const msgSenderAddress = getCreate2Address({
-        from: delegateDeployer.address,
-        salt: solidityKeccak256(["bytes32"], [extraData]),
-        initCode: initCode,
-      });
-
-      const topup = parseEther("0.5");
-      const deployTx = delegateDeployer.deploy(initCode, topup, extraData, {
-        value: parseEther("1"),
-      });
-
-      await expect(deployTx)
-        .to.emit(
-          delegateDeployer,
-          delegateDeployer.interface.events.Deployed.name
-        )
-        .withArgs(msgSenderAddress);
-
-      const balance = await provider.getBalance(msgSenderAddress);
-      expect(balance).to.eq(topup);
-
-      const deployerBalance = await provider.getBalance(
-        delegateDeployer.address!
-      );
-      expect(deployerBalance).to.eq(topup);
+      await expect(tx)
+        .to.emit(callWrapper, callWrapper.interface.events.Revert.name)
+        .withArgs("CREATE2 failed to deploy.");
     }
   );
 });

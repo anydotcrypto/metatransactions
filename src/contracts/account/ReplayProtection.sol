@@ -7,6 +7,12 @@ import "./IReplayProtectionAuthority.sol";
 contract ReplayProtection {
     mapping(bytes32 => uint256) public nonceStore;
 
+    event Bitflip(uint bitmap, uint bitToFlip);
+    event MultiNonce(uint queue, uint nonce);
+
+    address constant public multiNonceAddress = 0x0000000000000000000000000000000000000000;
+    address constant public bitFlipAddress = 0x0000000000000000000000000000000000000001;
+
     /**
      * Get Ethereum Chain ID
      * */
@@ -15,21 +21,6 @@ contract ReplayProtection {
         uint256 chainId;
         assembly {chainId := chainid() }
         return chainId;
-    }
-
-    /**
-     * Bitflip address is AddressOne
-     */
-    function getBitFlipAddress() public pure returns(address) {
-        return address(0x0000000000000000000000000000000000000001);
-    }
-
-    /**
-     * Multinonce address is AddressZero
-     */
-    function getMultiNonceAddress() public pure returns(address) {
-        return address(0x0000000000000000000000000000000000000000);
-
     }
 
     /**
@@ -52,10 +43,10 @@ contract ReplayProtection {
         address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
 
         // Check the user's replay protection.
-        if(_replayProtectionAuthority == getMultiNonceAddress()) {
+        if(_replayProtectionAuthority == multiNonceAddress) {
             // Assumes authority returns true or false. It may also revert.
             require(nonce(signer, _replayProtection), "Multinonce replay protection failed");
-        } else if (_replayProtectionAuthority == getBitFlipAddress()) {
+        } else if (_replayProtectionAuthority == bitFlipAddress) {
             require(bitflip(signer, _replayProtection), "Bitflip replay protection failed");
         } else {
             require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
@@ -89,8 +80,11 @@ contract ReplayProtection {
         uint256 queueNonce;
 
         (queue, queueNonce) = abi.decode(_replayProtection, (uint256, uint256));
-        bytes32 index = queueIndex(_signer, queue, getMultiNonceAddress());
+        bytes32 index = queueIndex(_signer, queue, multiNonceAddress);
         uint256 storedNonce = nonceStore[index];
+
+        // Easy to read.
+        emit MultiNonce(queue, storedNonce);
 
         // Increment stored nonce by one...
         if(queueNonce == storedNonce) {
@@ -115,8 +109,11 @@ contract ReplayProtection {
         require(bitsToFlip & bitsToFlip-1 == 0, "Only a single bit can be flipped");
 
         // Combine with msg.sender to get unique indexes per caller
-        bytes32 index = queueIndex(_signer, queue, getBitFlipAddress());
+        bytes32 index = queueIndex(_signer, queue, bitFlipAddress);
         uint256 currentBitmap = nonceStore[index];
+
+        // Easy to read.
+        emit Bitflip(currentBitmap, bitsToFlip);
 
         // This is an AND operation, so if the bitmap
         // and the bitsToFlip share no common "1" bits,

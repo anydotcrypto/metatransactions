@@ -13,7 +13,6 @@ import { Wallet } from "ethers/wallet";
 import { MultiSend } from "../../src/typedContracts/MultiSend";
 import { MultiSender } from "../../src/ts/batch/MultiSend";
 import { MULTI_SEND_ADDRESS } from "../../src/deployment/addresses";
-import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -196,12 +195,13 @@ describe("MultiSend", () => {
         { to: counterCon.address, data: callData, revertOnFail: true },
         { to: counterCon.address, data: callData, revertOnFail: true },
       ]);
+
       const tx = admin.sendTransaction({
         to: batched.to,
         data: batched.data,
       });
 
-      await expect(tx).to.be.revertedWith("Forwarding call failed.");
+      await expect(tx).to.be.reverted;
     }
   );
 
@@ -247,96 +247,6 @@ describe("MultiSend", () => {
       const receipt = await tx.wait(1);
 
       expect(receipt.status).to.eq(1);
-    }
-  );
-
-  fnIt<multiSend>(
-    (a) => a.batch,
-    "the length of to array is less than data and revertIfFail. Batch fails.",
-    async () => {
-      const { admin, counterCon } = await loadFixture(deployContracts);
-
-      const to = [counterCon.address];
-      const data = ["0x", "0x"];
-      const value = ["0", "0"];
-      const revertIfFail = [false, false];
-
-      const multiSend = new MultiSendFactory(admin).attach(MULTI_SEND_ADDRESS);
-
-      const callData = multiSend.interface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertIfFail,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: multiSend.address,
-        data: callData,
-      });
-      await expect(tx).to.be.revertedWith(
-        "All arrays must have the same length"
-      );
-    }
-  );
-
-  fnIt<multiSend>(
-    (a) => a.batch,
-    "the length of data array is more to and revertIfFail. Batch fails.",
-    async () => {
-      const { admin, counterCon } = await loadFixture(deployContracts);
-
-      const to = [counterCon.address, counterCon.address];
-      const data = ["0x", "0x", "0x"];
-      const value = ["0", "0"];
-      const revertIfFail = [false, false];
-
-      const multiSend = new MultiSendFactory(admin).attach(MULTI_SEND_ADDRESS);
-
-      const callData = multiSend.interface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertIfFail,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: multiSend.address,
-        data: callData,
-      });
-      await expect(tx).to.be.revertedWith(
-        "All arrays must have the same length"
-      );
-    }
-  );
-
-  fnIt<multiSend>(
-    (a) => a.batch,
-    "the length of revertIfFail array is more to and data. Batch fails.",
-    async () => {
-      const { admin, counterCon } = await loadFixture(deployContracts);
-
-      const to = [counterCon.address, counterCon.address];
-      const data = ["0x", "0x"];
-      const value = ["0", "0"];
-      const revertIfFail = [false, false, true, true];
-
-      const multiSend = new MultiSendFactory(admin).attach(MULTI_SEND_ADDRESS);
-
-      const callData = multiSend.interface.functions.batch.encode([
-        to,
-        value,
-        data,
-        revertIfFail,
-      ]);
-
-      const tx = admin.sendTransaction({
-        to: multiSend.address,
-        data: callData,
-      });
-      await expect(tx).to.be.revertedWith(
-        "All arrays must have the same length"
-      );
     }
   );
 });

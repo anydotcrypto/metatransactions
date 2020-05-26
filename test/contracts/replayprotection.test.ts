@@ -7,6 +7,7 @@ import {
   ReplayProtectionWrapperFactory,
   ReplayProtectionWrapper,
   ChainID,
+  RelayHubFactory,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -74,6 +75,25 @@ async function createReplayProtection(
 }
 
 describe("ReplayProtection", () => {
+  fnIt<replayProtection>(
+    (a) => a.noncePublic,
+    "check addresses of bitflip and multinonce",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      const multinonce = await replayProtection.multiNonceAddress();
+      const bitflip = await replayProtection.bitFlipAddress();
+
+      console.log(multinonce);
+      console.log(bitflip);
+      expect(multinonce).to.eq(AddressZero);
+      expect(bitflip).to.eq("0x0000000000000000000000000000000000000001");
+
+    }
+  );
+
   fnIt<replayProtection>(
     (a) => a.noncePublic,
     "increment a single queue once to test NONCE",

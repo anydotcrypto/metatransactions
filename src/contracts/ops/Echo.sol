@@ -9,4 +9,5 @@ contract Echo {
         lastMessage = _message;
         emit Broadcast(_message);
     }
+
 }

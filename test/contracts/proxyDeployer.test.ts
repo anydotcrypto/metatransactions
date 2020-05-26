@@ -74,7 +74,10 @@ async function createProxyAccountDeployer(
 
   const bitFlipNonceStoreFactory = new BitFlipNonceStoreFactory(admin);
   const bitFlipNonceStore = await bitFlipNonceStoreFactory.deploy();
-  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(admin);
+  const { proxyAccountDeployerAddress } = await deployMetaTxContracts(
+    admin,
+    true
+  );
   const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
     proxyAccountDeployerAddress
   );
@@ -96,6 +99,47 @@ async function createProxyAccountDeployer(
 }
 
 describe("ProxyAccountDeployer", () => {
+  fnIt<proxyDeployerFunctions>(
+    (a) => a.createProxyAccount,
+    "verify the multinonce and bitflip values are correct",
+    async () => {
+      const { proxyDeployer, sender } = await loadFixture(
+        createProxyAccountDeployer
+      );
+      await proxyDeployer.connect(sender).createProxyAccount(sender.address);
+      const baseAccount = await proxyDeployer.baseAccount();
+      const saltHex = solidityKeccak256(["address"], [sender.address]);
+      const byteCodeHash = solidityKeccak256(
+        ["bytes", "bytes20", "bytes"],
+        [
+          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
+          baseAccount,
+          "0x5af43d82803e903d91602b57fd5bf3",
+        ]
+      );
+      const options: Create2Options = {
+        from: proxyDeployer.address,
+        salt: saltHex,
+        initCodeHash: byteCodeHash,
+      };
+      const proxyAddress = getCreate2Address(options);
+
+      const builtAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+        sender.address
+      );
+
+      // Computed offchain
+      expect(proxyAddress).to.eq(builtAddress);
+
+      const proxyAccount = new ProxyAccountFactory(sender).attach(builtAddress);
+      const multinonce = await proxyAccount.multiNonceAddress();
+      const bitflip = await proxyAccount.bitFlipAddress();
+
+      expect(multinonce).to.eq(AddressZero);
+      expect(bitflip).to.eq("0x0000000000000000000000000000000000000001");
+    }
+  );
+
   fnIt<proxyDeployerFunctions>(
     (a) => a.createProxyAccount,
     "create proxy account with deterministic address (and compute offchain deterministic address)",
@@ -193,7 +237,7 @@ describe("ProxyAccountDeployer", () => {
       const tx = proxyAccount
         .connect(sender)
         .forward(
-          { target: params.target, value: params.value, callData: params.data },
+          { target: params.target, value: params.value, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signature
@@ -558,7 +602,7 @@ describe("ProxyAccountDeployer", () => {
       const tx = proxyAccount
         .connect(sender)
         .forward(
-          { target: params.target, value: params.value, callData: params.data },
+          { target: params.target, value: params.value, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           "0x0000000000000000000000000000000000000000"
@@ -639,7 +683,7 @@ describe("ProxyAccountDeployer", () => {
       await proxyAccount
         .connect(sender)
         .delegate(
-          { target: params.target, value: params.value, callData: params.data },
+          { target: params.target, value: params.value, data: params.data },
           params.replayProtection,
           params.replayProtectionAuthority,
           params.signature
@@ -647,7 +691,7 @@ describe("ProxyAccountDeployer", () => {
 
       const msgSenderExampleAddress = getCreate2Address({
         from: forwarder.address,
-        salt: solidityKeccak256(["bytes32"], [keccak256("0x123")]),
+        salt: keccak256("0x123"),
         initCode: initCode,
       });
 
@@ -701,7 +745,7 @@ describe("ProxyAccountDeployer", () => {
 
       const msgSenderExampleAddress = getCreate2Address({
         from: forwarder.address,
-        salt: solidityKeccak256(["bytes32"], [keccak256("0x123")]),
+        salt: keccak256("0x123"),
         initCode: initCode,
       });
 
@@ -883,7 +927,7 @@ describe("ProxyAccountDeployer", () => {
         {
           target: msgSenderCon.address,
           value: 0,
-          callData: callData,
+          data: callData,
           revertOnFail: false,
           callType: CallType.CALL,
         },
@@ -893,7 +937,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -966,7 +1010,7 @@ describe("ProxyAccountDeployer", () => {
         {
           target: msgSenderCon.address,
           value: 0,
-          callData: callData,
+          data: callData,
           revertOnFail: false,
           callType: CallType.CALL,
         },
@@ -976,7 +1020,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1054,7 +1098,7 @@ describe("ProxyAccountDeployer", () => {
         {
           target: msgSenderCon.address,
           value: 0,
-          callData: callData,
+          data: callData,
           revertOnFail: true,
           callType: CallType.CALL,
         },
@@ -1064,7 +1108,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1136,14 +1180,14 @@ describe("ProxyAccountDeployer", () => {
         {
           target: msgSenderCon.address,
           value: 0,
-          callData: callData,
+          data: callData,
           revertOnFail: true,
           callType: CallType.CALL,
         },
         {
           target: echoCon.address,
           value: 0,
-          callData: echoData,
+          data: echoData,
           revertOnFail: true,
           callType: CallType.CALL,
         },
@@ -1153,7 +1197,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1230,14 +1274,14 @@ describe("ProxyAccountDeployer", () => {
         {
           target: msgSenderCon.address,
           value: 0,
-          callData: callData,
+          data: callData,
           revertOnFail: true,
           callType: CallType.DELEGATE,
         },
         {
           target: echoCon.address,
           value: 0,
-          callData: echoData,
+          data: echoData,
           revertOnFail: true,
           callType: CallType.CALL,
         },
@@ -1247,7 +1291,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes callData, bool revertOnFail, uint callType)[]",
+          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );

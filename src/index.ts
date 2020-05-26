@@ -52,6 +52,8 @@ export { EchoFactory } from "./typedContracts/EchoFactory";
 export { CounterFactory } from "./typedContracts/CounterFactory";
 export { DelegateDeployer } from "./typedContracts/DelegateDeployer";
 export { DelegateDeployerFactory } from "./typedContracts/DelegateDeployerFactory";
+export { CallWrapper } from "./typedContracts/CallWrapper";
+export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
 
 export { MultiSender } from "./ts/batch/MultiSend";
 

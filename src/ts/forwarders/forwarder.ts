@@ -9,9 +9,9 @@ import {
 } from "ethers/utils";
 
 export enum CallType {
-  CALL,
-  DELEGATE,
-  BATCH,
+  CALL = 0,
+  DELEGATE = 1,
+  BATCH = 2,
 }
 
 export interface MinimalTx {

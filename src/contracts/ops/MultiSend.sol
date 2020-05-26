@@ -1,26 +1,34 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
+
+import "../account/ContractCall.sol";
 // Send a batch of transaction.
 // @author Patrick McCorry
 
-contract MultiSend {
+contract MultiSend is ContractCall {
+
+    struct RevertableMetaTx {
+        address to;
+        uint value;
+        bytes data;
+        bool revertOnFail;
+        CallType callType;
+    }
+
 
     /// @dev Sends multiple transactions and reverts all if one fails.
-    /// @param _to Target contracts
-    /// @param _value WEI to send send
-    /// @param _data Calldata for target contract
-    /// @param _revertIfFail Do we revert entire transaction if the corresponding .call() fails?
-    function batch(address[] memory _to, uint[] memory _value, bytes[] memory _data, bool[] memory _revertIfFail) public
-    {
-        require(_to.length == _data.length && _data.length == _revertIfFail.length && _revertIfFail.length == _value.length,
-        "All arrays must have the same length");
+    /// @param _metaTxList A list of revertable meta-transactions
+    function batch(RevertableMetaTx[] memory _metaTxList) public {
 
-        for(uint i=0; i<_to.length; i++) {
-            (bool success,) = _to[i].call.value(_value[i])(_data[i]);
-            if(_revertIfFail[i]) {
-                require(success, "Forwarding call failed.");
+        for(uint i=0; i<_metaTxList.length; i++) {
+            bool success = forwardCall(_metaTxList[i].to, _metaTxList[i].value, _metaTxList[i].data);
+
+            // Should we fail on revert?
+            if(_metaTxList[i].revertOnFail) {
+                require(success, "Transaction reverted.");
             }
         }
+
     }
 }
