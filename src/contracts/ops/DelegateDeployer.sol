@@ -1,12 +1,10 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "../account/MsgSender.sol";
-
 // A delegate deployer that reverts upon failure
 // and emits the address if successful.
 // @author Patrick McCorry
-contract DelegateDeployer is MsgSender {
+contract DelegateDeployer {
 
     event Deployed(address _contract);
 
