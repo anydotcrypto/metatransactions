@@ -40,10 +40,7 @@ export interface ForwardParams {
 
 type RequiredPick<T, TRequired extends keyof T> = T &
   Pick<Required<T>, TRequired>;
-export type RequiredTarget<T extends { target?: string }> = RequiredPick<
-  T,
-  "target"
->;
+export type RequiredTo<T extends { to?: string }> = RequiredPick<T, "to">;
 
 /**
  * Provides common functionality for the RelayHub and the ProxyAccounts.
@@ -65,7 +62,7 @@ export abstract class Forwarder<TParams> {
    * Encodes calldata for the meta-transaction signature.
    * @param data Target contract, calldata, and sometimes value
    */
-  protected abstract getEncodedCallData(data: RequiredTarget<TParams>): string;
+  protected abstract getEncodedCallData(data: RequiredTo<TParams>): string;
 
   /**
    * A meta-transaction includes:
@@ -104,7 +101,7 @@ export abstract class Forwarder<TParams> {
    */
   public async signAndEncodeMetaTransaction(tx: TParams): Promise<MinimalTx> {
     const forwardParams = await this.signMetaTransaction(
-      tx as RequiredTarget<TParams>
+      tx as RequiredTo<TParams>
     );
     return await this.encodeSignedMetaTransaction(forwardParams);
   }
@@ -113,7 +110,7 @@ export abstract class Forwarder<TParams> {
    * Takes care of replay protection and signs a meta-transaction.
    * @param data ProxyAccountCallData or RelayCallData
    */
-  protected async signMetaTransaction(data: RequiredTarget<TParams>) {
+  protected async signMetaTransaction(data: RequiredTo<TParams>) {
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = this.getEncodedCallData(data);
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -146,7 +143,7 @@ export abstract class Forwarder<TParams> {
    */
   protected abstract async getForwardParams(
     to: string,
-    data: RequiredTarget<TParams>,
+    data: RequiredTo<TParams>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams>;

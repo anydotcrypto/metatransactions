@@ -4,14 +4,14 @@ import { RelayHub, ChainID, RelayHubFactory } from "../..";
 import {
   ForwardParams,
   Forwarder,
-  RequiredTarget,
+  RequiredTo,
   CallType,
   MinimalTx,
 } from "./forwarder";
 import { Signer } from "ethers";
 
 export interface RelayHubCallData {
-  target: string;
+  to: string;
   data: string;
 }
 
@@ -47,10 +47,10 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    * Standard encoding for contract call data
    * @param data Target contract and the desired calldata
    */
-  protected getEncodedCallData(data: RequiredTarget<RelayHubCallData>) {
+  protected getEncodedCallData(data: RequiredTo<RelayHubCallData>) {
     return defaultAbiCoder.encode(
       ["uint", "address", "bytes"],
-      [CallType.CALL, data.target, data.data]
+      [CallType.CALL, data.to, data.data]
     );
   }
 
@@ -64,14 +64,14 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
    */
   protected async getForwardParams(
     to: string,
-    data: RequiredTarget<RelayHubCallData>,
+    data: RequiredTo<RelayHubCallData>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {
     return {
       to,
       signer: await this.signer.getAddress(),
-      target: data.target,
+      target: data.to,
       value: "0",
       data: data.data,
       callType: CallType.CALL,
@@ -93,7 +93,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
 
     for (const data of dataList) {
       metaTxList.push({
-        target: data.target,
+        to: data.to,
         data: data.data,
         revertOnFail: data.revertOnFail ? data.revertOnFail : false,
       });
@@ -102,7 +102,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     // Prepare the meta-transaction & sign it
     const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedCallData = defaultAbiCoder.encode(
-      ["uint", "tuple(address target, bytes data, bool revertOnFail)[]"],
+      ["uint", "tuple(address to, bytes data, bool revertOnFail)[]"],
       [CallType.BATCH, metaTxList]
     );
     const encodedMetaTx = this.encodeMetaTransactionToSign(
@@ -137,7 +137,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     return {
       to: params.to,
       data: this.relayHub.interface.functions.forward.encode([
-        { target: params.target, data: params.data },
+        { to: params.target, data: params.data },
         params.replayProtection,
         params.replayProtectionAuthority,
         params.signer,

@@ -58,12 +58,7 @@ describe("DelegateDeployer", () => {
 
       const deployTx = delegateDeployer.deploy(initCode, 0, salt);
 
-      await expect(deployTx)
-        .to.emit(
-          delegateDeployer,
-          delegateDeployer.interface.events.Deployed.name
-        )
-        .withArgs(echoAddress);
+      await deployTx;
 
       const echoContract = new EchoFactory(admin).attach(echoAddress);
 
@@ -94,12 +89,7 @@ describe("DelegateDeployer", () => {
 
       const deployTx = delegateDeployer.deploy(initCode, 0, salt);
 
-      await expect(deployTx)
-        .to.emit(
-          delegateDeployer,
-          delegateDeployer.interface.events.Deployed.name
-        )
-        .withArgs(echoAddress);
+      await deployTx;
 
       const deployTx2 = delegateDeployer.deploy(initCode, 0, salt);
 

@@ -6,8 +6,6 @@ pragma experimental ABIEncoderV2;
 // @author Patrick McCorry
 contract DelegateDeployer {
 
-    event Deployed(address _contract);
-
     /// Note: This function is intended for DELEGATECALL.
     /// If you use CALL instead of DELEGATECALL, then:
     /// - constructor cannot use msg.sender (pass owner as constructor or use init())
@@ -16,7 +14,7 @@ contract DelegateDeployer {
     /// @param _initCode Bytecode for deployment
     /// @param _value Specify coins to deploy with.
     /// @param _salt Hash of extra data.
-    function deploy(bytes memory _initCode, uint _value, bytes32 _salt) public payable
+    function deploy(bytes memory _initCode, uint _value, bytes32 _salt) public payable returns(address)
     {
         address addr;
 
@@ -25,6 +23,6 @@ contract DelegateDeployer {
         }
 
         require(addr != address(0), "CREATE2 failed to deploy.");
-        emit Deployed(addr);
+        return addr;
     }
 }

@@ -7,8 +7,7 @@ import "./IReplayProtectionAuthority.sol";
 contract ReplayProtection {
     mapping(bytes32 => uint256) public nonceStore;
 
-    event Bitflip(uint bitmap, uint bitToFlip);
-    event MultiNonce(uint queue, uint nonce);
+    event ReplayProtectionInfo(address _replayProtectionAuthority, bytes _replayProtection);
 
     address constant public multiNonceAddress = 0x0000000000000000000000000000000000000000;
     address constant public bitFlipAddress = 0x0000000000000000000000000000000000000001;
@@ -52,6 +51,8 @@ contract ReplayProtection {
             require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
         }
 
+        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection);
+
         return signer;
     }
 
@@ -83,9 +84,6 @@ contract ReplayProtection {
         bytes32 index = queueIndex(_signer, queue, multiNonceAddress);
         uint256 storedNonce = nonceStore[index];
 
-        // Easy to read.
-        emit MultiNonce(queue, storedNonce);
-
         // Increment stored nonce by one...
         if(queueNonce == storedNonce) {
             nonceStore[index] = storedNonce + 1;
@@ -111,9 +109,6 @@ contract ReplayProtection {
         // Combine with msg.sender to get unique indexes per caller
         bytes32 index = queueIndex(_signer, queue, bitFlipAddress);
         uint256 currentBitmap = nonceStore[index];
-
-        // Easy to read.
-        emit Bitflip(currentBitmap, bitsToFlip);
 
         // This is an AND operation, so if the bitmap
         // and the bitsToFlip share no common "1" bits,

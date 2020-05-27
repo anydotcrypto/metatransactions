@@ -54,6 +54,8 @@ export { DelegateDeployer } from "./typedContracts/DelegateDeployer";
 export { DelegateDeployerFactory } from "./typedContracts/DelegateDeployerFactory";
 export { CallWrapper } from "./typedContracts/CallWrapper";
 export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
+export { RevertMessageTester } from "./typedContracts/RevertMessageTester";
+export { RevertMessageTesterFactory } from "./typedContracts/RevertMessageTesterFactory";
 
 export { MultiSender } from "./ts/batch/MultiSend";
 

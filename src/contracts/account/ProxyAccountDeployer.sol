@@ -2,28 +2,19 @@ pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "./ReplayProtection.sol";
-import "./ContractCall.sol";
+import "../ops/BatchInternal.sol";
 
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ProxyAccount is ReplayProtection, ContractCall {
+contract ProxyAccount is ReplayProtection, BatchInternal {
 
     address public owner;
-    event Deployed(address owner, address addr);
-    event Revert(string reason);
 
     struct MetaTx {
-        address target;
+        address to;
         uint value;
         bytes data;
-    }
-
-    struct RevertableMetaTx {
-        address target;
-        uint value;
-        bytes data;
-        bool revertOnFail;
         CallType callType;
     }
 
@@ -37,7 +28,7 @@ contract ProxyAccount is ReplayProtection, ContractCall {
 
     /**
      * We check the signature has authorised the call before executing it.
-     * @param _metaTx A single meta-transaction that includes target, value and data
+     * @param _metaTx A single meta-transaction that includes to, value and data
      * @param _replayProtection Replay protection
      * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
@@ -46,37 +37,33 @@ contract ProxyAccount is ReplayProtection, ContractCall {
         MetaTx memory _metaTx,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
-        bytes memory _signature) public returns (bool) {
+        bytes memory _signature) public returns (bool, bytes memory) {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(CallType.CALL, _metaTx.target, _metaTx.value, _metaTx.data);
+        bytes memory encodedData = abi.encode(_metaTx.callType, _metaTx.to, _metaTx.value, _metaTx.data);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
-        return forwardCall(_metaTx.target, _metaTx.value, _metaTx.data); // We do not want this to revert. Save the replay protection 
-    }
+        require(_metaTx.callType == CallType.CALL || _metaTx.callType == CallType.DELEGATE, "Signer did not pick a valid calltype");
 
-    /**
-     * We check the signature has authorised the call before executing it.
-     * WARNING: Be VERY VERY VERY cautious of contracts that can modify / store state. 
-     * Intended use is when msg.sender is required for code execution (e.g. CREATE2). 
-     * @param _metaTx A single meta-transaction that includes target, value and data
-     * @param _replayProtection Replay protection
-     * @param _replayProtectionAuthority Address of external replay protection
-     * @param _signature Signature from signer
-     */
-    function delegate(
-        MetaTx memory _metaTx,
-        bytes memory _replayProtection,
-        address _replayProtectionAuthority,
-        bytes memory _signature) public returns(bool) {
+        bool success;
+        bytes memory returnData;
 
-        // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(CallType.DELEGATE, _metaTx.target, _metaTx.value, _metaTx.data);
+        if(_metaTx.callType == CallType.CALL) {
+            (success, returnData) = _metaTx.to.call{value: _metaTx.value}(abi.encodePacked(_metaTx.data));
+        } 
+        
+        // WARNING: Delegatecall can over-write storage in this contract.
+        // Be VERY careful.
+        if(_metaTx.callType == CallType.DELEGATE) {
+            (success, returnData) = _metaTx.to.delegatecall(abi.encodePacked(_metaTx.data));
+        } 
 
-        // // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
-        return delegate(_metaTx.target, _metaTx.data); // We do not want this to revert. Save the replay protection 
+        if(!success) {
+            emitRevert(returnData);
+        }
+
+        return (success, returnData);
     }
 
     /**
@@ -98,23 +85,9 @@ contract ProxyAccount is ReplayProtection, ContractCall {
         // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
-        // Go through each revertable meta transaction and/or meta-deployment.
-        for(uint i=0; i<_metaTxList.length; i++) {
-
-            bool success = false; 
-
-            if(_metaTxList[i].callType == CallType.CALL) {
-                success = forwardCall(_metaTxList[i].target, _metaTxList[i].value, _metaTxList[i].data);
-            } else if(_metaTxList[i].callType == CallType.DELEGATE) {
-                success = delegate(_metaTxList[i].target, _metaTxList[i].data);
-            }
-
-            // Should we fail on revert?
-            if(_metaTxList[i].revertOnFail) {
-                require(success, "Transaction reverted.");  
-            }
-        }
-
+        // Runs the batch function in MultiSend.
+        // It supports CALL and DELEGATECALL.
+        batchInternal(_metaTxList);
     }
 
     /**

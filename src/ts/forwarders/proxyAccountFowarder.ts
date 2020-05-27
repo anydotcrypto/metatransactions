@@ -18,7 +18,7 @@ import {
   ForwardParams,
   Forwarder,
   MinimalTx,
-  RequiredTarget,
+  RequiredTo,
   CallType,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
@@ -35,7 +35,7 @@ import { Signer } from "ethers";
 import { DelegateDeployerFactory } from "../../typedContracts/DelegateDeployerFactory";
 
 export interface ProxyAccountCallData {
-  target: string;
+  to: string;
   value?: BigNumberish;
   data?: string;
   callType?: CallType;
@@ -98,12 +98,12 @@ export class ProxyAccountForwarder extends Forwarder<
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
-  protected getEncodedCallData(data: RequiredTarget<ProxyAccountCallData>) {
+  protected getEncodedCallData(data: RequiredTo<ProxyAccountCallData>) {
     return defaultAbiCoder.encode(
       ["uint", "address", "uint", "bytes"],
       [
         data.callType ? data.callType : CallType.CALL,
-        data.target,
+        data.to,
         data.value ? data.value : 0,
         data.data ? data.data : "0x",
       ]
@@ -137,26 +137,20 @@ export class ProxyAccountForwarder extends Forwarder<
     params: ForwardParams
   ): Promise<MinimalTx> {
     const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
-    let callData;
 
-    if (params.callType == CallType.DELEGATE) {
-      callData = proxyAccount.interface.functions.delegate.encode([
-        { target: params.target, value: params.value, data: params.data },
-        params.replayProtection,
-        params.replayProtectionAuthority,
-        params.signature,
-      ]);
-    } else {
-      // We assume it is a CALL - safe default.
-      callData = proxyAccount.interface.functions.forward.encode([
-        { target: params.target, value: params.value, data: params.data },
-        params.replayProtection,
-        params.replayProtectionAuthority,
-        params.signature,
-      ]);
-    }
+    const data = proxyAccount.interface.functions.forward.encode([
+      {
+        to: params.target,
+        value: params.value,
+        data: params.data,
+        callType: params.callType,
+      },
+      params.replayProtection,
+      params.replayProtectionAuthority,
+      params.signature,
+    ]);
 
-    return { to: params.to, data: callData, value: params.value };
+    return { to: params.to, data: data, value: params.value };
   }
 
   /**
@@ -171,7 +165,7 @@ export class ProxyAccountForwarder extends Forwarder<
 
     for (const data of dataList) {
       metaTxList.push({
-        target: data.target,
+        to: data.to,
         value: data.value ? data.value : 0,
         data: data.data ? data.data : "0x",
         callType: data.callType ? data.callType : CallType.CALL,
@@ -184,7 +178,7 @@ export class ProxyAccountForwarder extends Forwarder<
     const encodedCallData = defaultAbiCoder.encode(
       [
         "uint",
-        "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
+        "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
       ],
       [CallType.BATCH, metaTxList]
     );
@@ -235,7 +229,7 @@ export class ProxyAccountForwarder extends Forwarder<
     ]);
 
     const tx = {
-      target: DELEGATE_DEPLOYER_ADDRESS,
+      to: DELEGATE_DEPLOYER_ADDRESS,
       data: data,
       callType: CallType.DELEGATE,
     };
@@ -266,7 +260,7 @@ export class ProxyAccountForwarder extends Forwarder<
     ]);
 
     const tx = {
-      target: DELEGATE_DEPLOYER_ADDRESS,
+      to: DELEGATE_DEPLOYER_ADDRESS,
       data: data,
       callType: CallType.DELEGATE,
     };
@@ -285,14 +279,14 @@ export class ProxyAccountForwarder extends Forwarder<
    */
   protected async getForwardParams(
     to: string,
-    data: RequiredTarget<ProxyAccountCallData>,
+    data: RequiredTo<ProxyAccountCallData>,
     replayProtection: string,
     signature: string
   ): Promise<ForwardParams> {
     return {
       to,
       signer: await this.signer.getAddress(),
-      target: data.target,
+      target: data.to,
       value: data.value ? data.value.toString() : "0",
       data: data.data ? data.data : "0x",
       callType: data.callType ? data.callType : CallType.CALL,

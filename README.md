@@ -132,7 +132,7 @@ if (!isProxyDeployed) {
     // For our example we mimic the relayer API with a relayer wallet.
     const proxyTx = await relayer.sendTransaction({
       to: minimalTx.to,
-      data: minimalTx.callData,
+      data: minimalTx.data,
     });
 
     // Wait 1 block confirmation
@@ -144,20 +144,20 @@ You must supply the following information:
 
 - **Target** contract's address,
 - **Value** to be sent (in wei)
-- **Calldata** the function name and its arguments
+- **Data** the function name and its arguments
 
 Once you have settled on the message to echo, you can use this code sample to authorise the meta-transaction:
 
 ```
-// Fetch the contract and the calldata.
+// Fetch the contract and the data.
 const echo = new EchoFactory(user).attach("");
-const callData = echo.interface.functions.submit.encode(["hello"]);
+const data = echo.interface.functions.submit.encode(["hello"]);
 
 // Sign the meta transaction & encode it.
 const metaTx = await forwarder.signAndEncodeMetaTransaction({
     target: echo.address,
     value: "0",
-    data: callData,
+    data: data,
 });
 
 const submitTicketTx = await relayer.sendTransaction({
@@ -216,12 +216,12 @@ There is a single function for authorising a meta-transaction:
 
 ```
 const echoAddress = "0x...";
-const callData = echoContract.interface.functions.sendMessage.encode([
+const data = echoContract.interface.functions.sendMessage.encode([
   "any.sender is nice",
 ]);
 const metaTx = await proxyAccount.signAndEncodeMetaTransaction({
   target: echoAddress,
-  data: callData,
+  data: data,
   value: "0:"
 });
 ```
@@ -262,13 +262,13 @@ You need to prepare a list of transactions to use in the batch:
 const metaTxList = [{
   target: msgSenderCon.address,
   value: 0,
-  callData: callData,
+  data: data,
   revertOnFail: true,
 },
 {
   target: echoCon.address,
   value: 0,
-  callData: callData,
+  data: data,
   reverrtOnFail: false,
 }];
 ```

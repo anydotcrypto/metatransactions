@@ -70,7 +70,7 @@ describe("End to End Library to Contract", () => {
         for (let i = 0; i < 10; i++) {
           // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            target: msgSenderCon.address,
+            to: msgSenderCon.address,
             data: msgSenderCall,
           });
           const flippedBit = flipBit(new BigNumber("0"), new BigNumber(i));
@@ -137,7 +137,7 @@ describe("End to End Library to Contract", () => {
         for (let i = 0; i < 10; i++) {
           // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            target: msgSenderCon.address,
+            to: msgSenderCon.address,
             value: new BigNumber("0"),
             data: msgSenderCall,
           });
@@ -193,7 +193,7 @@ describe("End to End Library to Contract", () => {
         for (let i = 0; i < 10; i++) {
           // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            target: msgSenderCon.address,
+            to: msgSenderCon.address,
             data: msgSenderCall,
           });
 
@@ -259,7 +259,7 @@ describe("End to End Library to Contract", () => {
         for (let i = 0; i < 10; i++) {
           // @ts-ignore
           const params = await forwarder.signMetaTransaction({
-            target: msgSenderCon.address,
+            to: msgSenderCon.address,
             value: new BigNumber("0"),
             data: msgSenderCall,
           });
@@ -332,7 +332,7 @@ describe("End to End Library to Contract", () => {
           for (let j = 0; j < queues; j++) {
             // @ts-ignore
             const params = await forwarder.signMetaTransaction({
-              target: msgSenderCon.address,
+              to: msgSenderCon.address,
               value: new BigNumber("0"),
               data: msgSenderCall,
             });
@@ -388,7 +388,7 @@ describe("End to End Library to Contract", () => {
           for (let j = 0; j < queues; j++) {
             // @ts-ignore
             const params = await forwarder.signMetaTransaction({
-              target: msgSenderCon.address,
+              to: msgSenderCon.address,
               data: msgSenderCall,
             });
 

@@ -1,11 +1,11 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "../account/ContractCall.sol";
+import "../account/RevertMessage.sol";
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract CallWrapper is ContractCall {
+contract CallWrapper is RevertMessage {
 
     /**
      * Delegate calls into the target contract. Useful for adding functionality to the proxy.

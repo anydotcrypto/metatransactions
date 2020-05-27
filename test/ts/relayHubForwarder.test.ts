@@ -72,7 +72,7 @@ describe("RelayHub Forwarder", () => {
 
     // @ts-ignore
     const forwardParams = await forwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       data: callData,
     });
 
@@ -117,7 +117,7 @@ describe("RelayHub Forwarder", () => {
 
     // @ts-ignore
     const forwardParams = await forwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       data: callData,
     });
 
@@ -163,7 +163,7 @@ describe("RelayHub Forwarder", () => {
     const callData = msgSenderExample.interface.functions.test.encode([]);
     // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       data: callData,
     });
 
@@ -200,7 +200,7 @@ describe("RelayHub Forwarder", () => {
       for (let i = 0; i < 256; i++) {
         // @ts-ignore
         const forwardParams = await proxyForwarder.signMetaTransaction({
-          target: msgSenderExample.address,
+          to: msgSenderExample.address,
           data: callData,
         });
 
@@ -245,7 +245,7 @@ describe("RelayHub Forwarder", () => {
 
     //@ts-ignore
     const encoded = forwarder.getEncodedCallData({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });
@@ -272,7 +272,7 @@ describe("RelayHub Forwarder", () => {
     const callData = msgSenderExample.interface.functions.test.encode([]);
 
     const metaTxList = [
-      { target: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
     ];
 
     const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
@@ -303,7 +303,7 @@ describe("RelayHub Forwarder", () => {
     const callData = msgSenderExample.interface.functions.test.encode([]);
 
     const metaTxList = [
-      { target: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
     ];
 
     const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
@@ -335,8 +335,8 @@ describe("RelayHub Forwarder", () => {
     const echoData = echoCon.interface.functions.sendMessage.encode(["hello"]);
 
     const metaTxList = [
-      { target: msgSenderExample.address, data: callData, revertOnFail: false },
-      { target: echoCon.address, data: echoData, revertOnFail: false },
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: echoCon.address, data: echoData, revertOnFail: false },
     ];
 
     const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
@@ -375,8 +375,8 @@ describe("RelayHub Forwarder", () => {
     const echoData = echoCon.interface.functions.sendMessage.encode(["hello"]);
 
     const metaTxList = [
-      { target: msgSenderExample.address, data: callData, revertOnFail: false },
-      { target: echoCon.address, data: echoData, revertOnFail: false },
+      { to: msgSenderExample.address, data: callData, revertOnFail: false },
+      { to: echoCon.address, data: echoData, revertOnFail: false },
     ];
 
     const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
@@ -412,8 +412,8 @@ describe("RelayHub Forwarder", () => {
     const echoData = echoCon.interface.functions.sendMessage.encode(["hello"]);
 
     const metaTxList = [
-      { target: echoCon.address, data: echoData, revertOnFail: false },
-      { target: msgSenderExample.address, data: callData, revertOnFail: true },
+      { to: echoCon.address, data: echoData, revertOnFail: false },
+      { to: msgSenderExample.address, data: callData, revertOnFail: true },
     ];
 
     const minimaltx = await forwarder.signAndEncodeBatchTransaction(metaTxList);

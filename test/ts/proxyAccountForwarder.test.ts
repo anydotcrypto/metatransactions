@@ -112,7 +112,7 @@ describe("Proxy Account Forwarder", () => {
 
     // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });
@@ -167,7 +167,7 @@ describe("Proxy Account Forwarder", () => {
     const callData = msgSenderExample.interface.functions.test.encode([]);
     // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber(0),
       data: callData,
     });
@@ -229,7 +229,7 @@ describe("Proxy Account Forwarder", () => {
 
     // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });
@@ -286,7 +286,7 @@ describe("Proxy Account Forwarder", () => {
       for (let i = 0; i < 256; i++) {
         // @ts-ignore
         const forwardParams = await proxyForwarder.signMetaTransaction({
-          target: msgSenderExample.address,
+          to: msgSenderExample.address,
           value: new BigNumber(i + j),
           data: callData,
         });
@@ -450,11 +450,12 @@ describe("Proxy Account Forwarder", () => {
 
     // All deployments are performed via the proxy account directly.
     const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
-    const tx = await proxyAccount.delegate(
+    const tx = await proxyAccount.forward(
       {
-        target: deploymentParams.target,
+        to: deploymentParams.target,
         value: deploymentParams.value,
         data: deploymentParams.data,
+        callType: deploymentParams.callType,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
@@ -518,11 +519,12 @@ describe("Proxy Account Forwarder", () => {
       value: parseEther("1"),
     });
 
-    await proxyAccount.delegate(
+    await proxyAccount.forward(
       {
-        target: deploymentParams.target,
+        to: deploymentParams.target,
         value: deploymentParams.value,
         data: deploymentParams.data,
+        callType: deploymentParams.callType,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
@@ -568,25 +570,19 @@ describe("Proxy Account Forwarder", () => {
       initCode,
       extraData
     );
-    const tx1 = proxyAccount.delegate(
+    const tx1 = proxyAccount.forward(
       {
-        target: deploymentParams.target,
+        to: deploymentParams.target,
         value: deploymentParams.value,
         data: deploymentParams.data,
+        callType: deploymentParams.callType,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
       deploymentParams.signature
     );
 
-    // await tx1;
-    const deployer = new DelegateDeployerFactory(admin).attach(
-      DELEGATE_DEPLOYER_ADDRESS
-    );
-
-    await expect(tx1)
-      .to.emit(deployer, deployer.interface.events.Deployed.name)
-      .withArgs(msgSenderExampleAddress);
+    await tx1;
 
     const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
       msgSenderExampleAddress
@@ -608,11 +604,12 @@ describe("Proxy Account Forwarder", () => {
       0,
       extraData
     );
-    const tx2 = proxyAccount.delegate(
+    const tx2 = proxyAccount.forward(
       {
-        target: deploymentParams.target,
+        to: deploymentParams.target,
         value: deploymentParams.value,
         data: deploymentParams.data,
+        callType: deploymentParams.callType,
       },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
@@ -649,7 +646,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const metaTx = await forwarder.signAndEncodeMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("0"),
       data: msgSenderExampleData,
     });
@@ -694,7 +691,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const metaTx = await forwarder.signAndEncodeMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("0"),
       data: msgSenderExampleData,
     });
@@ -733,7 +730,7 @@ describe("Proxy Account Forwarder", () => {
     const callData = msgSenderExample.interface.functions.test.encode([]);
     // @ts-ignore
     const forwardParams = await forwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       data: callData,
     });
     // @ts-ignore
@@ -784,10 +781,10 @@ describe("Proxy Account Forwarder", () => {
 
     const minimalTx = await forwarder.signAndEncodeBatchTransaction([
       {
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         data: callData,
       },
-      { target: echo.address, data: echoData },
+      { to: echo.address, data: echoData },
     ]);
 
     const tx = admin.sendTransaction({

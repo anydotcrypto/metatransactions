@@ -71,7 +71,7 @@ describe("Forwarder Factory", () => {
     for (let i = 0; i < 10; i++) {
       // @ts-ignore
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         data: callData,
       });
 
@@ -113,7 +113,7 @@ describe("Forwarder Factory", () => {
     for (let i = 0; i < 10; i++) {
       // @ts-ignore
       const forwardParams = await relayForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         data: callData,
       });
 
@@ -154,7 +154,7 @@ describe("Forwarder Factory", () => {
 
     // @ts-ignore
     const forwardParams = await relayForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       data: callData,
     });
 
@@ -198,7 +198,7 @@ describe("Forwarder Factory", () => {
     for (let i = 0; i < 10; i++) {
       // @ts-ignore
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         value: new BigNumber("10"),
         data: callData,
       });
@@ -250,7 +250,7 @@ describe("Forwarder Factory", () => {
     for (let i = 0; i < 10; i++) {
       // @ts-ignore
       const forwardParams = await proxyForwarder.signMetaTransaction({
-        target: msgSenderExample.address,
+        to: msgSenderExample.address,
         value: new BigNumber("10"),
         data: callData,
       });
@@ -301,7 +301,7 @@ describe("Forwarder Factory", () => {
 
     // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
-      target: msgSenderExample.address,
+      to: msgSenderExample.address,
       value: new BigNumber("10"),
       data: callData,
     });

@@ -30,6 +30,7 @@ import {
   BitFlipReplayProtection,
   deployMetaTxContracts,
   EchoFactory,
+  RevertMessageTesterFactory,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -229,19 +230,22 @@ describe("ProxyAccountDeployer", () => {
 
       // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
         data: msgSenderCall,
       });
 
-      const tx = proxyAccount
-        .connect(sender)
-        .forward(
-          { target: params.target, value: params.value, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signature
-        );
+      const tx = proxyAccount.connect(sender).forward(
+        {
+          to: params.target,
+          value: params.value,
+          data: params.data,
+          callType: CallType.CALL,
+        },
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signature
+      );
 
       await expect(tx)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
@@ -267,9 +271,10 @@ describe("ProxyAccountDeployer", () => {
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
       // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
         data: msgSenderCall,
+        callType: CallType.CALL,
       });
 
       // @ts-ignore
@@ -345,9 +350,10 @@ describe("ProxyAccountDeployer", () => {
       const proxyAddress = getCreate2Address(options);
       // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
         data: msgSenderCall,
+        callType: CallType.CALL,
       });
 
       // @ts-ignore
@@ -402,8 +408,9 @@ describe("ProxyAccountDeployer", () => {
       );
 
       const minimalTxNoMessage = await forwarder.signAndEncodeMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         data: revertNoMessageCallData,
+        callType: CallType.CALL,
       });
 
       const tx1 = sender.sendTransaction({
@@ -421,7 +428,7 @@ describe("ProxyAccountDeployer", () => {
 
       const minimalTxWithMessage = await forwarder.signAndEncodeMetaTransaction(
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           data: revertCallDataLongMessage,
         }
       );
@@ -477,7 +484,7 @@ describe("ProxyAccountDeployer", () => {
 
       const minimalTxWithMessage = await forwarder.signAndEncodeMetaTransaction(
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           data: revertCallDataLongMessage,
         }
       );
@@ -533,7 +540,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       const minimalTxNoMessage = await forwarder.signAndEncodeMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         data: revertNoMessageCallData,
       });
 
@@ -549,7 +556,7 @@ describe("ProxyAccountDeployer", () => {
       for (let i = 0; i < 10; i++) {
         // @ts-ignore
         const params = await forwarder.signMetaTransaction({
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           value: new BigNumber("0"),
           data: msgSenderCall,
         });
@@ -590,7 +597,7 @@ describe("ProxyAccountDeployer", () => {
       // Replay protection is always reset due to fixture. So it should be [0.0].
       // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
         data: msgSenderCall,
       });
@@ -599,14 +606,17 @@ describe("ProxyAccountDeployer", () => {
         forwarder.address
       );
 
-      const tx = proxyAccount
-        .connect(sender)
-        .forward(
-          { target: params.target, value: params.value, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          "0x0000000000000000000000000000000000000000"
-        );
+      const tx = proxyAccount.connect(sender).forward(
+        {
+          to: params.target,
+          value: params.value,
+          data: params.data,
+          callType: CallType.CALL,
+        },
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        "0x0000000000000000000000000000000000000000"
+      );
 
       await expect(tx).to.revertedWith(
         "Owner did not sign this meta-transaction."
@@ -630,9 +640,10 @@ describe("ProxyAccountDeployer", () => {
       await proxyDeployer.connect(sender).createProxyAccount(owner.address);
       // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         value: new BigNumber("0"),
         data: msgSenderCall,
+        callType: CallType.CALL,
       });
 
       params.callType = CallType.DELEGATE;
@@ -651,7 +662,7 @@ describe("ProxyAccountDeployer", () => {
   );
 
   fnIt<accountFunctions>(
-    (a) => a.delegate,
+    (a) => a.forward,
     "deploys a contract via the proxy account",
     async () => {
       const { proxyDeployer, owner, sender } = await loadFixture(
@@ -680,14 +691,17 @@ describe("ProxyAccountDeployer", () => {
       // @ts-ignore
       const params = await forwarder.signMetaDeployment(initCode, 0, "0x123");
 
-      await proxyAccount
-        .connect(sender)
-        .delegate(
-          { target: params.target, value: params.value, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signature
-        );
+      await proxyAccount.connect(sender).forward(
+        {
+          to: params.target,
+          value: params.value,
+          data: params.data,
+          callType: CallType.DELEGATE,
+        },
+        params.replayProtection,
+        params.replayProtectionAuthority,
+        params.signature
+      );
 
       const msgSenderExampleAddress = getCreate2Address({
         from: forwarder.address,
@@ -711,7 +725,7 @@ describe("ProxyAccountDeployer", () => {
   );
 
   fnIt<accountFunctions>(
-    (a) => a.delegate,
+    (a) => a.forward,
     "deploys an encoded metadeployment via a proxy account",
     async () => {
       const { proxyDeployer, owner, sender } = await loadFixture(
@@ -766,7 +780,7 @@ describe("ProxyAccountDeployer", () => {
   );
 
   fnIt<accountFunctions>(
-    (a) => a.delegate,
+    (a) => a.forward,
     "into a contract's function that reverts. We should catch the revert message.",
     async () => {
       const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
@@ -787,7 +801,7 @@ describe("ProxyAccountDeployer", () => {
 
       // Deploy the proxy using CREATE2
       const encodedData = await forwarder.signAndEncodeMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         data: revertCallDataLongMessage,
         callType: CallType.DELEGATE,
       });
@@ -810,7 +824,7 @@ describe("ProxyAccountDeployer", () => {
   );
 
   fnIt<accountFunctions>(
-    (a) => a.delegate,
+    (a) => a.forward,
     "send the same meta-transaction twice and it should fail.",
     async () => {
       const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
@@ -829,7 +843,7 @@ describe("ProxyAccountDeployer", () => {
 
       // Deploy the proxy using CREATE2
       const encodedData = await forwarder.signAndEncodeMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         data: callData,
         callType: CallType.DELEGATE,
       });
@@ -855,7 +869,7 @@ describe("ProxyAccountDeployer", () => {
   );
 
   fnIt<accountFunctions>(
-    (a) => a.delegate,
+    (a) => a.forward,
     "set CallType.CALL, but invoke delegate. It should not recognise the signature.",
     async () => {
       const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
@@ -875,7 +889,7 @@ describe("ProxyAccountDeployer", () => {
       // Deploy the proxy using CREATE2
       // @ts-ignore
       const params = await forwarder.signMetaTransaction({
-        target: msgSenderCon.address,
+        to: msgSenderCon.address,
         data: testData,
       });
 
@@ -925,7 +939,7 @@ describe("ProxyAccountDeployer", () => {
 
       const metaTxList = [
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           value: 0,
           data: callData,
           revertOnFail: false,
@@ -937,7 +951,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1008,7 +1022,7 @@ describe("ProxyAccountDeployer", () => {
 
       const metaTxList = [
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           value: 0,
           data: callData,
           revertOnFail: false,
@@ -1020,7 +1034,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1096,7 +1110,7 @@ describe("ProxyAccountDeployer", () => {
 
       const metaTxList = [
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           value: 0,
           data: callData,
           revertOnFail: true,
@@ -1108,7 +1122,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1178,14 +1192,14 @@ describe("ProxyAccountDeployer", () => {
 
       const metaTxList = [
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           value: 0,
           data: callData,
           revertOnFail: true,
           callType: CallType.CALL,
         },
         {
-          target: echoCon.address,
+          to: echoCon.address,
           value: 0,
           data: echoData,
           revertOnFail: true,
@@ -1197,7 +1211,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1272,14 +1286,14 @@ describe("ProxyAccountDeployer", () => {
 
       const metaTxList = [
         {
-          target: msgSenderCon.address,
+          to: msgSenderCon.address,
           value: 0,
           data: callData,
           revertOnFail: true,
           callType: CallType.DELEGATE,
         },
         {
-          target: echoCon.address,
+          to: echoCon.address,
           value: 0,
           data: echoData,
           revertOnFail: true,
@@ -1291,7 +1305,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedCallData = defaultAbiCoder.encode(
         [
           "uint",
-          "tuple(address target, uint value, bytes data, bool revertOnFail, uint callType)[]",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
         ],
         [CallType.BATCH, metaTxList]
       );
@@ -1331,4 +1345,51 @@ describe("ProxyAccountDeployer", () => {
       expect(lastMessage).to.eq("hello");
     }
   ).timeout(500000);
+
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "check the returndata of the proxy contract",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+
+      // @ts-ignore
+      const params = await forwarder.signMetaTransaction({
+        to: msgSenderCon.address,
+        value: new BigNumber("0"),
+        data: msgSenderCall,
+        callType: CallType.CALL,
+      });
+
+      // @ts-ignore
+      const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
+
+      const revertMessageTester = await new RevertMessageTesterFactory(
+        sender
+      ).deploy();
+
+      const tx = revertMessageTester.testCallNoRevert(
+        minimalTx.to,
+        minimalTx.data
+      );
+
+      await expect(tx)
+        .to.emit(
+          revertMessageTester,
+          revertMessageTester.interface.events.Info.name
+        )
+        .withArgs(
+          "0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000"
+        );
+    }
+  );
 });
