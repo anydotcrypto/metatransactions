@@ -19,7 +19,7 @@ import { Wallet } from "ethers/wallet";
 import {
   ChainID,
   ReplayProtectionType,
-  ForwarderFactory
+  ForwarderFactory,
 } from "../../src/ts/forwarders/forwarderFactory";
 
 const expect = chai.expect;
@@ -392,7 +392,7 @@ describe("RelayHubForwarderFactory", () => {
     );
   });
 
-  it("does not cache accross chains", async () => {
+  it("does not cache across chains", async () => {
     const { user1 } = await loadFixture(getUser);
     await doesNotCache(
       new RelayHubForwarderFactory(),
@@ -405,7 +405,7 @@ describe("RelayHubForwarderFactory", () => {
     );
   });
 
-  it("does not cache accross replay protections", async () => {
+  it("does not cache across replay protections", async () => {
     const { user1 } = await loadFixture(getUser);
     await doesNotCache(
       new RelayHubForwarderFactory(),
@@ -418,7 +418,7 @@ describe("RelayHubForwarderFactory", () => {
     );
   });
 
-  it("does not cache accross wallets", async () => {
+  it("does not cache across wallets", async () => {
     const { user1, user2 } = await loadFixture(getUser);
     await doesNotCache(
       new RelayHubForwarderFactory(),
@@ -429,6 +429,23 @@ describe("RelayHubForwarderFactory", () => {
       ReplayProtectionType.BITFLIP,
       user2
     );
+  });
+
+  it("RelayHub does not cache proxy account", async () => {
+    const { user1 } = await loadFixture(getUser);
+    const forwarder1 = await new RelayHubForwarderFactory().createNew(
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+
+    const forwarder2 = await new ProxyAccountForwarderFactory().createNew(
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+
+    expect(forwarder1).to.not.eq(forwarder2);
   });
 });
 
@@ -443,7 +460,7 @@ describe("ProxyAccountForwarderFactory", () => {
     );
   });
 
-  it("does not cache accross chains", async () => {
+  it("does not cache across chains", async () => {
     const { user1 } = await loadFixture(getUser);
     await doesNotCache(
       new ProxyAccountForwarderFactory(),
@@ -456,7 +473,7 @@ describe("ProxyAccountForwarderFactory", () => {
     );
   });
 
-  it("does not cache accross replay protections", async () => {
+  it("does not cache across replay protections", async () => {
     const { user1 } = await loadFixture(getUser);
     await doesNotCache(
       new ProxyAccountForwarderFactory(),
@@ -469,7 +486,7 @@ describe("ProxyAccountForwarderFactory", () => {
     );
   });
 
-  it("does not cache accross wallets", async () => {
+  it("does not cache across wallets", async () => {
     const { user1, user2 } = await loadFixture(getUser);
     await doesNotCache(
       new ProxyAccountForwarderFactory(),

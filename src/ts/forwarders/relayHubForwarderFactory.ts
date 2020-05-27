@@ -6,10 +6,15 @@ import {
 } from "../..";
 import { Signer } from "ethers";
 import { RELAY_HUB_ADDRESS } from "../../deployment/addresses";
+import { ForwarderType } from "./forwarderFactory";
 
 export class RelayHubForwarderFactory extends ForwarderFactory<
   RelayHubForwarder
 > {
+  public constructor() {
+    super(ForwarderType.RelayHub);
+  }
+
   /**
    * Create a new instance of the forwarder
    * @param chainid MAINNET or ROPSTEN
@@ -27,16 +32,5 @@ export class RelayHubForwarderFactory extends ForwarderFactory<
       RELAY_HUB_ADDRESS,
       this.getReplayProtection(signer, RELAY_HUB_ADDRESS, replayProtectionType)
     );
-  }
-
-  private static cache: Map<string, RelayHubForwarder> = new Map();
-
-  protected cacheForwarder(cacheId: string, forwarder: RelayHubForwarder) {
-    if (!RelayHubForwarderFactory.cache.get(cacheId)) {
-      RelayHubForwarderFactory.cache.set(cacheId, forwarder);
-    }
-  }
-  protected getCachedForwarder(cacheId: string): RelayHubForwarder | undefined {
-    return RelayHubForwarderFactory.cache.get(cacheId);
   }
 }

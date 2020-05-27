@@ -1,11 +1,15 @@
 import { ReplayProtectionType, ChainID, ProxyAccountForwarder } from "../..";
 import { Signer } from "ethers";
-import { ForwarderFactory } from "./forwarderFactory";
+import { ForwarderFactory, ForwarderType } from "./forwarderFactory";
 import { PROXY_ACCOUNT_DEPLOYER_ADDRESS } from "../../deployment/addresses";
 
 export class ProxyAccountForwarderFactory extends ForwarderFactory<
   ProxyAccountForwarder
 > {
+  public constructor() {
+    super(ForwarderType.ProxyAccount);
+  }
+
   /**
    * Create a new instance of the forwarder
    * @param chainid MAINNET or ROPSTEN
@@ -32,18 +36,5 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
         replayProtectionType
       )
     );
-  }
-
-  private static cache: Map<string, ProxyAccountForwarder> = new Map();
-
-  protected cacheForwarder(cacheId: string, forwarder: ProxyAccountForwarder) {
-    if (!ProxyAccountForwarderFactory.cache.get(cacheId)) {
-      ProxyAccountForwarderFactory.cache.set(cacheId, forwarder);
-    }
-  }
-  protected getCachedForwarder(
-    cacheId: string
-  ): ProxyAccountForwarder | undefined {
-    return ProxyAccountForwarderFactory.cache.get(cacheId);
   }
 }
