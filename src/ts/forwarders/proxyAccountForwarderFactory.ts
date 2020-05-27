@@ -12,7 +12,7 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
    * @param replayProtectionType Bitflip, Multinonce or Nonce
    * @param signer Signer's wallet
    */
-  public async createNew(
+  protected async createInternal(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Signer
@@ -32,5 +32,18 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
         replayProtectionType
       )
     );
+  }
+
+  private static cache: Map<string, ProxyAccountForwarder> = new Map();
+
+  protected cacheForwarder(cacheId: string, forwarder: ProxyAccountForwarder) {
+    if (!ProxyAccountForwarderFactory.cache.get(cacheId)) {
+      ProxyAccountForwarderFactory.cache.set(cacheId, forwarder);
+    }
+  }
+  protected getCachedForwarder(
+    cacheId: string
+  ): ProxyAccountForwarder | undefined {
+    return ProxyAccountForwarderFactory.cache.get(cacheId);
   }
 }

@@ -15,16 +15,59 @@ export enum ChainID {
 
 export abstract class ForwarderFactory<D> {
   /**
-   * Create a new instance of the forwarder
-   * @param chainid MAINNET or ROPSTEN
+   * Create a new instance of the forwarder. When a forwarder is created it is cached
+   * for the combination of chainId, replayProtectionType and signer.address. Subsequent calls to create
+   * with the same parameters will return the same forwarder instance.
+   * @param chainId MAINNET or ROPSTEN
    * @param replayProtectionType Replay Protection
    * @param signer Signer's wallet
    */
-  public abstract async createNew(
+  public async createNew(
+    chainId: ChainID,
+    replayProtectionType: ReplayProtectionType,
+    signer: Signer
+  ) {
+    const cacheId = await this.getCacheId(
+      chainId,
+      replayProtectionType,
+      signer
+    );
+    const cachedForwarder = this.getCachedForwarder(cacheId);
+    return (
+      cachedForwarder ||
+      (await this.createInternal(chainId, replayProtectionType, signer))
+    );
+  }
+
+  protected async getCacheId(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Signer
-  ): Promise<D>;
+  ) {
+    return `${chainid}:${replayProtectionType}:${await signer.getAddress()}`;
+  }
+
+  protected abstract getCachedForwarder(cacheId: string): D | undefined;
+  protected abstract cacheForwarder(cacheId: string, forwarder: D): void;
+
+  protected async createInternal(
+    chainid: ChainID,
+    replayProtectionType: ReplayProtectionType,
+    signer: Signer
+  ): Promise<D> {
+    const forwarder = await this.createInternal(
+      chainid,
+      replayProtectionType,
+      signer
+    );
+    const cacheId = await this.getCacheId(
+      chainid,
+      replayProtectionType,
+      signer
+    );
+    this.cacheForwarder(cacheId, forwarder);
+    return forwarder;
+  }
 
   /**
    * Fetch a pre-configured replay protection
