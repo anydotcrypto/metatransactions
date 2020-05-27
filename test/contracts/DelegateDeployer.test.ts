@@ -25,7 +25,7 @@ chai.use(solidity);
 type delegateDeployer = DelegateDeployer["functions"];
 
 async function setup(provider: Provider, [admin]: Wallet[]) {
-  const { delegateDeployerAddress } = await deployMetaTxContracts(admin, true);
+  const { delegateDeployerAddress } = await deployMetaTxContracts(admin);
   const delegateDeployer = new DelegateDeployerFactory(admin).attach(
     delegateDeployerAddress
   );

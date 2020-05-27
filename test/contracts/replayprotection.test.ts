@@ -86,11 +86,8 @@ describe("ReplayProtection", () => {
       const multinonce = await replayProtection.multiNonceAddress();
       const bitflip = await replayProtection.bitFlipAddress();
 
-      console.log(multinonce);
-      console.log(bitflip);
       expect(multinonce).to.eq(AddressZero);
       expect(bitflip).to.eq("0x0000000000000000000000000000000000000001");
-
     }
   );
 
