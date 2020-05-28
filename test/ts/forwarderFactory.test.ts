@@ -338,13 +338,13 @@ const doesCache = async <T extends ForwarderFactory<T2>, T2>(
   replayProtectionType: ReplayProtectionType,
   signer: Wallet
 ) => {
-  const forwarder1 = await factory.createNew(
+  const forwarder1 = await factory.create(
     chainId,
     replayProtectionType,
     signer
   );
 
-  const forwarder2 = await factory.createNew(
+  const forwarder2 = await factory.create(
     chainId,
     replayProtectionType,
     signer
@@ -362,13 +362,13 @@ const doesNotCache = async <T>(
   replayProtectionType2: ReplayProtectionType,
   signer2: Wallet
 ) => {
-  const forwarder1 = await factory.createNew(
+  const forwarder1 = await factory.create(
     chainId1,
     replayProtectionType1,
     signer1
   );
 
-  const forwarder2 = await factory.createNew(
+  const forwarder2 = await factory.create(
     chainId2,
     replayProtectionType2,
     signer2
@@ -433,13 +433,13 @@ describe("RelayHubForwarderFactory", () => {
 
   it("RelayHub does not cache proxy account", async () => {
     const { user1 } = await loadFixture(getUser);
-    const forwarder1 = await new RelayHubForwarderFactory().createNew(
+    const forwarder1 = await new RelayHubForwarderFactory().create(
       ChainID.ROPSTEN,
       ReplayProtectionType.BITFLIP,
       user1
     );
 
-    const forwarder2 = await new ProxyAccountForwarderFactory().createNew(
+    const forwarder2 = await new ProxyAccountForwarderFactory().create(
       ChainID.ROPSTEN,
       ReplayProtectionType.BITFLIP,
       user1

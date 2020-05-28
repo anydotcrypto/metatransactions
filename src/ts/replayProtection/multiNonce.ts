@@ -45,6 +45,7 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
 
     // Store for next time
     this.nonceTracker.set(this.index.toString(), storedNonce.add(1));
+
     this.index = this.index.add(1).mod(this.concurrency);
     return { newIndex, storedNonce };
   }

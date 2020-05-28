@@ -11,12 +11,12 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
   }
 
   /**
-   * Create a new instance of the forwarder
+   * Create a new instance of the forwarder. Does not get or set in forwarder cache.
    * @param chainid MAINNET or ROPSTEN
    * @param replayProtectionType Bitflip, Multinonce or Nonce
    * @param signer Signer's wallet
    */
-  protected async createInternal(
+  public async createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Signer

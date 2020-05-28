@@ -43,7 +43,7 @@ export abstract class ForwarderFactory<D> {
    * @param replayProtectionType Replay Protection
    * @param signer Signer's wallet
    */
-  public async createNew(
+  public async create(
     chainId: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Signer
@@ -55,7 +55,7 @@ export abstract class ForwarderFactory<D> {
     );
 
     if (!ForwarderFactory.cache.get(cacheId)) {
-      const forwarder = await this.createInternal(
+      const forwarder = await this.createNew(
         chainId,
         replayProtectionType,
         signer
@@ -72,7 +72,13 @@ export abstract class ForwarderFactory<D> {
     return ForwarderFactory.cache.get(cacheId);
   }
 
-  protected abstract async createInternal(
+  /**
+   * Create a new instance of the forwarder. Does not access the forwarder cache, and does not store this forwarder there
+   * @param chainId MAINNET or ROPSTEN
+   * @param replayProtectionType Replay Protection
+   * @param signer Signer's wallet
+   */
+  public abstract async createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
     signer: Signer
