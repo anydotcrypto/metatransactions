@@ -20,7 +20,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param forwarderAddress RelayHub or ProxyAccount address
    */
   constructor(signer: Signer, forwarderAddress: string) {
-    super(signer, forwarderAddress);
+    super(signer, forwarderAddress, "0x0000000000000000000000000000000000000001");
     this.lock = new Lock();
   }
 
@@ -31,7 +31,6 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param searchFrom Starting bitmap index
    */
   private async searchBitmaps() {
-    let foundEmptyBit = false;
     let bitToFlip: number;
 
     // Lets confirm they are defined
@@ -48,7 +47,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
     // Let's try to find an empty bit for 30 indexes
     // If it fails after that... something bad happened
     // with the random number generator.
-    for (let i = 0; i < 30; i) {
+    for (let i = 0; i < 30; i++) {
       // Try to find an empty bit
       bitToFlip = this.findEmptyBit(this.bitmap);
 
@@ -58,9 +57,6 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
         this.index = this.index.add(1);
         this.bitmap = await this.accessNonceStore(this.index);
       } else {
-        // We found an empty bit
-        foundEmptyBit = true;
-
         const flippedWithBitmap = this.flipBit(this.bitmap, bitToFlip);
         this.bitmap = flippedWithBitmap;
         const newIndex = this.index;
@@ -106,7 +102,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    */
   public async getEncodedReplayProtection() {
     try {
-      this.lock.acquire();
+      await this.lock.acquire();
       const { newIndex, singleBitFlipped } = await this.searchBitmaps();
       return defaultAbiCoder.encode(
         ["uint", "uint"],
@@ -115,12 +111,5 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
     } finally {
       this.lock.release();
     }
-  }
-
-  /**
-   * Return address of replay protection authority
-   */
-  public getAddress() {
-    return "0x0000000000000000000000000000000000000001";
   }
 }

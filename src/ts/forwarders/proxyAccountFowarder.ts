@@ -185,7 +185,7 @@ export class ProxyAccountForwarder extends Forwarder<
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress()
+      this.replayProtectionAuthority.address
     );
 
     const signature = await this.signer.signMessage(
@@ -199,7 +199,7 @@ export class ProxyAccountForwarder extends Forwarder<
     const encodedBatch = proxyAccountInterface.functions.batch.encode([
       metaTxList,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
+      this.replayProtectionAuthority.address,
       signature,
     ]);
 
@@ -291,7 +291,7 @@ export class ProxyAccountForwarder extends Forwarder<
       data: data.data ? data.data : "0x",
       callType: data.callType ? data.callType : CallType.CALL,
       replayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
+      replayProtectionAuthority: this.replayProtectionAuthority.address,
       chainId: this.chainID,
       signature,
     };

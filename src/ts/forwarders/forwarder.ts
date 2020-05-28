@@ -116,7 +116,7 @@ export abstract class Forwarder<TParams> {
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress()
+      this.replayProtectionAuthority.address
     );
 
     const signature = await this.signer.signMessage(

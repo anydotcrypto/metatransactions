@@ -76,7 +76,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
       data: data.data,
       callType: CallType.CALL,
       replayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
+      replayProtectionAuthority: this.replayProtectionAuthority.address,
       chainId: this.chainID,
       signature,
     };
@@ -108,7 +108,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     const encodedMetaTx = this.encodeMetaTransactionToSign(
       encodedCallData,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress()
+      this.replayProtectionAuthority.address
     );
 
     const signature = await this.signer.signMessage(
@@ -118,7 +118,7 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     const encodedBatch = this.relayHub.interface.functions.batch.encode([
       metaTxList,
       encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
+      this.replayProtectionAuthority.address,
       await this.signer.getAddress(),
       signature,
     ]);

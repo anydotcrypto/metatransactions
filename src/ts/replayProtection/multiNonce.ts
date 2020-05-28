@@ -23,7 +23,11 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
     signer: Signer,
     forwarderAddress: string
   ) {
-    super(signer, forwarderAddress);
+    super(
+      signer,
+      forwarderAddress,
+      "0x0000000000000000000000000000000000000000"
+    );
     this.lock = new Lock();
     this.index = new BigNumber(0);
     this.nonceTracker = new Map<string, BigNumber>();
@@ -61,12 +65,5 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
     } finally {
       this.lock.release();
     }
-  }
-
-  /**
-   * Return address of replay protection authority
-   */
-  public getAddress() {
-    return "0x0000000000000000000000000000000000000000";
   }
 }
