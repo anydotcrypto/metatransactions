@@ -19,13 +19,11 @@ contract RevertMessageTester is RevertMessage {
         emitRevert(returnData);
     }
 
-        
     function testCallNoRevert(address target, bytes memory data) public {
         bool success;
         bytes memory returnData;
 
         (success, returnData) = target.call(data);
-
         emit Info(returnData);
     }
 }

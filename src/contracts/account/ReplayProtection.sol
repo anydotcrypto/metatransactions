@@ -7,7 +7,7 @@ import "./IReplayProtectionAuthority.sol";
 contract ReplayProtection {
     mapping(bytes32 => uint256) public nonceStore;
 
-    event ReplayProtectionInfo(address _replayProtectionAuthority, bytes _replayProtection);
+    event ReplayProtectionInfo(address replayProtectionAuthority, bytes replayProtection, bytes indexed data);
 
     address constant public multiNonceAddress = 0x0000000000000000000000000000000000000000;
     address constant public bitFlipAddress = 0x0000000000000000000000000000000000000001;
@@ -51,7 +51,7 @@ contract ReplayProtection {
             require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
         }
 
-        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection);
+        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection, _callData);
 
         return signer;
     }

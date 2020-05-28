@@ -8,6 +8,7 @@ import {
   ReplayProtectionWrapper,
   ChainID,
   RelayHubFactory,
+  ReplayProtection,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -30,7 +31,7 @@ async function signCall(
   nonce1: number,
   nonce2: number
 ) {
-  const callData = "0x";
+  const callData = "0x00000123123123123";
   const encodedReplayProtection = defaultAbiCoder.encode(
     ["uint", "uint"],
     [nonce1, nonce2]
@@ -814,6 +815,50 @@ describe("ReplayProtection", () => {
           signedCall
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
+    }
+  );
+
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "catch the ReplayProtectionInfo event",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      const { callData, encodedReplayProtection, signedCall } = await signCall(
+        replayProtection,
+        AddressZero,
+        admin,
+        0,
+        0
+      );
+
+      const index = keccak256(
+        defaultAbiCoder.encode(
+          ["address", "uint", "address"],
+          [admin.address, 0, AddressZero]
+        )
+      );
+
+      const tx = replayProtection.verifyPublic(
+        callData,
+        encodedReplayProtection,
+        AddressZero,
+        admin.address,
+        signedCall
+      );
+
+      const logs = (await (await tx).wait()).logs;
+
+      const decodedLogs = replayProtection.interface.events.ReplayProtectionInfo.decode(
+        logs![0].data,
+        logs![0].topics
+      );
+
+      expect(decodedLogs["replayProtectionAuthority"]).to.eq(AddressZero);
+      expect(decodedLogs["replayProtection"]).to.eq(encodedReplayProtection);
+      expect(decodedLogs["data"]["hash"]).to.eq(keccak256(callData));
     }
   );
 });
