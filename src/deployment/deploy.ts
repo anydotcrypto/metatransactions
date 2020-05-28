@@ -1,5 +1,9 @@
 import { Contract, ContractFactory, Signer } from "ethers";
-import { RelayHubFactory, ProxyAccountDeployerFactory } from "..";
+import {
+  RelayHubFactory,
+  ProxyAccountDeployerFactory,
+  DelegateDeployerFactory,
+} from "..";
 import { keccak256, toUtf8Bytes, getCreate2Address } from "ethers/utils";
 import { MultiSendFactory } from "../typedContracts/MultiSendFactory";
 import { deployerAddress, deployDeployer } from "./deployer";
@@ -30,7 +34,10 @@ async function deployContract(
   });
 }
 
-export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean = false) => {
+export const deployMetaTxContracts = async (
+  admin: Signer,
+  logProgress: boolean = false
+) => {
   // deploy the deployer
   const deployerContract = await deployDeployer(admin);
 
@@ -42,7 +49,7 @@ export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean 
     deployerContract,
     relayHubFactory,
     relayHubSalt
-  );  
+  );
   logProgress && console.log("RelayHub address: " + relayHubAddress);
 
   const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
@@ -60,6 +67,18 @@ export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean 
   const baseAccount = await proxyDeployer.baseAccount();
   logProgress && console.log("BaseAccount address: " + baseAccount);
 
+  const delegateDeployerFactory = new DelegateDeployerFactory(admin);
+  const delegateDeployerSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
+  );
+  const delegateDeployerAddress = await deployContract(
+    deployerContract,
+    delegateDeployerFactory,
+    delegateDeployerSalt
+  );
+  logProgress &&
+    console.log("DelegateDeployer address: " + delegateDeployerAddress);
+
   const multiSendFactory = new MultiSendFactory(admin);
   const multiSendSalt = keccak256(
     toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
@@ -72,9 +91,10 @@ export const deployMetaTxContracts = async (admin: Signer, logProgress: boolean 
   logProgress && console.log("MultiSend address: " + multiSendAddress);
 
   return {
-      relayHubAddress,
-      proxyAccountDeployerAddress: proxyAddress,
-      baseAccountAddress: baseAccount,
-      multiSendAddress: multiSendAddress
-  }
+    relayHubAddress,
+    proxyAccountDeployerAddress: proxyAddress,
+    baseAccountAddress: baseAccount,
+    multiSendAddress: multiSendAddress,
+    delegateDeployerAddress: delegateDeployerAddress,
+  };
 };

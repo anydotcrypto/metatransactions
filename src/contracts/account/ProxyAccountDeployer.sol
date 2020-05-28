@@ -1,17 +1,22 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/utils/Create2.sol";
 import "./ReplayProtection.sol";
+import "../ops/BatchInternal.sol";
 
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ProxyAccount is ReplayProtection {
+contract ProxyAccount is ReplayProtection, BatchInternal {
 
     address public owner;
-    event Deployed(address owner, address addr);
-    event Revert(string reason);
+
+    struct MetaTx {
+        address to;
+        uint value;
+        bytes data;
+        CallType callType;
+    }
 
     /**
      * Due to create clone, we need to use an init() method.
@@ -22,63 +27,67 @@ contract ProxyAccount is ReplayProtection {
     }
 
     /**
-     * Each signer has a proxy account (signers address => contract address).
-     * We check the signer has authorised the target contract and function call. Then, we pass it to the
-     * signer's proxy account to perform the final execution (to help us bypass msg.sender problem).
-     * @param _target Target contract
-     * @param _value Quantity of eth in account contract to send to target
-     * @param _callData Function name plus arguments
-     * @param _replayProtection Replay protection (e.g. multinonce)
-     * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * We check the signature has authorised the call before executing it.
+     * @param _metaTx A single meta-transaction that includes to, value and data
+     * @param _replayProtection Replay protection
+     * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
     function forward(
-        address _target,
-        uint _value, 
-        bytes memory _callData,
+        MetaTx memory _metaTx,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
-        bytes memory _signature) public {
+        bytes memory _signature) public returns (bool, bytes memory) {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(_target, _value, _callData);
+        bytes memory encodedData = abi.encode(_metaTx.callType, _metaTx.to, _metaTx.value, _metaTx.data);
 
         // // Reverts if fails.
         require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+        require(_metaTx.callType == CallType.CALL || _metaTx.callType == CallType.DELEGATE, "Signer did not pick a valid calltype");
 
-        (bool success, bytes memory revertReason) = _target.call.value(_value)(abi.encodePacked(_callData));
+        bool success;
+        bytes memory returnData;
+
+        if(_metaTx.callType == CallType.CALL) {
+            (success, returnData) = _metaTx.to.call{value: _metaTx.value}(abi.encodePacked(_metaTx.data));
+        } 
+        
+        // WARNING: Delegatecall can over-write storage in this contract.
+        // Be VERY careful.
+        if(_metaTx.callType == CallType.DELEGATE) {
+            (success, returnData) = _metaTx.to.delegatecall(abi.encodePacked(_metaTx.data));
+        } 
 
         if(!success) {
-            assembly {revertReason := add(revertReason, 68)}
-            // 4 bytes = sighash
-            // 64 bytes = length of string
-            // If we slice offchain, then we can verify the sighash
-            // too. https://twitter.com/ricmoo/status/1262156359853920259
-            // IF we slice onchain, then we lose that information.
-            emit Revert(string(revertReason));
+            emitRevert(returnData);
         }
+
+        return (success, returnData);
     }
 
     /**
-     * User deploys a contract in a deterministic manner.
-     * It re-uses the replay protection to authorise deployment as part of the salt.
-     * @param _initCode Initialisation code for contract
-     * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
+     * A batch of meta-transactions or meta-deployments.
+     * One replay-protection check covers all transactions. 
+     * Potentially reverts on fail.
+     * @param _metaTxList List of revertable meta-transactions
+     * @param _replayProtection Replay protection
+     * @param _replayProtectionAuthority Address of external replay protection
      * @param _signature Signature from signer
      */
-    function deployContract(
-        bytes memory _initCode,
+    function batch(RevertableMetaTx[] memory _metaTxList,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        // Confirm the user wants to deploy the smart contract
-        require(owner == verify(_initCode, _replayProtection, _replayProtectionAuthority, _signature), "Owner of proxy account must authorise deploying contract");
+        bytes memory encodedData = abi.encode(CallType.BATCH, _metaTxList);
 
-        // We can just abuse the replay protection as the salt :)
-        address deployed = Create2.deploy(keccak256(abi.encode(owner, _replayProtection)), _initCode);
+        // Reverts if fails.
+        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
 
-        emit Deployed(owner, deployed);
+        // Runs the batch function in MultiSend.
+        // It supports CALL and DELEGATECALL.
+        batchInternal(_metaTxList);
     }
 
     /**

@@ -1,27 +1,57 @@
-import { defaultAbiCoder, solidityKeccak256 } from "ethers/utils";
+import {
+  defaultAbiCoder,
+  solidityKeccak256,
+  Interface,
+  arrayify,
+  keccak256,
+  BigNumberish,
+} from "ethers/utils";
+
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { ChainID, ProxyAccountDeployer, ProxyAccountFactory } from "../..";
+import {
+  ChainID,
+  ProxyAccountDeployer,
+  ProxyAccountFactory,
+  ProxyAccount,
+} from "../..";
 import {
   ForwardParams,
   Forwarder,
-  ProxyAccountCallData,
-  DeploymentParams,
   MinimalTx,
   RequiredTo,
+  CallType,
 } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
+import { abi } from "../../typedContracts/ProxyAccount.json";
+
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
 import {
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
   BASE_ACCOUNT_ADDRESS,
+  DELEGATE_DEPLOYER_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
+
+import { DelegateDeployerFactory } from "../../typedContracts/DelegateDeployerFactory";
+
+export interface ProxyAccountCallData {
+  to: string;
+  value?: BigNumberish;
+  data?: string;
+  callType?: CallType;
+}
+
+export interface RevertableProxyAccountCallData extends ProxyAccountCallData {
+  revertOnFail?: boolean;
+}
 
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
+export class ProxyAccountForwarder extends Forwarder<
+  Partial<ProxyAccountCallData>
+> {
   private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.
@@ -45,14 +75,38 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
   }
 
   /**
+   * Computes the deterministic address for a deployed contract
+   * @param initData Initialisation code for the contract
+   * @param salt One-time use value.
+   */
+  public buildDeployedContractAddress(
+    initData: string,
+    extraData: string
+  ): string {
+    const byteCodeHash = solidityKeccak256(["bytes"], [initData]);
+    const salt = keccak256(extraData);
+
+    const options: Create2Options = {
+      from: this.address,
+      salt: salt,
+      initCodeHash: byteCodeHash,
+    };
+
+    return getCreate2Address(options);
+  }
+  /**
    * Standard encoding for contract call data
    * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
    */
   protected getEncodedCallData(data: RequiredTo<ProxyAccountCallData>) {
-    // ProxyAccounts have a "value" field.
     return defaultAbiCoder.encode(
-      ["address", "uint", "bytes"],
-      [data.to, data.value ? data.value : 0, data.data ? data.data : "0x"]
+      ["uint", "address", "uint", "bytes"],
+      [
+        data.callType ? data.callType : CallType.CALL,
+        data.to,
+        data.value ? data.value : 0,
+        data.data ? data.data : "0x",
+      ]
     );
   }
 
@@ -79,38 +133,140 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
    * an Ethereum Transaction's data field.
    * @param params Forward Parameters
    */
-  public async encodeSignedMetaTransaction(
+  protected async encodeSignedMetaTransaction(
     params: ForwardParams
-  ): Promise<string> {
+  ): Promise<MinimalTx> {
     const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
 
-    return proxyAccount.interface.functions.forward.encode([
-      params.target,
-      params.value,
-      params.data,
+    const data = proxyAccount.interface.functions.forward.encode([
+      {
+        to: params.target,
+        value: params.value,
+        data: params.data,
+        callType: params.callType,
+      },
       params.replayProtection,
       params.replayProtectionAuthority,
       params.signature,
     ]);
+
+    return { to: params.to, data: data, value: params.value };
   }
 
   /**
-   * Encodes the meta-deployment such that it can be included
-   * in the data field of an Ethereum transaction.
-   * @param params Deployment parameters
-   * @throws ProxyAccount contract must already be deployed  on-chain.
+   * Batches a list of transactions into a single meta-transaction.
+   * It supports both meta-transactions & meta-deployment.
+   * @param dataList List of meta-transactions to batch
    */
-  public async encodeSignedMetaDeployment(
-    params: DeploymentParams
-  ): Promise<string> {
-    const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
+  public async signAndEncodeBatchTransaction(
+    dataList: RevertableProxyAccountCallData[]
+  ): Promise<MinimalTx> {
+    const metaTxList = [];
 
-    return proxyAccount.interface.functions.deployContract.encode([
-      params.initCode,
-      params.replayProtection,
-      params.replayProtectionAuthority,
-      params.signature,
+    for (const data of dataList) {
+      metaTxList.push({
+        to: data.to,
+        value: data.value ? data.value : 0,
+        data: data.data ? data.data : "0x",
+        callType: data.callType ? data.callType : CallType.CALL,
+        revertOnFail: data.revertOnFail ? data.revertOnFail : false,
+      });
+    }
+
+    // Prepare the meta-transaction & sign it
+    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+    const encodedCallData = defaultAbiCoder.encode(
+      [
+        "uint",
+        "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+      ],
+      [CallType.BATCH, metaTxList]
+    );
+    const encodedMetaTx = this.encodeMetaTransactionToSign(
+      encodedCallData,
+      encodedReplayProtection,
+      this.replayProtectionAuthority.address
+    );
+
+    const signature = await this.signer.signMessage(
+      arrayify(keccak256(encodedMetaTx))
+    );
+
+    const proxyAccountInterface = new Interface(
+      abi
+    ) as ProxyAccount["interface"];
+
+    const encodedBatch = proxyAccountInterface.functions.batch.encode([
+      metaTxList,
+      encodedReplayProtection,
+      this.replayProtectionAuthority.address,
+      signature,
     ]);
+
+    return { to: this.address, data: encodedBatch };
+  }
+
+  /**
+   * Wraps the deployment inside a meta-transaction. It is deployed via a global
+   * deployer (we set it as params.target).
+   * @param initCode Initialisation code for the contract
+   * @param value Quantity of WEI to send
+   * @param extraData Extra data for the salt
+   */
+  protected async signMetaDeployment(
+    initCode: string,
+    value: BigNumberish,
+    extraData: string
+  ): Promise<ForwardParams> {
+    const deployer = new DelegateDeployerFactory(this.signer).attach(
+      DELEGATE_DEPLOYER_ADDRESS
+    );
+
+    const data = deployer.interface.functions.deploy.encode([
+      initCode,
+      value,
+      keccak256(extraData),
+    ]);
+
+    const tx = {
+      to: DELEGATE_DEPLOYER_ADDRESS,
+      data: data,
+      callType: CallType.DELEGATE,
+    };
+
+    return await this.signMetaTransaction(tx);
+  }
+
+  /**
+   * Wraps the deployment inside a meta-transaction. It is deployed via a global
+   * deployer (we set it as params.target). Returns the encoded function call.
+   * @param initCode Initialisation code for the contract
+   * @param value Quantity of WEI to send
+   * @param extraData Extra data for the salt
+   */
+  public async signAndEncodeMetaDeployment(
+    initCode: string,
+    value: BigNumberish,
+    extraData: string
+  ): Promise<MinimalTx> {
+    const deployer = new DelegateDeployerFactory(this.signer).attach(
+      DELEGATE_DEPLOYER_ADDRESS
+    );
+
+    const data = deployer.interface.functions.deploy.encode([
+      initCode,
+      value,
+      keccak256(extraData),
+    ]);
+
+    const tx = {
+      to: DELEGATE_DEPLOYER_ADDRESS,
+      data: data,
+      callType: CallType.DELEGATE,
+    };
+
+    const params = await this.signMetaTransaction(tx);
+    return await this.encodeSignedMetaTransaction(params);
   }
 
   /**
@@ -133,6 +289,7 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
       target: data.to,
       value: data.value ? data.value.toString() : "0",
       data: data.data ? data.data : "0x",
+      callType: data.callType ? data.callType : CallType.CALL,
       replayProtection,
       replayProtectionAuthority: this.replayProtectionAuthority.address,
       chainId: this.chainID,
@@ -163,5 +320,16 @@ export class ProxyAccountForwarder extends Forwarder<ProxyAccountCallData> {
     };
 
     return getCreate2Address(options);
+  }
+
+  /**
+   * Checks if the ProxyContract is already deployed.
+   * @returns TRUE if deployed, FALSE if not deployed.
+   */
+  public async isContractDeployed(): Promise<boolean> {
+    const code = await this.signer.provider!.getCode(this.address);
+    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
+    const codeIsEmpty = !code || code === "0x" || code === "0x0";
+    return !codeIsEmpty;
   }
 }

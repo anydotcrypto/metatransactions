@@ -27,17 +27,10 @@ export {
   BASE_ACCOUNT_SALT_STRING,
   MULTI_SEND_SALT_STRING,
   PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
-  RELAY_HUB_SALT_STRING
+  RELAY_HUB_SALT_STRING,
 } from "./deployment/addresses";
 
-export {
-  RelayHubCallData,
-  ProxyAccountCallData,
-  MinimalTx,
-  ForwardParams,
-  DeploymentParams,
-  Forwarder,
-} from "./ts/forwarders/forwarder";
+export { MinimalTx, ForwardParams, Forwarder } from "./ts/forwarders/forwarder";
 export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
 export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
 
@@ -57,7 +50,13 @@ export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
 export { EchoFactory } from "./typedContracts/EchoFactory";
 export { CounterFactory } from "./typedContracts/CounterFactory";
-export { MultiSender } from "./ts/batch/MultiSend"
+export { DelegateDeployer } from "./typedContracts/DelegateDeployer";
+export { DelegateDeployerFactory } from "./typedContracts/DelegateDeployerFactory";
+export { CallWrapper } from "./typedContracts/CallWrapper";
+export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
+export { RevertMessageTester } from "./typedContracts/RevertMessageTester";
+export { RevertMessageTesterFactory } from "./typedContracts/RevertMessageTesterFactory";
 
+export { MultiSender } from "./ts/batch/MultiSend";
 
 export { deployMetaTxContracts } from "./deployment/deploy";

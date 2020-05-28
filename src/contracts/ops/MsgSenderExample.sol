@@ -7,14 +7,15 @@ contract MsgSenderExample is MsgSender {
     mapping(address => bool) public sentTest;
     event WhoIsSender(address signer);
 
-    constructor(address _relayHub) public {
+    constructor(address _relayHub) public payable {
         relayHub = _relayHub;
     }
 
-    function test() public {
+    function test() public returns (string memory) {
         address sender = _msgSender();
         sentTest[sender] = true;
         emit WhoIsSender(sender);
+        return "hello";
     }
 
     function willRevert() public pure {
@@ -24,7 +25,6 @@ contract MsgSenderExample is MsgSender {
     function willRevertLongMessage() public pure {
         require(1 == 2, "This is a really long revert message to make sure we can catch it. There are no hidden quirks by solidity.");
     }
-
 
     function willRevertNoMessage() public pure {
         require(1 == 2);

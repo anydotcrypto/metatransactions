@@ -7,6 +7,8 @@ import {
   ReplayProtectionWrapperFactory,
   ReplayProtectionWrapper,
   ChainID,
+  RelayHubFactory,
+  ReplayProtection,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -29,7 +31,7 @@ async function signCall(
   nonce1: number,
   nonce2: number
 ) {
-  const callData = "0x";
+  const callData = "0x00000123123123123";
   const encodedReplayProtection = defaultAbiCoder.encode(
     ["uint", "uint"],
     [nonce1, nonce2]
@@ -45,14 +47,15 @@ async function signCall(
       ChainID.MAINNET,
     ]
   );
-  const signedCall = await signer.signMessage(
-    arrayify(keccak256(encodedMessage))
-  );
+
+  const txid = keccak256(encodedMessage);
+  const signedCall = await signer.signMessage(arrayify(txid));
 
   return {
     callData,
     encodedReplayProtection,
     signedCall,
+    txid,
   };
 }
 
@@ -74,6 +77,22 @@ async function createReplayProtection(
 }
 
 describe("ReplayProtection", () => {
+  fnIt<replayProtection>(
+    (a) => a.noncePublic,
+    "check addresses of bitflip and multinonce",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      const multinonce = await replayProtection.multiNonceAddress();
+      const bitflip = await replayProtection.bitFlipAddress();
+
+      expect(multinonce).to.eq(AddressZero);
+      expect(bitflip).to.eq("0x0000000000000000000000000000000000000001");
+    }
+  );
+
   fnIt<replayProtection>(
     (a) => a.noncePublic,
     "increment a single queue once to test NONCE",
@@ -797,6 +816,45 @@ describe("ReplayProtection", () => {
           signedCall
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
+    }
+  );
+
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "catch the ReplayProtectionInfo event",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      const {
+        callData,
+        encodedReplayProtection,
+        signedCall,
+        txid,
+      } = await signCall(replayProtection, AddressZero, admin, 0, 0);
+
+      const index = keccak256(
+        defaultAbiCoder.encode(
+          ["address", "uint", "address"],
+          [admin.address, 0, AddressZero]
+        )
+      );
+
+      const tx = replayProtection.verifyPublic(
+        callData,
+        encodedReplayProtection,
+        AddressZero,
+        admin.address,
+        signedCall
+      );
+
+      await expect(tx)
+        .to.emit(
+          replayProtection,
+          replayProtection.interface.events.ReplayProtectionInfo.name
+        )
+        .withArgs(AddressZero, encodedReplayProtection, txid);
     }
   );
 });

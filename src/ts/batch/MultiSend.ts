@@ -1,6 +1,10 @@
 import { abi } from "../../typedContracts/MultiSend.json";
-import { Interface } from "ethers/utils";
-import { MinimalTx, RevertableMinimalTx } from "../forwarders/forwarder";
+import { Interface, BigNumberish } from "ethers/utils";
+import {
+  MinimalTx,
+  RevertableMinimalTx,
+  CallType,
+} from "../forwarders/forwarder";
 import { MULTI_SEND_ADDRESS } from "../../deployment/addresses";
 import { MultiSend } from "../../typedContracts/MultiSend";
 
@@ -8,6 +12,12 @@ import { MultiSend } from "../../typedContracts/MultiSend";
  * Batch a list of meta-transactions before it hits the forwarder.
  */
 export class MultiSender {
+  private sender: string;
+
+  constructor(multiSendAddress?: string) {
+    this.sender = multiSendAddress ? multiSendAddress : MULTI_SEND_ADDRESS;
+  }
+
   /**
    * Given a list of minimal transactions, it'll prepare a single
    * minimal transaction that is sent via the MultiSend contract.
@@ -18,24 +28,27 @@ export class MultiSender {
    */
   public batch(batch: RevertableMinimalTx[]): MinimalTx {
     const multiSend = new Interface(abi) as MultiSend["interface"];
-    const to: string[] = [];
-    const data: string[] = [];
-    const revertIfFail: boolean[] = [];
+    const transactions = [];
 
-    for (const tx of batch) {
-      to.push(tx.to);
-      data.push(tx.data);
-      revertIfFail.push(tx.revertOnFail);
+    for (let i = 0; i < batch.length; i++) {
+      transactions.push({
+        to: batch[i].to,
+        value: batch[i].value ? (batch[i].value as BigNumberish) : 0,
+        data: batch[i].data,
+        revertOnFail: batch[i].revertOnFail
+          ? (batch[i].revertOnFail as boolean)
+          : false,
+        callType: batch[i].callType
+          ? (batch[i].callType as number)
+          : CallType.CALL,
+      });
     }
-
     const encodedTransactions = multiSend.functions.batch.encode([
-      to,
-      data,
-      revertIfFail,
+      transactions,
     ]);
 
     return {
-      to: MULTI_SEND_ADDRESS,
+      to: this.sender,
       data: encodedTransactions,
     };
   }

@@ -27,28 +27,28 @@ async function setup() {
     process.exit(0);
   }
 
-  const adminMnemonicWallet = ethers.Wallet.fromMnemonic(USER_MNEMONIC);
-  const admin = adminMnemonicWallet.connect(infuraProvider);
+  const userMnemonicWallet = ethers.Wallet.fromMnemonic(USER_MNEMONIC);
+  const user = userMnemonicWallet.connect(infuraProvider);
   return {
-    admin,
+    user,
     provider: infuraProvider,
   };
 }
 
 (async () => {
   // Set up wallets & provider
-  const { admin, provider } = await setup();
+  const { user, provider } = await setup();
 
-  console.log("Wallet address: " + admin.address);
+  console.log("Wallet address: " + user.address);
   console.log(
-    "Balance: " + formatEther(await provider.getBalance(admin.address))
+    "Balance: " + formatEther(await provider.getBalance(user.address))
   );
 
-  // First we need to deploy the proxy contract
+  // First we need to fetch the proxy account contract library for this signer
   const proxyAccount = await new ProxyAccountForwarderFactory().createNew(
     ChainID.ROPSTEN,
     ReplayProtectionType.BITFLIP,
-    admin
+    user
   );
 
   const isProxyDeployed = await proxyAccount.isContractDeployed();
@@ -56,7 +56,7 @@ async function setup() {
 
   if (!isProxyDeployed) {
     const deployProxy = await proxyAccount.createProxyContract();
-    const proxyTx = await admin.sendTransaction({
+    const proxyTx = await user.sendTransaction({
       to: deployProxy.to,
       data: deployProxy.data,
     });
@@ -70,20 +70,24 @@ async function setup() {
   }
 
   // Lets META-DEPLOY the echo contract
-  const initCode = new EchoFactory(admin).getDeployTransaction()
-    .data! as string;
+  const initCode = new EchoFactory(user).getDeployTransaction().data! as string;
 
-  const deploymentParams = await proxyAccount.signMetaDeployment(initCode);
-  const metaDeployment = await proxyAccount.encodeSignedMetaDeployment(
-    deploymentParams
+  const metaDeploy = await proxyAccount.signAndEncodeMetaDeployment(
+    initCode,
+    0,
+    "0x123"
   );
+
   const echoAddress = proxyAccount.buildDeployedContractAddress(
-    deploymentParams
+    initCode,
+    "0x123"
   );
+
   console.log("Deploying echo contract to address " + echoAddress);
-  const deployTx = await admin.sendTransaction({
-    to: deploymentParams.to,
-    data: metaDeployment,
+  const deployTx = await user.sendTransaction({
+    to: metaDeploy.to,
+    data: metaDeploy.data,
+    gasLimit: 500000,
   });
 
   console.log(
@@ -94,24 +98,25 @@ async function setup() {
   await deployTx.wait(1);
 
   // Lets META-TX our broadcast :)
-  const echoContract = new EchoFactory(admin).attach(echoAddress);
+  const echoContract = new EchoFactory(user).attach(echoAddress);
   const callData = echoContract.interface.functions.sendMessage.encode([
     "any.sender is nice",
   ]);
-  const minimalTx = await proxyAccount.signAndEncodeMetaTransaction({
-    to: echoContract.address,
+  const metaTx = await proxyAccount.signAndEncodeMetaTransaction({
+    target: echoAddress,
     data: callData,
   });
 
   console.log("Sending our message to echo");
-  const metaTx = await admin.sendTransaction({
-    to: minimalTx.to,
-    data: minimalTx.data,
+  const tx = await user.sendTransaction({
+    to: metaTx.to,
+    data: metaTx.data,
+    gasLimit: 300000,
   });
   console.log(
-    "Send echo broadcast: " + "https://ropsten.etherscan.io/tx/" + metaTx.hash
+    "Send echo broadcast: " + "https://ropsten.etherscan.io/tx/" + tx.hash
   );
-  await metaTx.wait(1);
+  await tx.wait(1);
 
   const lastMessage = await echoContract.lastMessage();
   console.log("Message in Echo Contract: " + lastMessage);

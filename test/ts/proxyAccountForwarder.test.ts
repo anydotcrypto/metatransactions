@@ -6,6 +6,8 @@ import {
   defaultAbiCoder,
   solidityKeccak256,
   getCreate2Address,
+  keccak256,
+  parseEther,
 } from "ethers/utils";
 import {
   ProxyAccountDeployerFactory,
@@ -16,6 +18,8 @@ import {
   ProxyAccountDeployer,
   deployMetaTxContracts,
   ProxyAccountForwarderFactory,
+  EchoFactory,
+  DelegateDeployerFactory,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -30,6 +34,7 @@ import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
 import { flipBit } from "../utils/test-utils";
 import { MultiSender } from "../../src/ts/batch/MultiSend";
+import { DELEGATE_DEPLOYER_ADDRESS } from "../../src/deployment/addresses";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -44,11 +49,15 @@ async function createHubs(provider: Provider, [admin, user1]: Wallet[]) {
     AddressZero
   );
 
+  const echo = await new EchoFactory(admin).deploy();
+
   return {
     proxyDeployer,
     admin,
     user1,
     msgSenderExample,
+    echo,
+    provider,
   };
 }
 
@@ -69,7 +78,7 @@ describe("Proxy Account Forwarder", () => {
 
     const encoded = await proxyForwarder.createProxyContract();
 
-    const tx = await user1.sendTransaction({
+    await user1.sendTransaction({
       to: encoded.to,
       data: encoded.data,
     });
@@ -101,6 +110,7 @@ describe("Proxy Account Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
       to: msgSenderExample.address,
       value: new BigNumber("10"),
@@ -155,13 +165,14 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const callData = msgSenderExample.interface.functions.test.encode([]);
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
       to: msgSenderExample.address,
       value: new BigNumber(0),
       data: callData,
     });
-
-    const encoded = await proxyForwarder.encodeSignedMetaTransaction(
+    // @ts-ignore
+    const minimalTx = await proxyForwarder.encodeSignedMetaTransaction(
       forwardParams
     );
 
@@ -184,8 +195,8 @@ describe("Proxy Account Forwarder", () => {
     const proxyAddress = getCreate2Address(options);
 
     const tx = user1.sendTransaction({
-      to: forwardParams.to,
-      data: encoded,
+      to: minimalTx.to,
+      data: minimalTx.data,
     });
 
     await expect(tx)
@@ -216,6 +227,7 @@ describe("Proxy Account Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
+    // @ts-ignore
     const forwardParams = await proxyForwarder.signMetaTransaction({
       to: msgSenderExample.address,
       value: new BigNumber("10"),
@@ -272,6 +284,7 @@ describe("Proxy Account Forwarder", () => {
 
     for (let j = 0; j < 10; j++) {
       for (let i = 0; i < 256; i++) {
+        // @ts-ignore
         const forwardParams = await proxyForwarder.signMetaTransaction({
           to: msgSenderExample.address,
           value: new BigNumber(i + j),
@@ -380,12 +393,6 @@ describe("Proxy Account Forwarder", () => {
       ReplayProtectionType.MULTINONCE
     );
 
-    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
-      proxyDeployer.address
-    ).data! as string;
-
-    const deploymentParams = await forwarder.signMetaDeployment(initCode);
-
     await proxyDeployer.connect(admin).createProxyAccount(admin.address);
     const baseAccount = await proxyDeployer.baseAccount();
     const saltHex = solidityKeccak256(["address"], [admin.address]);
@@ -404,15 +411,35 @@ describe("Proxy Account Forwarder", () => {
     };
     const proxyAddress = getCreate2Address(options);
 
-    const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
+    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
+      proxyDeployer.address
+    ).data! as string;
+
+    const extraData = "0x123";
+    // @ts-ignore
+    const deploymentParams = await forwarder.signMetaDeployment(
+      initCode,
+      0,
+      extraData
+    );
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
       deploymentParams.replayProtection
     );
 
-    expect(deploymentParams.to).to.eq(proxyAccount.address);
+    expect(deploymentParams.to).to.eq(proxyAddress);
+    expect(deploymentParams.target).to.eq(DELEGATE_DEPLOYER_ADDRESS);
     expect(deploymentParams.signer).to.eq(admin.address);
-    expect(deploymentParams.initCode).to.eq(initCode);
+    const deployer = new DelegateDeployerFactory(admin).attach(
+      DELEGATE_DEPLOYER_ADDRESS
+    );
+    const data = deployer.interface.functions.deploy.encode([
+      initCode,
+      0,
+      keccak256(extraData),
+    ]);
+
+    expect(deploymentParams.data).to.eq(data);
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"));
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
     expect(deploymentParams.replayProtectionAuthority).to.eq(
@@ -422,8 +449,14 @@ describe("Proxy Account Forwarder", () => {
     expect(deploymentParams.chainId).to.eq(ChainID.MAINNET);
 
     // All deployments are performed via the proxy account directly.
-    const tx = await proxyAccount.deployContract(
-      deploymentParams.initCode,
+    const proxyAccount = new ProxyAccountFactory(admin).attach(proxyAddress);
+    const tx = await proxyAccount.forward(
+      {
+        to: deploymentParams.target,
+        value: deploymentParams.value,
+        data: deploymentParams.data,
+        callType: deploymentParams.callType,
+      },
       deploymentParams.replayProtection,
       deploymentParams.replayProtectionAuthority,
       deploymentParams.signature
@@ -436,7 +469,8 @@ describe("Proxy Account Forwarder", () => {
 
     // Compute deterministic address
     const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
-      deploymentParams
+      initCode,
+      extraData
     );
 
     const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
@@ -451,6 +485,141 @@ describe("Proxy Account Forwarder", () => {
         msgSenderExample.interface.events.WhoIsSender.name
       )
       .withArgs(admin.address);
+  }).timeout(50000);
+
+  it("Deploy a new meta-contract with a balance of 1 ETH", async () => {
+    const { proxyDeployer, admin, provider } = await loadFixture(createHubs);
+    const forwarder = await createForwarder(
+      proxyDeployer,
+      admin,
+      ReplayProtectionType.MULTINONCE
+    );
+
+    await proxyDeployer.connect(admin).createProxyAccount(admin.address);
+
+    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
+      proxyDeployer.address
+    ).data! as string;
+
+    const extraData = "0x123";
+    const topup = parseEther("0.5");
+    // @ts-ignore
+    const deploymentParams = await forwarder.signMetaDeployment(
+      initCode,
+      topup,
+      extraData
+    );
+    // All deployments are performed via the proxy account directly.
+    const proxyAccount = new ProxyAccountFactory(admin).attach(
+      forwarder.address
+    );
+
+    await admin.sendTransaction({
+      to: proxyAccount.address,
+      value: parseEther("1"),
+    });
+
+    await proxyAccount.forward(
+      {
+        to: deploymentParams.target,
+        value: deploymentParams.value,
+        data: deploymentParams.data,
+        callType: deploymentParams.callType,
+      },
+      deploymentParams.replayProtection,
+      deploymentParams.replayProtectionAuthority,
+      deploymentParams.signature
+    );
+
+    const msgSenderAddress = forwarder.buildDeployedContractAddress(
+      initCode,
+      extraData
+    );
+
+    const balance = await provider.getBalance(msgSenderAddress);
+    expect(balance).to.eq(topup);
+  }).timeout(50000);
+
+  it("Deploy the same contract twice and catch the revert message.", async () => {
+    const { proxyDeployer, admin } = await loadFixture(createHubs);
+    const forwarder = await createForwarder(
+      proxyDeployer,
+      admin,
+      ReplayProtectionType.MULTINONCE
+    );
+
+    await proxyDeployer.connect(admin).createProxyAccount(admin.address);
+
+    const initCode = new MsgSenderExampleFactory(admin).getDeployTransaction(
+      proxyDeployer.address
+    ).data! as string;
+
+    const extraData = "0x123";
+    // @ts-ignore
+    let deploymentParams = await forwarder.signMetaDeployment(
+      initCode,
+      0,
+      extraData
+    );
+    // All deployments are performed via the proxy account directly.
+    const proxyAccount = new ProxyAccountFactory(admin).attach(
+      forwarder.address
+    );
+
+    const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
+      initCode,
+      extraData
+    );
+    const tx1 = proxyAccount.forward(
+      {
+        to: deploymentParams.target,
+        value: deploymentParams.value,
+        data: deploymentParams.data,
+        callType: deploymentParams.callType,
+      },
+      deploymentParams.replayProtection,
+      deploymentParams.replayProtectionAuthority,
+      deploymentParams.signature
+    );
+
+    await tx1;
+
+    const msgSenderExample = new MsgSenderExampleFactory(admin).attach(
+      msgSenderExampleAddress
+    );
+
+    // Try executing a function - it should exist and work
+    const msgSenderTx = msgSenderExample.connect(admin).test();
+    await expect(msgSenderTx)
+      .to.emit(
+        msgSenderExample,
+        msgSenderExample.interface.events.WhoIsSender.name
+      )
+      .withArgs(admin.address);
+
+    // Time to redeploy... and it should fail!
+    // @ts-ignore
+    deploymentParams = await forwarder.signMetaDeployment(
+      initCode,
+      0,
+      extraData
+    );
+    const tx2 = proxyAccount.forward(
+      {
+        to: deploymentParams.target,
+        value: deploymentParams.value,
+        data: deploymentParams.data,
+        callType: deploymentParams.callType,
+      },
+      deploymentParams.replayProtection,
+      deploymentParams.replayProtectionAuthority,
+      deploymentParams.signature,
+      { gasLimit: 3000000 }
+    );
+
+    await expect(tx2)
+      .to.emit(proxyAccount, proxyAccount.interface.events.Revert.name)
+      .withArgs("CREATE2 failed to deploy.");
   }).timeout(50000);
 
   it("Deploy the proxy contract and a meta-tx with MultiSend", async () => {
@@ -511,7 +680,7 @@ describe("Proxy Account Forwarder", () => {
     );
     const multiSender = new MultiSender();
 
-    // Sign meta-deployment
+    // Deploy proxy contract
     let deployProxy = await forwarder.createProxyContract();
 
     await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
@@ -543,7 +712,8 @@ describe("Proxy Account Forwarder", () => {
     const messageSent = await msgSenderExample.sentTest(forwarder.address);
     expect(messageSent).to.be.true;
   }).timeout(50000);
-  it("Sign a single meta-transaction, but omit the value field for the ProxyAccountCallDatae", async () => {
+
+  it("Sign a single meta-transaction, but omit the value field for the ProxyAccountCallData", async () => {
     const { admin, msgSenderExample } = await loadFixture(createHubs);
 
     const forwarder = await new ProxyAccountForwarderFactory().createNew(
@@ -558,15 +728,19 @@ describe("Proxy Account Forwarder", () => {
 
     // omit the value field
     const callData = msgSenderExample.interface.functions.test.encode([]);
+    // @ts-ignore
     const forwardParams = await forwarder.signMetaTransaction({
       to: msgSenderExample.address,
       data: callData,
     });
-    const txData = await forwarder.encodeSignedMetaTransaction(forwardParams);
+    // @ts-ignore
+    const minimalTx = await forwarder.encodeSignedMetaTransaction(
+      forwardParams
+    );
 
     const tx = admin.sendTransaction({
-      to: forwardParams.to,
-      data: txData,
+      to: minimalTx.to,
+      data: minimalTx.data,
     });
 
     await expect(tx)
@@ -576,4 +750,54 @@ describe("Proxy Account Forwarder", () => {
       )
       .withArgs(forwarder.address);
   });
+
+  it("Send two transactions via call multisend. setting: bitflip", async () => {
+    const {
+      msgSenderExample,
+      echo,
+      proxyDeployer,
+      admin,
+      user1,
+    } = await loadFixture(createHubs);
+
+    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      user1.address
+    );
+    const forwarder = new ProxyAccountForwarder(
+      ChainID.MAINNET,
+      proxyDeployer.address,
+      user1,
+      proxyAccountAddress,
+      new BitFlipReplayProtection(user1, proxyAccountAddress)
+    );
+
+    // Deploy proxy contract
+    let deployProxy = await forwarder.createProxyContract();
+
+    await user1.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
+
+    const callData = msgSenderExample.interface.functions.test.encode([]);
+    const echoData = echo.interface.functions.sendMessage.encode(["hello"]);
+
+    const minimalTx = await forwarder.signAndEncodeBatchTransaction([
+      {
+        to: msgSenderExample.address,
+        data: callData,
+      },
+      { to: echo.address, data: echoData },
+    ]);
+
+    const tx = admin.sendTransaction({
+      to: minimalTx.to,
+      data: minimalTx.data,
+    });
+
+    await expect(tx)
+      .to.emit(echo, echo.interface.events.Broadcast.name)
+      .withArgs("hello");
+
+    const sentTest = await msgSenderExample.sentTest(forwarder.address);
+
+    expect(sentTest).to.be.true;
+  }).timeout(500000);
 });
