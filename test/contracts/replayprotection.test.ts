@@ -47,14 +47,15 @@ async function signCall(
       ChainID.MAINNET,
     ]
   );
-  const signedCall = await signer.signMessage(
-    arrayify(keccak256(encodedMessage))
-  );
+
+  const txid = keccak256(encodedMessage);
+  const signedCall = await signer.signMessage(arrayify(txid));
 
   return {
     callData,
     encodedReplayProtection,
     signedCall,
+    txid,
   };
 }
 
@@ -826,13 +827,12 @@ describe("ReplayProtection", () => {
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
-        replayProtection,
-        AddressZero,
-        admin,
-        0,
-        0
-      );
+      const {
+        callData,
+        encodedReplayProtection,
+        signedCall,
+        txid,
+      } = await signCall(replayProtection, AddressZero, admin, 0, 0);
 
       const index = keccak256(
         defaultAbiCoder.encode(
@@ -849,16 +849,12 @@ describe("ReplayProtection", () => {
         signedCall
       );
 
-      const logs = (await (await tx).wait()).logs;
-
-      const decodedLogs = replayProtection.interface.events.ReplayProtectionInfo.decode(
-        logs![0].data,
-        logs![0].topics
-      );
-
-      expect(decodedLogs["replayProtectionAuthority"]).to.eq(AddressZero);
-      expect(decodedLogs["replayProtection"]).to.eq(encodedReplayProtection);
-      expect(decodedLogs["data"]["hash"]).to.eq(keccak256(callData));
+      await expect(tx)
+        .to.emit(
+          replayProtection,
+          replayProtection.interface.events.ReplayProtectionInfo.name
+        )
+        .withArgs(AddressZero, encodedReplayProtection, txid);
     }
   );
 });

@@ -7,7 +7,7 @@ import "./IReplayProtectionAuthority.sol";
 contract ReplayProtection {
     mapping(bytes32 => uint256) public nonceStore;
 
-    event ReplayProtectionInfo(address replayProtectionAuthority, bytes replayProtection, bytes indexed data);
+    event ReplayProtectionInfo(address replayProtectionAuthority, bytes replayProtection, bytes32 indexed txid);
 
     address constant public multiNonceAddress = 0x0000000000000000000000000000000000000000;
     address constant public bitFlipAddress = 0x0000000000000000000000000000000000000001;
@@ -39,7 +39,9 @@ contract ReplayProtection {
         bytes memory _signature) internal returns(address){
 
         // Extract signer's address.
-        address signer = verifySig(_callData, _replayProtection, _replayProtectionAuthority, getChainID(), _signature);
+        bytes memory encodedData = abi.encode(_callData, _replayProtection, _replayProtectionAuthority, address(this), getChainID());
+        bytes32 txid = keccak256(encodedData);
+        address signer =  ECDSA.recover(ECDSA.toEthSignedMessageHash(txid), _signature);
 
         // Check the user's replay protection.
         if(_replayProtectionAuthority == multiNonceAddress) {
@@ -51,22 +53,9 @@ contract ReplayProtection {
             require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
         }
 
-        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection, _callData);
+        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection, txid);
 
         return signer;
-    }
-
-    /**
-     * Verify signature on the calldata and replay protection.
-     * @param _callData Contains target contract, value and function data.
-     * @param _replayProtection Contains the replay protection nonces.
-     * @param _replayProtectionAuthority Address to an external (or internal) relay protection mechanism.
-     */
-    function verifySig(bytes memory _callData,
-        bytes memory _replayProtection,
-        address _replayProtectionAuthority, uint chainId, bytes memory _signature) public view returns (address) {
-        bytes memory encodedData = abi.encode(_callData, _replayProtection, _replayProtectionAuthority, address(this), chainId);
-        return ECDSA.recover(ECDSA.toEthSignedMessageHash(keccak256(encodedData)), _signature);
     }
 
     /**
