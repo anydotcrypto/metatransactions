@@ -19,6 +19,7 @@ import { Wallet } from "ethers/wallet";
 import {
   ChainID,
   ReplayProtectionType,
+  ForwarderFactory,
 } from "../../src/ts/forwarders/forwarderFactory";
 
 const expect = chai.expect;
@@ -329,4 +330,172 @@ describe("Forwarder Factory", () => {
       "10 coins sent to the proxy hub"
     );
   }).timeout(50000);
+});
+
+const doesCache = async <T extends ForwarderFactory<T2>, T2>(
+  factory: T,
+  chainId: ChainID,
+  replayProtectionType: ReplayProtectionType,
+  signer: Wallet
+) => {
+  const forwarder1 = await factory.create(
+    chainId,
+    replayProtectionType,
+    signer
+  );
+
+  const forwarder2 = await factory.create(
+    chainId,
+    replayProtectionType,
+    signer
+  );
+
+  expect(forwarder1).to.eq(forwarder2);
+};
+
+const doesNotCache = async <T>(
+  factory: ForwarderFactory<T>,
+  chainId1: ChainID,
+  replayProtectionType1: ReplayProtectionType,
+  signer1: Wallet,
+  chainId2: ChainID,
+  replayProtectionType2: ReplayProtectionType,
+  signer2: Wallet
+) => {
+  const forwarder1 = await factory.create(
+    chainId1,
+    replayProtectionType1,
+    signer1
+  );
+
+  const forwarder2 = await factory.create(
+    chainId2,
+    replayProtectionType2,
+    signer2
+  );
+
+  expect(forwarder1).to.not.eq(forwarder2);
+};
+
+const getUser = async (provider: Provider, [user1, user2]: Wallet[]) => {
+  return { user1, user2 };
+};
+
+describe("RelayHubForwarderFactory", () => {
+  it("does cache on create", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesCache(
+      new RelayHubForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across chains", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new RelayHubForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across replay protections", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new RelayHubForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.MULTINONCE,
+      user1
+    );
+  });
+
+  it("does not cache across wallets", async () => {
+    const { user1, user2 } = await loadFixture(getUser);
+    await doesNotCache(
+      new RelayHubForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user2
+    );
+  });
+
+  it("RelayHub does not cache proxy account", async () => {
+    const { user1 } = await loadFixture(getUser);
+    const forwarder1 = await new RelayHubForwarderFactory().create(
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+
+    const forwarder2 = await new ProxyAccountForwarderFactory().create(
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+
+    expect(forwarder1).to.not.eq(forwarder2);
+  });
+});
+
+describe("ProxyAccountForwarderFactory", () => {
+  it("does cache on create", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across chains", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across replay protections", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.MULTINONCE,
+      user1
+    );
+  });
+
+  it("does not cache across wallets", async () => {
+    const { user1, user2 } = await loadFixture(getUser);
+    await doesNotCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user2
+    );
+  });
 });
