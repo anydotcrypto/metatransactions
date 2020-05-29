@@ -11,13 +11,13 @@ contract ReplayProtectionWrapper is ReplayProtection {
     /**
      * Easy wrapper to access ReplayProtection.verify(), an internal method.
      */
-    function verifyPublic(bytes memory _callData,
+    function replayProtectionPublic(
+                address _signer,
         bytes memory _replayProtection,
-        address _replayProtectionAuthority,
-        address signer,
-        bytes memory _signature) public {
+        address _replayProtectionAuthority
+        ) public {
 
-        require(signer == verify(_callData, _replayProtection, _replayProtectionAuthority, _signature), "Not expected signer");
+       replayProtection(_signer, _replayProtection, _replayProtectionAuthority);
     }
 
     function noncePublic(address _signer, bytes memory _replayProtection) public {

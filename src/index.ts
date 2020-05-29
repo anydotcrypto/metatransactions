@@ -57,6 +57,9 @@ export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
 export { RevertMessageTester } from "./typedContracts/RevertMessageTester";
 export { RevertMessageTesterFactory } from "./typedContracts/RevertMessageTesterFactory";
 
+export { SingleSigner } from "./typedContracts/SingleSigner";
+export { SingleSignerFactory } from "./typedContracts/SingleSignerFactory";
+
 export { MultiSender } from "./ts/batch/MultiSend";
 
 export { deployMetaTxContracts } from "./deployment/deploy";

@@ -10,4 +10,8 @@ contract Echo {
         emit Broadcast(_message);
     }
 
+    function onlyBroadcast(string memory _message) public {
+        emit Broadcast(_message);
+    }
+
 }

@@ -1,7 +1,6 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./IReplayProtectionAuthority.sol";
 
 contract ReplayProtection {
@@ -28,34 +27,24 @@ contract ReplayProtection {
      *
      * Why is there no signing authority? An attacker can supply an address that returns a fixed signer
      * so we need to restrict it to a "pre-approved" list of authorities (DAO).
-     * @param _callData Function name and data to be called
+     * @param _signer Address of the signer
      * @param _replayProtectionAuthority What replay protection will we check?
      * @param _replayProtection Encoded replay protection
-     * @param _signature Signer's signature
      */
-    function verify(bytes memory _callData,
+    function replayProtection(address _signer,
         bytes memory _replayProtection,
-        address _replayProtectionAuthority,
-        bytes memory _signature) internal returns(address){
-
-        // Extract signer's address.
-        bytes memory encodedData = abi.encode(_callData, _replayProtection, _replayProtectionAuthority, address(this), getChainID());
-        bytes32 txid = keccak256(encodedData);
-        address signer =  ECDSA.recover(ECDSA.toEthSignedMessageHash(txid), _signature);
+        address _replayProtectionAuthority) internal {
 
         // Check the user's replay protection.
         if(_replayProtectionAuthority == multiNonceAddress) {
             // Assumes authority returns true or false. It may also revert.
-            require(nonce(signer, _replayProtection), "Multinonce replay protection failed");
+            require(nonce(_signer, _replayProtection), "Multinonce replay protection failed");
         } else if (_replayProtectionAuthority == bitFlipAddress) {
-            require(bitflip(signer, _replayProtection), "Bitflip replay protection failed");
+            require(bitflip(_signer, _replayProtection), "Bitflip replay protection failed");
         } else {
-            require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
+            // The final "else" ensures this require() is always hit and reverts if its bad.
+            require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(_signer, _replayProtection), "Replay protection from authority failed");
         }
-
-        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection, txid);
-
-        return signer;
     }
 
     /**
@@ -63,7 +52,8 @@ contract ReplayProtection {
      * Explained: https://github.com/PISAresearch/metamask-comp#multinonce
      * Allows a user to send N queues of transactions, but transactions in each queue are accepted in order.
      * If queue==0, then it is a single queue (e.g. NONCE replay protection)
-     * @param _replayProtection Contains a single nonce
+     * @param _signer Signer's address
+     * @param _replayProtection Contains the two nonces
      */
     function nonce(address _signer, bytes memory _replayProtection) internal returns(bool) {
         uint256 queue;
@@ -85,6 +75,8 @@ contract ReplayProtection {
      * Bitflip Replay Protection
      * Explained: https://github.com/PISAresearch/metamask-comp#bitflip
      * Signer flips a bit for every new transaction. Each queue supports 256 bit flips.
+     * @param _signer Signer's address
+     * @param _replayProtection Contains the two nonces
      */
     function bitflip(address _signer, bytes memory _replayProtection) internal returns(bool) {
         (uint256 queue, uint256 bitsToFlip) = abi.decode(_replayProtection, (uint256, uint256));
