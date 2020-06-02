@@ -322,14 +322,30 @@ export class ProxyAccountForwarder extends Forwarder<
     return getCreate2Address(options);
   }
 
+  // Once the contract's deploy tx has enough confirmations, that cannot change, therefore we cache the answer 
+  private mIsContractDeployed: null | true = null;
+
   /**
    * Checks if the ProxyContract is already deployed.
    * @returns TRUE if deployed, FALSE if not deployed.
    */
   public async isContractDeployed(): Promise<boolean> {
+    if (this.mIsContractDeployed === true) return true;
+
+    const blockNumber = await this.signer.provider!.getBlockNumber();
+
     const code = await this.signer.provider!.getCode(this.address);
+    // get the same answer 3 blocks ago; the max is to avoid failing in tests where blockNumber is near 0
+    const code3BlocksAgo = await this.signer.provider!.getCode(this.address, Math.max(0, blockNumber - 3));
+
     // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
-    const codeIsEmpty = !code || code === "0x" || code === "0x0";
-    return !codeIsEmpty;
+    const result = !!code && (code !== "0x" && code !== "0x0");
+
+    if (!!code3BlocksAgo && (code3BlocksAgo !== "0x" && code3BlocksAgo !== "0x0")) {
+      // Once there are at least 3 confirmations, we record it to avoid unnecessary network requests
+      this.mIsContractDeployed = true;
+    }
+
+    return result;
   }
 }
