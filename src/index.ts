@@ -30,9 +30,23 @@ export {
   RELAY_HUB_SALT_STRING,
 } from "./deployment/addresses";
 
-export { MinimalTx, ForwardParams, Forwarder } from "./ts/forwarders/forwarder";
-export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
-export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
+export {
+  MinimalTx,
+  ForwardParams,
+  Forwarder,
+  RequiredTo,
+  RevertableMinimalTx,
+} from "./ts/forwarders/forwarder";
+export {
+  ProxyAccountForwarder,
+  ProxyAccountCallData,
+  RevertableProxyAccountCallData,
+} from "./ts/forwarders/proxyAccountFowarder";
+export {
+  RelayHubForwarder,
+  RelayHubCallData,
+  RevertableRelayHubCallData,
+} from "./ts/forwarders/relayHubForwarder";
 
 export { MultiNonceReplayProtection } from "./ts/replayProtection/multiNonce";
 export { BitFlipReplayProtection } from "./ts/replayProtection/bitFlip";
