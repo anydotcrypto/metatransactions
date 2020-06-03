@@ -334,14 +334,13 @@ describe("RelayHub Contract", () => {
         forwarderFactory,
       } = await loadFixture(createRelayHub);
       const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
-      const value = new BigNumber("0");
       const encodedReplayProtection = defaultAbiCoder.encode(
         ["uint", "uint"],
         [0, 123]
       );
       const encodedCallData = defaultAbiCoder.encode(
-        ["address", "uint", "bytes"],
-        [msgSenderCon.address, value, msgSenderCall]
+        ["uint", "address", "bytes"],
+        [CallType.CALL, msgSenderCon.address, msgSenderCall]
       );
 
       // We expect encoded call data to include target contract address, the value, and the callData.
@@ -351,21 +350,22 @@ describe("RelayHub Contract", () => {
         ReplayProtectionType.MULTINONCE,
         owner
       );
+
       // @ts-ignore:
-      const encodedData = forwarder.encodeMetaTransactionToSign(
+      const encodedTxData = forwarder.encodeMetaTransactionToSign(
         encodedCallData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000000"
+        AddressZero
       );
 
       const signature = await owner.signMessage(
-        arrayify(keccak256(encodedData))
+        arrayify(keccak256(encodedTxData))
       );
 
       const tx = relayHub
         .connect(sender)
         .forward(
-          { to: msgSenderCon.address, data: encodedCallData },
+          { to: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
           owner.address,

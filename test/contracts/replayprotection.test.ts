@@ -7,8 +7,6 @@ import {
   ReplayProtectionWrapperFactory,
   ReplayProtectionWrapper,
   ChainID,
-  RelayHubFactory,
-  ReplayProtection,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -221,14 +219,14 @@ describe("ReplayProtection", () => {
   ).timeout("50000");
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "access nonce() via verify (e.g. the replay protection authority)",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         AddressZero,
         admin,
@@ -243,12 +241,10 @@ describe("ReplayProtection", () => {
         )
       );
 
-      await replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        AddressZero,
+      await replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        AddressZero
       );
 
       const nonce = await replayProtection.nonceStore(index);
@@ -258,14 +254,14 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "for nonce() the same replay protection is used twice and should fail",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         AddressZero,
         admin,
@@ -280,24 +276,20 @@ describe("ReplayProtection", () => {
         )
       );
 
-      await replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        AddressZero,
+      await replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        AddressZero
       );
 
       const nonce = await replayProtection.nonceStore(index);
 
       expect(nonce).to.eq(1);
 
-      const tx = replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        AddressZero,
+      const tx = replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        AddressZero
       );
 
       await expect(tx).to.be.revertedWith(
@@ -307,14 +299,14 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "for nonce(), the nonce is used (nonce==1) is not yet valid (out of order) and should fail",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         AddressZero,
         admin,
@@ -322,46 +314,15 @@ describe("ReplayProtection", () => {
         1
       );
 
-      const tx = replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        AddressZero,
+      const tx = replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        AddressZero
       );
 
       await expect(tx).to.be.revertedWith(
         "Multinonce replay protection failed"
       );
-    }
-  );
-
-  fnIt<replayProtection>(
-    (a) => a.verifyPublic,
-    "access nonce() via verify fails as the nonce queue (nonce1) is the wrong replay protection authority.",
-    async () => {
-      const { replayProtection, admin } = await loadFixture(
-        createReplayProtection
-      );
-
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
-        replayProtection,
-        "0x0000000000000000000000000000000000000000",
-        admin,
-        0,
-        1
-      );
-
-      const tx = replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
-        admin.address,
-        signedCall
-      );
-
-      // User signs AddressZero, but the contract computes signature for AddressOne
-      await expect(tx).to.be.revertedWith("Not expected signer");
     }
   );
 
@@ -524,7 +485,7 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "access bitflip() via verify (e.g. the replay protection authority)",
     async () => {
       const { replayProtection, admin } = await loadFixture(
@@ -534,7 +495,7 @@ describe("ReplayProtection", () => {
       const bitmapIndex = 123;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         "0x0000000000000000000000000000000000000001",
         admin,
@@ -553,12 +514,10 @@ describe("ReplayProtection", () => {
         )
       );
 
-      await replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
+      await replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        "0x0000000000000000000000000000000000000001"
       );
 
       const nonce = await replayProtection.nonceStore(index);
@@ -568,37 +527,7 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
-    "access bitflip() via verify with wrong replay protection authority and it should fail",
-    async () => {
-      const { replayProtection, admin } = await loadFixture(
-        createReplayProtection
-      );
-
-      const bitmapIndex = 6175;
-      const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
-
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
-        replayProtection,
-        "0x0000000000000000000000000000000000000000",
-        admin,
-        bitmapIndex,
-        bitToFlip.toNumber()
-      );
-
-      await expect(
-        replayProtection.verifyPublic(
-          callData,
-          encodedReplayProtection,
-          "0x0000000000000000000000000000000000000000",
-          admin.address,
-          signedCall
-        )
-      ).to.be.revertedWith("Multinonce replay protection failed");
-    }
-  );
-  fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "submit same replay protection for bitflip() twice and it should fail",
     async () => {
       const { replayProtection, admin } = await loadFixture(
@@ -608,7 +537,7 @@ describe("ReplayProtection", () => {
       const bitmapIndex = 321;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         "0x0000000000000000000000000000000000000001",
         admin,
@@ -616,12 +545,10 @@ describe("ReplayProtection", () => {
         bitToFlip.toNumber()
       );
 
-      await replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
+      await replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        "0x0000000000000000000000000000000000000001"
       );
 
       const index = keccak256(
@@ -639,12 +566,10 @@ describe("ReplayProtection", () => {
       expect(nonce).to.eq(bitToFlip);
 
       await expect(
-        replayProtection.verifyPublic(
-          callData,
-          encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
+        replayProtection.replayProtectionPublic(
           admin.address,
-          signedCall
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001"
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
     }
@@ -656,7 +581,7 @@ describe("ReplayProtection", () => {
   }
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "test isPowerOfTwo",
     async () => {
       // As long as one argument is zero, it should always work.
@@ -675,7 +600,7 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "flips two bits for bitflip for a single job and it should fail",
     async () => {
       const { replayProtection, admin } = await loadFixture(
@@ -686,7 +611,7 @@ describe("ReplayProtection", () => {
       let bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
       bitToFlip = flipBit(bitToFlip, new BigNumber("1"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         "0x0000000000000000000000000000000000000001",
         admin,
@@ -695,12 +620,10 @@ describe("ReplayProtection", () => {
       );
 
       await expect(
-        replayProtection.verifyPublic(
-          callData,
-          encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
+        replayProtection.replayProtectionPublic(
           admin.address,
-          signedCall
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001"
         )
       ).to.be.revertedWith("Only a single bit can be flipped");
 
@@ -721,7 +644,7 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "flip a bit and add 1. use the modified bit to flip and it should fail.",
     async () => {
       const { replayProtection, admin } = await loadFixture(
@@ -732,7 +655,7 @@ describe("ReplayProtection", () => {
       let bitToFlip = flipBit(new BigNumber("0"), new BigNumber("5"));
       bitToFlip = bitToFlip.add(1);
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         "0x0000000000000000000000000000000000000001",
         admin,
@@ -741,12 +664,10 @@ describe("ReplayProtection", () => {
       );
 
       await expect(
-        replayProtection.verifyPublic(
-          callData,
-          encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
+        replayProtection.replayProtectionPublic(
           admin.address,
-          signedCall
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001"
         )
       ).to.be.revertedWith("Only a single bit can be flipped");
 
@@ -767,7 +688,7 @@ describe("ReplayProtection", () => {
   );
 
   fnIt<replayProtection>(
-    (a) => a.verifyPublic,
+    (a) => a.replayProtectionPublic,
     "submit same replay protection for bitflip() twice and it should fail",
     async () => {
       const { replayProtection, admin } = await loadFixture(
@@ -777,7 +698,7 @@ describe("ReplayProtection", () => {
       const bitmapIndex = 321;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
         "0x0000000000000000000000000000000000000001",
         admin,
@@ -785,12 +706,10 @@ describe("ReplayProtection", () => {
         bitToFlip.toNumber()
       );
 
-      await replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
+      await replayProtection.replayProtectionPublic(
         admin.address,
-        signedCall
+        encodedReplayProtection,
+        "0x0000000000000000000000000000000000000001"
       );
 
       const index = keccak256(
@@ -808,53 +727,12 @@ describe("ReplayProtection", () => {
       expect(nonce).to.eq(bitToFlip);
 
       await expect(
-        replayProtection.verifyPublic(
-          callData,
-          encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
+        replayProtection.replayProtectionPublic(
           admin.address,
-          signedCall
+          encodedReplayProtection,
+          "0x0000000000000000000000000000000000000001"
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
-    }
-  );
-
-  fnIt<replayProtection>(
-    (a) => a.verifyPublic,
-    "catch the ReplayProtectionInfo event",
-    async () => {
-      const { replayProtection, admin } = await loadFixture(
-        createReplayProtection
-      );
-
-      const {
-        callData,
-        encodedReplayProtection,
-        signedCall,
-        txid,
-      } = await signCall(replayProtection, AddressZero, admin, 0, 0);
-
-      const index = keccak256(
-        defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [admin.address, 0, AddressZero]
-        )
-      );
-
-      const tx = replayProtection.verifyPublic(
-        callData,
-        encodedReplayProtection,
-        AddressZero,
-        admin.address,
-        signedCall
-      );
-
-      await expect(tx)
-        .to.emit(
-          replayProtection,
-          replayProtection.interface.events.ReplayProtectionInfo.name
-        )
-        .withArgs(AddressZero, encodedReplayProtection, txid);
     }
   );
 });

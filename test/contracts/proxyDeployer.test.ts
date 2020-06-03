@@ -38,6 +38,7 @@ import { ForwardParams, CallType } from "../../src/ts/forwarders/forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ethers } from "ethers";
 import { abi } from "../../src/typedContracts/ProxyAccount.json";
+import { Signer } from "crypto";
 const expect = chai.expect;
 let hubClass: ProxyAccountDeployer;
 let accountClass: ProxyAccount;
@@ -287,6 +288,105 @@ describe("ProxyAccountDeployer", () => {
       await expect(tx).to.emit(
         msgSenderCon,
         msgSenderCon.interface.events.WhoIsSender.name
+      );
+    }
+  );
+
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "catches the MetaTxInfo.",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      // @ts-ignore
+      const params = await forwarder.signMetaTransaction({
+        to: msgSenderCon.address,
+        value: new BigNumber("0"),
+        data: msgSenderCall,
+        callType: CallType.CALL,
+      });
+
+      // @ts-ignore
+      const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
+      const proxyAccount = new ProxyAccountFactory(owner).attach(
+        forwarder.address
+      );
+      const txid = keccak256(
+        defaultAbiCoder.encode(
+          ["bytes", "bytes", "address", "address", "uint"],
+          [
+            defaultAbiCoder.encode(
+              ["uint", "address", "uint", "bytes"],
+              [CallType.CALL, msgSenderCon.address, 0, msgSenderCall]
+            ),
+            params.replayProtection,
+            params.replayProtectionAuthority,
+            params.to,
+            params.chainId,
+          ]
+        )
+      );
+      const tx = sender.sendTransaction({
+        to: minimalTx.to,
+        data: minimalTx.data,
+      });
+
+      await expect(tx)
+        .to.emit(proxyAccount, proxyAccount.interface.events.MetaTxInfo.name)
+        .withArgs(
+          params.replayProtection,
+          params.replayProtectionAuthority,
+          txid
+        );
+    }
+  );
+
+  fnIt<accountFunctions>(
+    (a) => a.forward,
+    "change the replay protection authority and it should fail.",
+    async () => {
+      const { proxyDeployer, owner, sender, msgSenderCon } = await loadFixture(
+        createProxyAccountDeployer
+      );
+
+      const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        owner,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      await proxyDeployer.connect(sender).createProxyAccount(owner.address);
+      // @ts-ignore
+      const params = await forwarder.signMetaTransaction({
+        to: msgSenderCon.address,
+        value: new BigNumber("0"),
+        data: msgSenderCall,
+        callType: CallType.CALL,
+      });
+
+      params.replayProtectionAuthority =
+        "0x0000000000000000000000000000000000000001";
+
+      // @ts-ignore
+      const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
+      const tx = sender.sendTransaction({
+        to: minimalTx.to,
+        data: minimalTx.data,
+      });
+
+      await expect(tx).to.be.revertedWith(
+        "Owner of the proxy account did not authorise the tx"
       );
     }
   );
@@ -619,7 +719,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       await expect(tx).to.revertedWith(
-        "Owner did not sign this meta-transaction."
+        "Owner of the proxy account did not authorise the tx"
       );
     }
   );
@@ -656,7 +756,7 @@ describe("ProxyAccountDeployer", () => {
       });
 
       await expect(tx).to.be.revertedWith(
-        "Owner did not sign this meta-transaction."
+        "wner of the proxy account did not authorise the tx"
       );
     }
   );
@@ -903,7 +1003,7 @@ describe("ProxyAccountDeployer", () => {
       });
 
       await expect(tx).to.be.revertedWith(
-        "Owner did not sign this meta-transaction."
+        "wner of the proxy account did not authorise the tx"
       );
     }
   );
@@ -1279,7 +1379,7 @@ describe("ProxyAccountDeployer", () => {
         data: deployProxy.data,
       });
 
-      const echoData = echoCon.interface.functions.sendMessage.encode([
+      const echoData = echoCon.interface.functions.onlyBroadcast.encode([
         "hello",
       ]);
       const callData = msgSenderCon.interface.functions.test.encode([]);
@@ -1290,14 +1390,14 @@ describe("ProxyAccountDeployer", () => {
           value: 0,
           data: callData,
           revertOnFail: true,
-          callType: CallType.DELEGATE,
+          callType: CallType.CALL,
         },
         {
           to: echoCon.address,
           value: 0,
           data: echoData,
           revertOnFail: true,
-          callType: CallType.CALL,
+          callType: CallType.DELEGATE,
         },
       ];
 
@@ -1338,11 +1438,8 @@ describe("ProxyAccountDeployer", () => {
       });
 
       await expect(tx)
-        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
-        .withArgs(admin.address);
-
-      const lastMessage = await echoCon.lastMessage();
-      expect(lastMessage).to.eq("hello");
+        .to.emit(echoCon, echoCon.interface.events.Broadcast.name)
+        .withArgs("hello");
     }
   ).timeout(500000);
 

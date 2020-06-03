@@ -1,29 +1,23 @@
 pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./ReplayProtection.sol";
 import "../ops/BatchInternal.sol";
+import "../SingleSigner.sol";
 
 /**
  * We deploy a new contract to bypass the msg.sender problem.
  */
-contract ProxyAccount is ReplayProtection, BatchInternal {
+contract ProxyAccount is SingleSigner, ReplayProtection, BatchInternal {
 
-    address public owner;
+    event MetaTxInfo(bytes replayProtection, address replayProtectionAuthority, bytes32 indexed txid);
 
     struct MetaTx {
         address to;
         uint value;
         bytes data;
         CallType callType;
-    }
-
-    /**
-     * Due to create clone, we need to use an init() method.
-     */
-    function init(address _owner) public {
-        require(owner == address(0), "Owner is already set");
-        owner = _owner;
     }
 
     /**
@@ -40,10 +34,16 @@ contract ProxyAccount is ReplayProtection, BatchInternal {
         bytes memory _signature) public returns (bool, bytes memory) {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(_metaTx.callType, _metaTx.to, _metaTx.value, _metaTx.data);
+        bytes memory encodedCallData = abi.encode(_metaTx.callType, _metaTx.to, _metaTx.value, _metaTx.data);
+        bytes memory encodedTxData = abi.encode(encodedCallData, _replayProtection, _replayProtectionAuthority, address(this), getChainID());
+        bytes32 txid = keccak256(encodedTxData);
 
-        // // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+        // Reverts if fails.
+        // Signer/owner is derived from SingleSigner
+        authenticate(txid, _signature);
+        replayProtection(getOwner(), _replayProtection, _replayProtectionAuthority);
+        emit MetaTxInfo(_replayProtection, _replayProtectionAuthority, txid);
+
         require(_metaTx.callType == CallType.CALL || _metaTx.callType == CallType.DELEGATE, "Signer did not pick a valid calltype");
 
         bool success;
@@ -80,10 +80,14 @@ contract ProxyAccount is ReplayProtection, BatchInternal {
         address _replayProtectionAuthority,
         bytes memory _signature) public {
 
-        bytes memory encodedData = abi.encode(CallType.BATCH, _metaTxList);
+        bytes memory encodedCallData = abi.encode(CallType.BATCH, _metaTxList);
+        bytes memory encodedTxData = abi.encode(encodedCallData, _replayProtection, _replayProtectionAuthority, address(this), getChainID());
+        bytes32 txid = keccak256(encodedTxData);
 
         // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+        authenticate(txid, _signature);
+        replayProtection(getOwner(), _replayProtection, _replayProtectionAuthority);
+        emit MetaTxInfo(_replayProtection, _replayProtectionAuthority, txid);
 
         // Runs the batch function in MultiSend.
         // It supports CALL and DELEGATECALL.

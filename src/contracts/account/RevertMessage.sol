@@ -2,7 +2,7 @@ pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
 /**
- * Common CALL functionality for the proxy contract and relayhub
+ * Extracts the revert message if a call fails.
  */
 contract RevertMessage {
 
