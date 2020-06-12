@@ -96,7 +96,7 @@ export class ProxyAccountForwarder extends Forwarder<
     };
   }
 
-  protected toCallData(
+  protected deployDataToCallData(
     initCode: string,
     extraData: string,
     value: BigNumberish
@@ -108,7 +108,7 @@ export class ProxyAccountForwarder extends Forwarder<
     };
   }
 
-  protected toBatchCallData(
+  protected deployDataToBatchCallData(
     initCode: string,
     extraData: string,
     value: BigNumberish,
@@ -156,7 +156,6 @@ export class ProxyAccountForwarder extends Forwarder<
       data,
     });
 
-    // TODO:51 - tests for the decode batch functions - they arent being used atm
     const functionArgs: {
       _metaTxList: Required<RevertableProxyAccountCallData>[];
       _replayProtection: string;

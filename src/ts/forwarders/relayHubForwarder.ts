@@ -79,14 +79,12 @@ export class RelayHubForwarder extends Forwarder<
       data,
     });
 
-    // TODO:51 - tests for the decode batch functions - they arent being used atm
     const functionArgs: {
       _metaTxList: Required<RevertableRelayHubCallData>[];
       _replayProtection: string;
       _replayProtectionAuthority: string;
       _signature: string;
     } = {
-      // TODO:51: rename to metaTxList - same in relayHub
       _metaTxList: parsedTransaction.args[0].map((a: any) => ({
         to: a[0],
         data: a[1],
@@ -107,7 +105,7 @@ export class RelayHubForwarder extends Forwarder<
     signature: string
   ) {
     return this.relayHub.interface.functions.forward.encode([
-      this.defaultCallData(data),
+      this.callDataWithDefaults(data),
       replayProtection,
       replayProtectionAuthority,
       signature,
@@ -115,7 +113,7 @@ export class RelayHubForwarder extends Forwarder<
   }
 
   protected encodeCallData(data: RelayHubCallData): string {
-    const defaulted = this.defaultCallData(data);
+    const defaulted = this.callDataWithDefaults(data);
 
     return defaultAbiCoder.encode(
       ["uint", "address", "bytes"],
@@ -123,24 +121,24 @@ export class RelayHubForwarder extends Forwarder<
     );
   }
 
-  private defaultCallData(data: RelayHubCallData): Required<RelayHubCallData> {
+  private callDataWithDefaults(data: RelayHubCallData): Required<RelayHubCallData> {
     return {
       to: data.to,
       data: data.data ? data.data : "0x",
     };
   }
 
-  private defaultRevertableCallData(
+  private revertableCallDataWithDefaults(
     data: RevertableRelayHubCallData
   ): Required<RevertableRelayHubCallData> {
     return {
-      ...this.defaultCallData(data),
+      ...this.callDataWithDefaults(data),
       revertOnFail: data.revertOnFail ? data.revertOnFail : false,
     };
   }
 
   protected encodeBatchCallData(batchTx: RevertableRelayHubCallData[]): string {
-    const metaTxList = batchTx.map(b => this.defaultRevertableCallData(b));
+    const metaTxList = batchTx.map(b => this.revertableCallDataWithDefaults(b));
     return defaultAbiCoder.encode(
       ["uint", "tuple(address to, bytes data, bool revertOnFail)[]"],
       [CallType.BATCH, metaTxList]
@@ -153,7 +151,7 @@ export class RelayHubForwarder extends Forwarder<
     replayProtectionAuthority: string,
     signature: string
   ) {
-    const metaTxList = batchTx.map(b => this.defaultRevertableCallData(b));
+    const metaTxList = batchTx.map(b => this.revertableCallDataWithDefaults(b));
 
     return this.relayHub.interface.functions.batch.encode([
       metaTxList,
@@ -163,7 +161,7 @@ export class RelayHubForwarder extends Forwarder<
     ]);
   }
 
-  protected toBatchCallData(
+  protected deployDataToBatchCallData(
     initCode: string,
     extraData: string,
     value?: BigNumberish,
@@ -175,7 +173,7 @@ export class RelayHubForwarder extends Forwarder<
     };
   }
 
-  protected toCallData(initCode: string, extraData: string): RelayHubCallData {
+  protected deployDataToCallData(initCode: string, extraData: string): RelayHubCallData {
     return this.encodeForDeploy(initCode, extraData, "0x");
   }
 

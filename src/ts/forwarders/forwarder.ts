@@ -89,13 +89,13 @@ export abstract class Forwarder<
     replayProtectionAuthority: string,
     signature: string
   ): Promise<string>;
-  protected abstract toBatchCallData(
+  protected abstract deployDataToBatchCallData(
     initCode: string,
     extraData: string,
     value?: BigNumberish,
     revertOnFail?: boolean
   ): TBatchCallData;
-  protected abstract toCallData(
+  protected abstract deployDataToCallData(
     initCode: string,
     extraData: string,
     value?: BigNumberish
@@ -134,14 +134,14 @@ export abstract class Forwarder<
     if (Array.isArray(tx)) {
       const encodedTransactions = tx.map((t) =>
         this.isDeployTx(t)
-          ? this.toBatchCallData(t.data, t.salt, t.value || "0x")
+          ? this.deployDataToBatchCallData(t.data, t.salt, t.value || "0x")
           : (t as TBatchCallData)
       );
 
       return await this.signAndEncodeBatchMetaTransaction(encodedTransactions);
     } else {
       const txOrDeploy = this.isDeployTx(tx)
-        ? this.toCallData(tx.data, tx.salt, tx.value || "0x")
+        ? this.deployDataToCallData(tx.data, tx.salt, tx.value || "0x")
         : (tx as TCallData);
 
       return await this.signAndEncodeMetaTransaction(txOrDeploy);
@@ -233,8 +233,6 @@ export abstract class Forwarder<
     dataList: TBatchCallData[]
   ): Promise<MinimalTx> {
     const encodedCallData = this.encodeBatchCallData(dataList);
-    // TODO:51: what about supplying value? shouldne that be returnedd?
-
     const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
 
     const { signature } = await this.encodeAndSignParams(
