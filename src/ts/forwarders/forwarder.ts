@@ -121,6 +121,11 @@ export abstract class Forwarder<
     return !!(tx as DeployCallData).salt;
   }
 
+  /**
+   * Sign a meta transaction or a batch of meta transactions.
+   * Deployments can als be made by specifiying a salt along with the data.
+   * @param tx 
+   */
   public async signMetaTransaction(
     tx:
       | XOR<TCallData, TDeployCallData>
