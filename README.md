@@ -140,11 +140,11 @@ if (!isProxyDeployed) {
 }
 ```
 
-You must supply the following information:
+Supply the following information:
 
-- **Target** contract's address,
-- **Value** to be sent (in wei)
-- **Data** the function name and its arguments
+- **To** contract's address (required)
+- **Data** the function name and its arguments (required)
+- **Value** to be sent (in wei) - (optional)
 
 Once you have settled on the message to echo, you can use this code sample to authorise the meta-transaction:
 
@@ -154,8 +154,8 @@ const echo = new EchoFactory(user).attach("");
 const data = echo.interface.functions.submit.encode(["hello"]);
 
 // Sign the meta transaction & encode it.
-const metaTx = await forwarder.signAndEncodeMetaTransaction({
-    target: echo.address,
+const metaTx = await forwarder.signMetaTransaction({
+    to: echo.address,
     value: "0",
     data: data,
 });
@@ -208,7 +208,7 @@ const isProxyDeployed = await proxyAccount.isContractDeployed();
 const minimalTx = await proxyAccount.createProxyContract();
 ```
 
-The former lets you check if the proxy contract is already deployed. The latter prepares a meta-transaction that can be packed into an Ethereum Transaction to deploy the proxy contract. Note the `MinimalTx` only contains the fields `to,data,value`.
+The former lets you check if the proxy contract is already deployed. The latter prepares a meta-transaction that can be packed into an Ethereum Transaction to deploy the proxy contract. Note the `MinimalTx` only contains the fields `to, data`.
 
 ## Authorising a meta-transaction.
 
@@ -219,35 +219,30 @@ const echoAddress = "0x...";
 const data = echoContract.interface.functions.sendMessage.encode([
   "any.sender is nice",
 ]);
-const metaTx = await proxyAccount.signAndEncodeMetaTransaction({
-  target: echoAddress,
+const metaTx = await proxyAccount.signMetaTransaction({
+  to: echoAddress,
   data: data,
-  value: "0:"
+  value: "0"
 });
 ```
 
-It returns a `MinimalTx` that only contains the fields `to, data, value` which can be packed into an Ethereum Transaction. This takes care of preparing the replay protection & wrapping the call so it can be processed by the proxy account contract.
+It returns a `MinimalTx` that only contains the fields `to, data` which can be packed into an Ethereum Transaction. This takes care of preparing the replay protection & wrapping the call so it can be processed by the proxy account contract.
 
 Note there is an additional `callType` field that can be used to decide if it is a `call` or a `delegatecall`. We only discuss call and advanced users can look at the contract on how to use delegatecall.
 
 ## Authorising a meta-deployment.
 
-There are two functions associated with meta-deployments:
+To deploy use the signMetaTransaction function but replace the `to` argument with a `salt`:
 
 ```
-const initCode = new EchoFactory(user).getDeployTransaction().data! as string;
+const initCode = new EchoFactory(user).getDeployTransaction().data!;
 const value = "0";
 const salt = "0x123";
-const metaDeploy = await proxyAccount.signAndEncodeMetaDeployment(
+const metaDeploy = await proxyAccount.signMetaTransaction({
   initCode,
   value,
   salt
-);
-
-const echoAddress = proxyAccount.buildDeployedContractAddress(
-  initCode,
-  salt
-);
+});
 ```
 
 The `signAndEncodeMetaDeployment` function prepares a `MinimalTx` for the deployment. Again it only contains a `to,value,data` that can be packed in the Ethereum Transaction. In reality, it is using `delegatecall` from the proxy contract into a global deployer contract and then deploy the smart contract.
@@ -260,25 +255,61 @@ You need to prepare a list of transactions to use in the batch:
 
 ```
 const metaTxList = [{
-  target: msgSenderCon.address,
+  to: msgSenderCon.address,
   value: 0,
   data: data,
   revertOnFail: true,
 },
 {
-  target: echoCon.address,
+  data: initCode,
+  salt: "v0.1",
+  value: 0
+},
+{
+  to: echoCon.address,
   value: 0,
   data: data,
-  reverrtOnFail: false,
+  revertOnFail: false,
 }];
 ```
 
 An additional feature is `revertOnFail` which lets you decide if the entire batch of transactions should revert if the meta-transaction fails. Again, we omit `CallType` as it should only be used by advanced users and 99% of meta-transactions only require the `.call` functionality.
 
 Now you can batch the transactions:
-
 ```
-const minimalTx = await forwarder.signAndEncodeBatchTransaction(metaTxList);
+const minimalTx = await forwarder.signMetaTransaction(metaTxList);
 ```
 
-The `MinimalTx` contains the fields `to,data,value` that can be packed into an Ethereum Transaction. Each meta-transaction is processed in order by the proxy account contract.
+The `MinimalTx` contains the fields `to, data` that can be packed into an Ethereum Transaction. Each meta-transaction is processed in order by the proxy account contract.
+
+## Decoding a metatransaction
+
+You can decode a metatransaction into it's consutituent parts by using the decodeTx or decodeBatchTx functions.
+
+For a single tx:
+```
+const echoAddress = "0x...";
+const data = echoContract.interface.functions.sendMessage.encode([
+  "any.sender is nice",
+]);
+const metaTx = await proxyAccount.signMetaTransaction({
+  to: echoAddress,
+  data: data,
+  value: "0"
+});
+const forwardFunctionArguments = proxyAccount.decodeTx(metaTx.data);
+```
+
+Or for a batch tx:
+```
+const echoAddress = "0x...";
+const data = echoContract.interface.functions.sendMessage.encode([
+  "any.sender is nice",
+]);
+const metaTx = await proxyAccount.signMetaTransaction([{
+  to: echoAddress,
+  data: data,
+  value: "0"
+}]);
+const forwardFunctionArguments = proxyAccount.decodeBatchTx(metaTx.data);
+```
