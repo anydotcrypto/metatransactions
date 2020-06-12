@@ -1,7 +1,7 @@
 import "mocha";
 import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
+import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import Doppelganger from "ethereum-doppelganger";
 
 import { fnIt } from "@pisa-research/test-utils";
@@ -101,20 +101,18 @@ describe("RelayHub Contract", () => {
         new MultiNonceReplayProtection(30, owner, relayHub.address)
       );
 
-      // @ts-ignore
-      const params = await forwarder.signMetaTransaction({
+      const metaTx = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
-
+      const params = forwarder.decodeTx(metaTx.data);
       const tx = relayHub
         .connect(sender)
         .forward(
-          { to: params.target, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signer,
-          params.signature
+          { to: params._metaTx.to, data: params._metaTx.data },
+          params._replayProtection,
+          params._replayProtectionAuthority,
+          params._signature
         );
 
       await expect(tx)
@@ -139,20 +137,19 @@ describe("RelayHub Contract", () => {
       );
 
       // Send off first transaction!
-      // @ts-ignore
-      let params = await forwarder.signMetaTransaction({
+      const metaTx = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
+      const params = forwarder.decodeTx(metaTx.data);
 
-      let tx = relayHub
+      const tx = relayHub
         .connect(sender)
         .forward(
-          { to: params.target, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signer,
-          params.signature
+          { to: params._metaTx.to, data: params._metaTx.data },
+          params._replayProtection,
+          params._replayProtectionAuthority,
+          params._signature
         );
 
       await expect(tx)
@@ -160,23 +157,23 @@ describe("RelayHub Contract", () => {
         .withArgs(owner.address);
 
       // Send off second transaction!
-      // @ts-ignore
-      params = await forwarder.signMetaTransaction({
+
+      const metaTx2 = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
+      const params2 = forwarder.decodeTx(metaTx2.data);
 
-      tx = relayHub
+      const tx2 = relayHub
         .connect(sender)
         .forward(
-          { to: params.target, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signer,
-          params.signature
+          { to: params2._metaTx.to, data: params2._metaTx.data },
+          params2._replayProtection,
+          params2._replayProtectionAuthority,
+          params2._signature
         );
 
-      await expect(tx)
+      await expect(tx2)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
     }
@@ -200,7 +197,7 @@ describe("RelayHub Contract", () => {
         []
       );
 
-      let minimalTx = await forwarder.signAndEncodeMetaTransaction({
+      let minimalTx = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: revertCallData,
       });
@@ -235,7 +232,7 @@ describe("RelayHub Contract", () => {
         []
       );
 
-      let minimalTx = await forwarder.signAndEncodeMetaTransaction({
+      let minimalTx = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: revertCallData,
       });
@@ -244,20 +241,19 @@ describe("RelayHub Contract", () => {
 
       for (let i = 0; i < 5; i++) {
         // Send off first transaction!
-        // @ts-ignore
-        let params = await forwarder.signMetaTransaction({
+        const metaTx = await forwarder.signMetaTransaction({
           to: msgSenderCon.address,
           data: msgSenderCall,
         });
+        const params = forwarder.decodeTx(metaTx.data);
 
-        let tx = relayHub
+        const tx = relayHub
           .connect(sender)
           .forward(
-            { to: params.target, data: params.data },
-            params.replayProtection,
-            params.replayProtectionAuthority,
-            params.signer,
-            params.signature
+            { to: params._metaTx.to, data: params._metaTx.data },
+            params._replayProtection,
+            params._replayProtectionAuthority,
+            params._signature
           );
 
         await expect(tx)
@@ -296,15 +292,10 @@ describe("RelayHub Contract", () => {
         owner
       );
 
-      // @ts-ignore:
-      const encodedData = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         encodedReplayProtection,
         replayProtectionAuthority
-      );
-
-      const signature = await owner.signMessage(
-        arrayify(keccak256(encodedData))
       );
 
       const tx = relayHub
@@ -313,7 +304,6 @@ describe("RelayHub Contract", () => {
           { to: msgSenderCon.address, data: encodedCallData },
           encodedReplayProtection,
           replayProtectionAuthority,
-          owner.address,
           signature
         );
 
@@ -351,15 +341,11 @@ describe("RelayHub Contract", () => {
         ReplayProtectionType.MULTINONCE,
         owner
       );
-      // @ts-ignore:
-      const encodedData = forwarder.encodeMetaTransactionToSign(
+
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         encodedReplayProtection,
         "0x0000000000000000000000000000000000000000"
-      );
-
-      const signature = await owner.signMessage(
-        arrayify(keccak256(encodedData))
       );
 
       const tx = relayHub
@@ -368,7 +354,6 @@ describe("RelayHub Contract", () => {
           { to: msgSenderCon.address, data: encodedCallData },
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
-          owner.address,
           signature
         );
 
@@ -397,20 +382,19 @@ describe("RelayHub Contract", () => {
       );
 
       // Send off first transaction!
-      // @ts-ignore
-      let params = await forwarder.signMetaTransaction({
+      const metatx = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
+      const params = forwarder.decodeTx(metatx.data);
 
-      let tx = relayHub
+      const tx = relayHub
         .connect(sender)
         .forward(
-          { to: params.target, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signer,
-          params.signature
+          { to: params._metaTx.to, data: params._metaTx.data },
+          params._replayProtection,
+          params._replayProtectionAuthority,
+          params._signature
         );
 
       await expect(tx)
@@ -439,25 +423,23 @@ describe("RelayHub Contract", () => {
       );
 
       // Replay protection is always reset due to fixture. So it should be [0.0].
-      // @ts-ignore
-      const params = await forwarder.signMetaTransaction({
+      const metaTx = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
-
+      const params = forwarder.decodeTx(metaTx.data);
       const tx = relayHub
         .connect(sender)
         .forward(
-          { to: params.target, data: params.data },
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.signer,
-          "0x0000000000000000000000000000000000000000"
+          { to: params._metaTx.to, data: params._metaTx.data },
+          params._replayProtection,
+          params._replayProtectionAuthority,
+          "0x3d046631b28da61f863882122e10dd9b3a7343b180b987834edfe6e06bbec8ac2fa35ab8977318a1c8a4401a98f33b476f02e175003d820bbe21268d803579d01b"
         );
 
-      await expect(tx).to.revertedWith(
-        "Signer did not sign this meta-transaction."
-      );
+      await expect(tx)
+        .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
+        .withArgs("0xdEfbfD31636035a972e2D0386F0CB39342643600");
     }
   );
 
@@ -491,14 +473,10 @@ describe("RelayHub Contract", () => {
         owner
       );
 
-      // @ts-ignore:
-      const encodedData = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         encodedReplayProtection,
         bitFlipNonceStore.address
-      );
-      const signature = await owner.signMessage(
-        arrayify(keccak256(encodedData))
       );
 
       const tx = relayHub
@@ -507,7 +485,6 @@ describe("RelayHub Contract", () => {
           { to: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
-          owner.address,
           signature
         );
 
@@ -550,14 +527,10 @@ describe("RelayHub Contract", () => {
         new BitFlipReplayProtection(owner, RELAY_HUB_ADDRESS) // NOT USED IN TEST
       );
 
-      // @ts-ignore:
-      const encodedData = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         encodedReplayProtection,
         bitFlipNonceStore.address
-      );
-      const signature = await owner.signMessage(
-        arrayify(keccak256(encodedData))
       );
 
       const tx = relayHub
@@ -566,7 +539,6 @@ describe("RelayHub Contract", () => {
           { to: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
-          owner.address,
           signature
         );
 
@@ -581,7 +553,6 @@ describe("RelayHub Contract", () => {
           { to: msgSenderCon.address, data: msgSenderCall },
           encodedReplayProtection,
           bitFlipNonceStore.address,
-          owner.address,
           signature
         );
 
@@ -603,40 +574,39 @@ describe("RelayHub Contract", () => {
         relayHub.address,
         new BitFlipReplayProtection(owner, relayHub.address)
       );
-      // @ts-ignore
-      const params1 = await forwarder.signMetaTransaction({
+
+      const metaTx1 = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
+      const params1 = forwarder.decodeTx(metaTx1.data);
 
       const tx1 = relayHub
         .connect(sender)
         .forward(
-          { to: params1.target, data: params1.data },
-          params1.replayProtection,
-          params1.replayProtectionAuthority,
-          params1.signer,
-          params1.signature
+          { to: params1._metaTx.to, data: params1._metaTx.data },
+          params1._replayProtection,
+          params1._replayProtectionAuthority,
+          params1._signature
         );
 
       await expect(tx1)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(owner.address);
 
-      // @ts-ignore
-      const params2 = await forwarder.signMetaTransaction({
+      const metaTx2 = await forwarder.signMetaTransaction({
         to: msgSenderCon.address,
         data: msgSenderCall,
       });
+      const params2 = forwarder.decodeTx(metaTx2.data);
 
       const tx2 = relayHub
         .connect(sender)
         .forward(
-          { to: params2.target, data: params2.data },
-          params2.replayProtection,
-          params2.replayProtectionAuthority,
-          params2.signer,
-          params2.signature
+          { to: params2._metaTx.to, data: params2._metaTx.data },
+          params2._replayProtection,
+          params2._replayProtectionAuthority,
+          params2._signature
         );
 
       await expect(tx2)
@@ -671,22 +641,16 @@ describe("RelayHub Contract", () => {
         [CallType.BATCH, metaTxList]
       );
 
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         replayProtection,
         AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
         metaTxList,
         replayProtection,
         AddressZero,
-        admin.address,
         signature,
       ]);
 
@@ -730,22 +694,16 @@ describe("RelayHub Contract", () => {
         [CallType.BATCH, metaTxList]
       );
 
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         replayProtection,
         AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
         metaTxList,
         replayProtection,
         AddressZero,
-        admin.address,
         signature,
       ]);
 
@@ -793,22 +751,16 @@ describe("RelayHub Contract", () => {
         [CallType.BATCH, metaTxList]
       );
 
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         replayProtection,
         AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
         metaTxList,
         replayProtection,
         AddressZero,
-        admin.address,
         signature,
       ]);
 
@@ -856,22 +808,16 @@ describe("RelayHub Contract", () => {
         [CallType.BATCH, metaTxList]
       );
 
-      // @ts-ignore
-      const encodedMetaTx = forwarder.encodeMetaTransactionToSign(
+      const { signature } = await forwarder.encodeAndSignParams(
         encodedCallData,
         replayProtection,
         AddressZero
-      );
-
-      const signature = await admin.signMessage(
-        arrayify(keccak256(encodedMetaTx))
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
         metaTxList,
         replayProtection,
         AddressZero,
-        admin.address,
         signature,
       ]);
 

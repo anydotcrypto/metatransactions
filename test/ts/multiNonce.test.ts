@@ -106,7 +106,7 @@ describe("Multinonce Module", () => {
     const spiedMultinonce: MultiNonceReplayProtection = spy(multinonce);
 
     when(
-      // @ts-ignore:
+      //@ts-ignore
       await spiedMultinonce.accessNonceStore(anything())
     ).thenReturn(new BigNumber("2"));
 
@@ -137,7 +137,7 @@ describe("Multinonce Module", () => {
     const spiedMultinonce: MultiNonceReplayProtection = spy(multinonce);
 
     when(
-      // @ts-ignore:
+      // @ts-ignore
       await spiedMultinonce.accessNonceStore(anything())
     ).thenReturn(new BigNumber("2"));
 

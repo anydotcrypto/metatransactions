@@ -10,8 +10,16 @@ import BN from "bn.js";
  * out-of-order transactions (e.g. processsing 10000 withdrawals).
  */
 export class BitFlipReplayProtection extends ReplayProtectionAuthority {
-  private index: BigNumber; // Keep track of bitmap index
-  private bitmap: BigNumber;
+  public get index() {
+    return this.mIndex;
+  }
+
+  public get bitmap() {
+    return this.mBitmap;
+  }
+
+  private mIndex: BigNumber; // Keep track of bitmap index
+  private mBitmap: BigNumber;
   private readonly lock: Lock;
 
   /**
@@ -20,7 +28,11 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param forwarderAddress RelayHub or ProxyAccount address
    */
   constructor(signer: Signer, forwarderAddress: string) {
-    super(signer, forwarderAddress, "0x0000000000000000000000000000000000000001");
+    super(
+      signer,
+      forwarderAddress,
+      "0x0000000000000000000000000000000000000001"
+    );
     this.lock = new Lock();
   }
 
@@ -34,14 +46,14 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
     let bitToFlip: number;
 
     // Lets confirm they are defined
-    if (!this.index || !this.bitmap) {
+    if (!this.mIndex || !this.mBitmap) {
       const min = 0; // Magic number to separate MultiNonce and BitFlip
       const max = Number.MAX_SAFE_INTEGER;
       // Would prefer something better than Math.random()
-      this.index = new BigNumber(
+      this.mIndex = new BigNumber(
         Math.floor(Math.random() * (max - min + 1) + min)
       );
-      this.bitmap = await this.accessNonceStore(this.index);
+      this.mBitmap = await this.accessNonceStore(this.mIndex);
     }
 
     // Let's try to find an empty bit for 30 indexes
@@ -49,17 +61,17 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
     // with the random number generator.
     for (let i = 0; i < 30; i++) {
       // Try to find an empty bit
-      bitToFlip = this.findEmptyBit(this.bitmap);
+      bitToFlip = this.findEmptyBit(this.mBitmap);
 
       // Did we find one?
       if (bitToFlip === -1) {
         // No, let's try the next bitmap
-        this.index = this.index.add(1);
-        this.bitmap = await this.accessNonceStore(this.index);
+        this.mIndex = this.mIndex.add(1);
+        this.mBitmap = await this.accessNonceStore(this.mIndex);
       } else {
-        const flippedWithBitmap = this.flipBit(this.bitmap, bitToFlip);
-        this.bitmap = flippedWithBitmap;
-        const newIndex = this.index;
+        const flippedWithBitmap = this.flipBit(this.mBitmap, bitToFlip);
+        this.mBitmap = flippedWithBitmap;
+        const newIndex = this.mIndex;
         const singleBitFlipped = this.flipBit(new BigNumber("0"), bitToFlip);
         return { newIndex, singleBitFlipped };
       }

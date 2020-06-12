@@ -33,18 +33,21 @@ export {
 export {
   MinimalTx,
   ForwardParams,
+  CallType,
   Forwarder,
-  RequiredTo,
-  RevertableMinimalTx,
 } from "./ts/forwarders/forwarder";
 export {
   ProxyAccountForwarder,
   ProxyAccountCallData,
+  ProxyAccountDeployCallData,
+  RevertableProxyAccountDeployCallData,
   RevertableProxyAccountCallData,
 } from "./ts/forwarders/proxyAccountFowarder";
 export {
   RelayHubForwarder,
   RelayHubCallData,
+  RelayHubDeployCallData,
+  RevertableRelayHubDeployCallData,
   RevertableRelayHubCallData,
 } from "./ts/forwarders/relayHubForwarder";
 
@@ -71,6 +74,6 @@ export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
 export { RevertMessageTester } from "./typedContracts/RevertMessageTester";
 export { RevertMessageTesterFactory } from "./typedContracts/RevertMessageTesterFactory";
 
-export { MultiSender } from "./ts/batch/MultiSend";
+export { MultiSender, MultiSendTx } from "./ts/batch/MultiSend";
 
 export { deployMetaTxContracts } from "./deployment/deploy";
