@@ -31,24 +31,21 @@ contract RelayHub is ReplayProtection, CallTypes, RevertMessage {
      * signer's contract account to perform the final execution (to help us bypass msg.sender problem).
      * @param _metaTx A single meta-transaction that includes to, value and data
      * @param _replayProtectionAuthority Identify the Replay protection, default is address(0)
-     * @param _signer Signer's address
      * @param _signature Signature from signer
      */
     function forward(
         MetaTx memory _metaTx,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
-        address _signer,
         bytes memory _signature)  public returns(bool, bytes memory){
 
         bytes memory encodedData = abi.encode(CallType.CALL, _metaTx.to, _metaTx.data);
 
         // // Reverts if fails.
-        require(_signer == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature),
-        "Signer did not sign this meta-transaction.");
+        address signer = verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature);
 
         // Does not revert. Lets us save the replay protection if it fails.
-        (bool success, bytes memory returnData) = _metaTx.to.call(abi.encodePacked(_metaTx.data, _signer));
+        (bool success, bytes memory returnData) = _metaTx.to.call(abi.encodePacked(_metaTx.data, signer));
 
         if(!success) {
             emitRevert(returnData);
@@ -63,24 +60,22 @@ contract RelayHub is ReplayProtection, CallTypes, RevertMessage {
      * @param _metaTxList A list of revertable meta-transaction that includes to, value and data
      * @param _replayProtection Replay protection
      * @param _replayProtectionAuthority Address of external replay protection
-     * @param _signer Signer
      * @param _signature Signature from signer
      */
     function batch(RevertableMetaTx[] memory _metaTxList,
         bytes memory _replayProtection,
         address _replayProtectionAuthority,
-        address _signer,
         bytes memory _signature) public {
         bytes memory encodedData = abi.encode(CallType.BATCH, _metaTxList);
 
         // Reverts if fails.
-        require(_signer == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+        address signer = verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature);
 
         // Go through each revertable meta transaction and/or meta-deployment.
         for(uint i=0; i<_metaTxList.length; i++) {
 
             // Nope, let's execute the call!
-            (bool success, bytes memory returnData) = _metaTxList[i].to.call(abi.encodePacked(_metaTxList[i].data, _signer));
+            (bool success, bytes memory returnData) = _metaTxList[i].to.call(abi.encodePacked(_metaTxList[i].data, signer));
 
             if(!success) {
                 emitRevert(returnData);

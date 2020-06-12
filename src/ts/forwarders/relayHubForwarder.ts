@@ -1,14 +1,9 @@
-import { defaultAbiCoder, keccak256, arrayify } from "ethers/utils";
+import { defaultAbiCoder } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { RelayHub, ChainID, RelayHubFactory } from "../..";
-import {
-  ForwardParams,
-  Forwarder,
-  RequiredTo,
-  CallType,
-  MinimalTx,
-} from "./forwarder";
+import { Forwarder, CallType } from "./forwarder";
 import { Signer } from "ethers";
+import { BigNumberish } from "ethers/utils";
 
 export interface RelayHubCallData {
   to: string;
@@ -16,14 +11,29 @@ export interface RelayHubCallData {
 }
 
 export interface RevertableRelayHubCallData extends RelayHubCallData {
-  revertOnFail: boolean;
+  revertOnFail?: boolean;
+}
+
+export interface RelayHubDeployCallData {
+  data: string;
+  salt: string;
+}
+
+export interface RevertableRelayHubDeployCallData
+  extends RelayHubDeployCallData {
+  revertOnFail?: boolean;
 }
 
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All contracts must support the msgSender() standard.
  */
-export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
+export class RelayHubForwarder extends Forwarder<
+  RelayHubCallData,
+  RelayHubDeployCallData,
+  RevertableRelayHubCallData,
+  RevertableRelayHubDeployCallData
+> {
   private relayHub: RelayHub;
   /**
    * Sets up the RelayHub Forwarder that relies on the msgSender() standard.
@@ -43,107 +53,130 @@ export class RelayHubForwarder extends Forwarder<RelayHubCallData> {
     this.relayHub = new RelayHubFactory(signer).attach(relayHubAddress);
   }
 
-  /**
-   * Standard encoding for contract call data
-   * @param data Target contract and the desired calldata
-   */
-  protected getEncodedCallData(data: RequiredTo<RelayHubCallData>) {
+  public decodeTx(data: string) {
+    const parsedTransaction = this.relayHub.interface.parseTransaction({
+      data,
+    });
+    const functionArgs: {
+      _metaTx: Required<RelayHubCallData>;
+      _replayProtection: string;
+      _replayProtectionAuthority: string;
+      _signature: string;
+    } = {
+      _metaTx: {
+        to: parsedTransaction.args[0][0],
+        data: parsedTransaction.args[0][1],
+      },
+      _replayProtection: parsedTransaction.args[1],
+      _replayProtectionAuthority: parsedTransaction.args[2],
+      _signature: parsedTransaction.args[3],
+    };
+    return functionArgs;
+  }
+
+  public decodeBatchTx(data: string) {
+    const parsedTransaction = this.relayHub.interface.parseTransaction({
+      data,
+    });
+
+    // TODO:51 - tests for the decode batch functions - they arent being used atm
+    const functionArgs: {
+      _metaTxList: Required<RevertableRelayHubCallData>[];
+      _replayProtection: string;
+      _replayProtectionAuthority: string;
+      _signature: string;
+    } = {
+      // TODO:51: rename to metaTxList - same in relayHub
+      _metaTxList: parsedTransaction.args[0].map((a: any) => ({
+        to: a[0],
+        data: a[1],
+        revertOnFail: a[2],
+      })),
+      _replayProtection: parsedTransaction.args[1],
+      _replayProtectionAuthority: parsedTransaction.args[2],
+      _signature: parsedTransaction.args[3],
+    };
+
+    return functionArgs;
+  }
+
+  protected async encodeTx(
+    data: RelayHubCallData,
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ) {
+    return this.relayHub.interface.functions.forward.encode([
+      this.defaultCallData(data),
+      replayProtection,
+      replayProtectionAuthority,
+      signature,
+    ]);
+  }
+
+  protected encodeCallData(data: RelayHubCallData): string {
+    const defaulted = this.defaultCallData(data);
+
     return defaultAbiCoder.encode(
       ["uint", "address", "bytes"],
-      [CallType.CALL, data.to, data.data]
+      [CallType.CALL, defaulted.to, defaulted.data]
     );
   }
 
-  /**
-   * Fetch forward parameters
-   * @param to RelayHub contract
-   * @param data Target contract, value and calldata
-   * @param replayProtection Encoded Replay Protection
-   * @param replayProtectionAuthority Replay Protection Authority
-   * @param signature Signature
-   */
-  protected async getForwardParams(
-    to: string,
-    data: RequiredTo<RelayHubCallData>,
-    replayProtection: string,
-    signature: string
-  ): Promise<ForwardParams> {
+  private defaultCallData(data: RelayHubCallData): Required<RelayHubCallData> {
     return {
-      to,
-      signer: await this.signer.getAddress(),
-      target: data.to,
-      value: "0",
-      data: data.data,
-      callType: CallType.CALL,
-      replayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.address,
-      chainId: this.chainID,
-      signature,
+      to: data.to,
+      data: data.data ? data.data : "0x",
     };
   }
 
-  /**
-   *
-   * @param dataList List of meta-transactions
-   */
-  public async signAndEncodeBatchTransaction(
-    dataList: RevertableRelayHubCallData[]
-  ): Promise<MinimalTx> {
-    const metaTxList = [];
+  private defaultRevertableCallData(
+    data: RevertableRelayHubCallData
+  ): Required<RevertableRelayHubCallData> {
+    return {
+      ...this.defaultCallData(data),
+      revertOnFail: data.revertOnFail ? data.revertOnFail : false,
+    };
+  }
 
-    for (const data of dataList) {
-      metaTxList.push({
-        to: data.to,
-        data: data.data,
-        revertOnFail: data.revertOnFail ? data.revertOnFail : false,
-      });
-    }
-
-    // Prepare the meta-transaction & sign it
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-    const encodedCallData = defaultAbiCoder.encode(
+  protected encodeBatchCallData(batchTx: RevertableRelayHubCallData[]): string {
+    const metaTxList = batchTx.map(b => this.defaultRevertableCallData(b));
+    return defaultAbiCoder.encode(
       ["uint", "tuple(address to, bytes data, bool revertOnFail)[]"],
       [CallType.BATCH, metaTxList]
     );
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      encodedCallData,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.address
-    );
-
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const encodedBatch = this.relayHub.interface.functions.batch.encode([
-      metaTxList,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.address,
-      await this.signer.getAddress(),
-      signature,
-    ]);
-
-    return { to: this.address, data: encodedBatch };
   }
 
-  /**
-   * Encodes the meta-transaction such that it can be included
-   * in the data field of an Ethereum Transaction
-   * @param params Forward Parameters
-   */
-  public async encodeSignedMetaTransaction(
-    params: ForwardParams
-  ): Promise<MinimalTx> {
+  protected async encodeBatchTx(
+    batchTx: RevertableRelayHubCallData[],
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ) {
+    const metaTxList = batchTx.map(b => this.defaultRevertableCallData(b));
+
+    return this.relayHub.interface.functions.batch.encode([
+      metaTxList,
+      replayProtection,
+      replayProtectionAuthority,
+      signature,
+    ]);
+  }
+
+  protected toBatchCallData(
+    initCode: string,
+    extraData: string,
+    value?: BigNumberish,
+    revertOnFail?: boolean
+  ): RevertableRelayHubCallData {
     return {
-      to: params.to,
-      data: this.relayHub.interface.functions.forward.encode([
-        { to: params.target, data: params.data },
-        params.replayProtection,
-        params.replayProtectionAuthority,
-        params.signer,
-        params.signature,
-      ]),
+      ...this.encodeForDeploy(initCode, extraData, "0x"),
+      revertOnFail: revertOnFail || false,
     };
+  }
+
+  protected toCallData(initCode: string, extraData: string): RelayHubCallData {
+    return this.encodeForDeploy(initCode, extraData, "0x");
   }
 
   /**

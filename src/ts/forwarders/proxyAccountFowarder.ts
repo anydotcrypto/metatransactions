@@ -2,11 +2,9 @@ import {
   defaultAbiCoder,
   solidityKeccak256,
   Interface,
-  arrayify,
   keccak256,
   BigNumberish,
 } from "ethers/utils";
-
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import {
   ChainID,
@@ -14,25 +12,15 @@ import {
   ProxyAccountFactory,
   ProxyAccount,
 } from "../..";
-import {
-  ForwardParams,
-  Forwarder,
-  MinimalTx,
-  RequiredTo,
-  CallType,
-} from "./forwarder";
+import { Forwarder, MinimalTx, CallType } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { abi } from "../../typedContracts/ProxyAccount.json";
-
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
 import {
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
   BASE_ACCOUNT_ADDRESS,
-  DELEGATE_DEPLOYER_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
-
-import { DelegateDeployerFactory } from "../../typedContracts/DelegateDeployerFactory";
 
 export interface ProxyAccountCallData {
   to: string;
@@ -45,12 +33,26 @@ export interface RevertableProxyAccountCallData extends ProxyAccountCallData {
   revertOnFail?: boolean;
 }
 
+export interface ProxyAccountDeployCallData {
+  value?: BigNumberish;
+  data: string;
+  salt: string;
+}
+
+export interface RevertableProxyAccountDeployCallData
+  extends ProxyAccountDeployCallData {
+  revertOnFail?: boolean;
+}
+
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
 export class ProxyAccountForwarder extends Forwarder<
-  Partial<ProxyAccountCallData>
+  ProxyAccountCallData,
+  ProxyAccountDeployCallData,
+  RevertableProxyAccountCallData,
+  RevertableProxyAccountDeployCallData
 > {
   private proxyDeployer: ProxyAccountDeployer;
   /**
@@ -74,227 +76,167 @@ export class ProxyAccountForwarder extends Forwarder<
     );
   }
 
-  /**
-   * Computes the deterministic address for a deployed contract
-   * @param initData Initialisation code for the contract
-   * @param salt One-time use value.
-   */
-  public buildDeployedContractAddress(
-    initData: string,
-    extraData: string
-  ): string {
-    const byteCodeHash = solidityKeccak256(["bytes"], [initData]);
-    const salt = keccak256(extraData);
-
-    const options: Create2Options = {
-      from: this.address,
-      salt: salt,
-      initCodeHash: byteCodeHash,
+  private defaultCallData(
+    data: ProxyAccountCallData
+  ): Required<ProxyAccountCallData> {
+    return {
+      to: data.to,
+      value: data.value ? data.value : 0,
+      data: data.data ? data.data : "0x",
+      callType: data.callType ? data.callType : CallType.CALL,
     };
-
-    return getCreate2Address(options);
   }
-  /**
-   * Standard encoding for contract call data
-   * @param data The target contract, value (wei) to send, and the calldata to execute in the target contract
-   */
-  protected getEncodedCallData(data: RequiredTo<ProxyAccountCallData>) {
+
+  private defaultRevertableCallData(
+    data: RevertableProxyAccountCallData
+  ): Required<RevertableProxyAccountCallData> {
+    return {
+      ...this.defaultCallData(data),
+      revertOnFail: data.revertOnFail ? data.revertOnFail : false,
+    };
+  }
+
+  protected toCallData(
+    initCode: string,
+    extraData: string,
+    value: BigNumberish
+  ): ProxyAccountCallData {
+    return {
+      ...this.encodeForDeploy(initCode, extraData, value),
+      value: "0",
+      callType: CallType.DELEGATE,
+    };
+  }
+
+  protected toBatchCallData(
+    initCode: string,
+    extraData: string,
+    value: BigNumberish,
+    revertOnFail?: boolean
+  ): RevertableProxyAccountCallData {
+    return {
+      ...this.encodeForDeploy(initCode, extraData, value),
+      value: "0",
+      callType: CallType.DELEGATE,
+      revertOnFail: revertOnFail || false,
+    };
+  }
+
+  public decodeTx(data: string) {
+    const proxyAccount = new ProxyAccountFactory(this.signer).attach(
+      this.address
+    );
+    const parsedTransaction = proxyAccount.interface.parseTransaction({
+      data,
+    });
+    const functionArgs: {
+      _metaTx: Required<ProxyAccountCallData>;
+      _replayProtection: string;
+      _replayProtectionAuthority: string;
+      _signature: string;
+    } = {
+      _metaTx: {
+        to: parsedTransaction.args[0][0],
+        value: parsedTransaction.args[0][1],
+        data: parsedTransaction.args[0][2],
+        callType: parsedTransaction.args[0][3],
+      },
+      _replayProtection: parsedTransaction.args[1],
+      _replayProtectionAuthority: parsedTransaction.args[2],
+      _signature: parsedTransaction.args[3],
+    };
+    return functionArgs;
+  }
+
+  public decodeBatchTx(data: string) {
+    const proxyAccount = new ProxyAccountFactory(this.signer).attach(
+      this.address
+    );
+    const parsedTransaction = proxyAccount.interface.parseTransaction({
+      data,
+    });
+
+    // TODO:51 - tests for the decode batch functions - they arent being used atm
+    const functionArgs: {
+      _metaTxList: Required<RevertableProxyAccountCallData>[];
+      _replayProtection: string;
+      _replayProtectionAuthority: string;
+      _signature: string;
+    } = {
+      _metaTxList: parsedTransaction.args[0].map(
+        (a: any) => ({
+            to: a[0],
+            value: a[1],
+            data: a[2],
+            revertOnFail: a[3],
+            callType: a[4],
+        })
+      ),        
+      _replayProtection: parsedTransaction.args[1],
+      _replayProtectionAuthority: parsedTransaction.args[2],
+      _signature: parsedTransaction.args[3],
+    };
+    return functionArgs;
+  }
+
+  protected encodeCallData(data: ProxyAccountCallData): string {
+    const defaulted = this.defaultCallData(data);
+
     return defaultAbiCoder.encode(
       ["uint", "address", "uint", "bytes"],
-      [
-        data.callType ? data.callType : CallType.CALL,
-        data.to,
-        data.value ? data.value : 0,
-        data.data ? data.data : "0x",
-      ]
+      [defaulted.callType, defaulted.to, defaulted.value, defaulted.data]
     );
   }
 
-  /**
-   * Returns the encoded calldata for creating a proxy contract
-   * No need for ForwardParams as no signature is required in ProxyAccountDeployer
-   * @returns The proxy deployer address and the calldata for creating proxy account
-   * @throws If the proxy account already exists
-   */
-  public async createProxyContract(): Promise<MinimalTx> {
-    const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
-      [await this.signer.getAddress()]
+  protected async encodeTx(
+    data: ProxyAccountCallData,
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ): Promise<string> {
+    const proxyAccount = new ProxyAccountFactory(this.signer).attach(
+      this.address
     );
-
-    // 115k gas inc the transaction cost.
-    return {
-      to: this.proxyDeployer.address,
-      data: callData,
-    };
-  }
-
-  /**
-   * Encodes the forward parameters such that it can be included in
-   * an Ethereum Transaction's data field.
-   * @param params Forward Parameters
-   */
-  protected async encodeSignedMetaTransaction(
-    params: ForwardParams
-  ): Promise<MinimalTx> {
-    const proxyAccount = new ProxyAccountFactory(this.signer).attach(params.to);
-
-    const data = proxyAccount.interface.functions.forward.encode([
-      {
-        to: params.target,
-        value: params.value,
-        data: params.data,
-        callType: params.callType,
-      },
-      params.replayProtection,
-      params.replayProtectionAuthority,
-      params.signature,
+    const txData = proxyAccount.interface.functions.forward.encode([
+      this.defaultCallData(data),
+      replayProtection,
+      replayProtectionAuthority,
+      signature,
     ]);
-
-    return { to: params.to, data: data, value: params.value };
+    return txData;
   }
 
-  /**
-   * Batches a list of transactions into a single meta-transaction.
-   * It supports both meta-transactions & meta-deployment.
-   * @param dataList List of meta-transactions to batch
-   */
-  public async signAndEncodeBatchTransaction(
-    dataList: RevertableProxyAccountCallData[]
-  ): Promise<MinimalTx> {
-    const metaTxList = [];
-
-    for (const data of dataList) {
-      metaTxList.push({
-        to: data.to,
-        value: data.value ? data.value : 0,
-        data: data.data ? data.data : "0x",
-        callType: data.callType ? data.callType : CallType.CALL,
-        revertOnFail: data.revertOnFail ? data.revertOnFail : false,
-      });
-    }
-
-    // Prepare the meta-transaction & sign it
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-    const encodedCallData = defaultAbiCoder.encode(
+  protected encodeBatchCallData(
+    txBatch: RevertableProxyAccountCallData[]
+  ): string {
+    const metaTxList = txBatch.map(b => this.defaultRevertableCallData(b));
+    return defaultAbiCoder.encode(
       [
         "uint",
         "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
       ],
       [CallType.BATCH, metaTxList]
     );
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      encodedCallData,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.address
-    );
+  }
 
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
+  protected async encodeBatchTx(
+    txBatch: RevertableProxyAccountCallData[],
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ): Promise<string> {
+    const metaTxList = txBatch.map(b => this.defaultRevertableCallData(b));
 
     const proxyAccountInterface = new Interface(
       abi
     ) as ProxyAccount["interface"];
 
-    const encodedBatch = proxyAccountInterface.functions.batch.encode([
+    return proxyAccountInterface.functions.batch.encode([
       metaTxList,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.address,
-      signature,
-    ]);
-
-    return { to: this.address, data: encodedBatch };
-  }
-
-  /**
-   * Wraps the deployment inside a meta-transaction. It is deployed via a global
-   * deployer (we set it as params.target).
-   * @param initCode Initialisation code for the contract
-   * @param value Quantity of WEI to send
-   * @param extraData Extra data for the salt
-   */
-  protected async signMetaDeployment(
-    initCode: string,
-    value: BigNumberish,
-    extraData: string
-  ): Promise<ForwardParams> {
-    const deployer = new DelegateDeployerFactory(this.signer).attach(
-      DELEGATE_DEPLOYER_ADDRESS
-    );
-
-    const data = deployer.interface.functions.deploy.encode([
-      initCode,
-      value,
-      keccak256(extraData),
-    ]);
-
-    const tx = {
-      to: DELEGATE_DEPLOYER_ADDRESS,
-      data: data,
-      callType: CallType.DELEGATE,
-    };
-
-    return await this.signMetaTransaction(tx);
-  }
-
-  /**
-   * Wraps the deployment inside a meta-transaction. It is deployed via a global
-   * deployer (we set it as params.target). Returns the encoded function call.
-   * @param initCode Initialisation code for the contract
-   * @param value Quantity of WEI to send
-   * @param extraData Extra data for the salt
-   */
-  public async signAndEncodeMetaDeployment(
-    initCode: string,
-    value: BigNumberish,
-    extraData: string
-  ): Promise<MinimalTx> {
-    const deployer = new DelegateDeployerFactory(this.signer).attach(
-      DELEGATE_DEPLOYER_ADDRESS
-    );
-
-    const data = deployer.interface.functions.deploy.encode([
-      initCode,
-      value,
-      keccak256(extraData),
-    ]);
-
-    const tx = {
-      to: DELEGATE_DEPLOYER_ADDRESS,
-      data: data,
-      callType: CallType.DELEGATE,
-    };
-
-    const params = await this.signMetaTransaction(tx);
-    return await this.encodeSignedMetaTransaction(params);
-  }
-
-  /**
-   * Fetch forward parameters.
-   * @param to ProxyAccount contract
-   * @param data Target contract, value and calldata
-   * @param replayProtection Encoded Replay Protection
-   * @param replayProtectionAuthority Replay Protection Authority
-   * @param signature Signature
-   */
-  protected async getForwardParams(
-    to: string,
-    data: RequiredTo<ProxyAccountCallData>,
-    replayProtection: string,
-    signature: string
-  ): Promise<ForwardParams> {
-    return {
-      to,
-      signer: await this.signer.getAddress(),
-      target: data.to,
-      value: data.value ? data.value.toString() : "0",
-      data: data.data ? data.data : "0x",
-      callType: data.callType ? data.callType : CallType.CALL,
       replayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.address,
-      chainId: this.chainID,
+      replayProtectionAuthority,
       signature,
-    };
+    ]);
   }
 
   /**
@@ -331,5 +273,44 @@ export class ProxyAccountForwarder extends Forwarder<
     // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
     const codeIsEmpty = !code || code === "0x" || code === "0x0";
     return !codeIsEmpty;
+  }
+
+  /**
+   * Returns the encoded calldata for creating a proxy contract
+   * No need for ForwardParams as no signature is required in ProxyAccountDeployer
+   * @returns The proxy deployer address and the calldata for creating proxy account
+   * @throws If the proxy account already exists
+   */
+  public async createProxyContract(): Promise<MinimalTx> {
+    const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
+      [await this.signer.getAddress()]
+    );
+
+    // 115k gas inc the transaction cost.
+    return {
+      to: this.proxyDeployer.address,
+      data: callData,
+    };
+  }
+
+  /**
+   * Computes the deterministic address for a deployed contract
+   * @param initData Initialisation code for the contract
+   * @param salt One-time use value.
+   */
+  public buildDeployedContractAddress(
+    initData: string,
+    extraData: string
+  ): string {
+    const byteCodeHash = solidityKeccak256(["bytes"], [initData]);
+    const salt = keccak256(extraData);
+
+    const options: Create2Options = {
+      from: this.address,
+      salt: salt,
+      initCodeHash: byteCodeHash,
+    };
+
+    return getCreate2Address(options);
   }
 }

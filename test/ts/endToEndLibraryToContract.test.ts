@@ -68,20 +68,20 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions
         for (let i = 0; i < 10; i++) {
-          // @ts-ignore
-          const params = await forwarder.signMetaTransaction({
+          const minimalTx = await forwarder.signMetaTransaction({
             to: msgSenderCon.address,
             data: msgSenderCall,
           });
+          const params = forwarder.decodeTx(minimalTx.data);
           const flippedBit = flipBit(new BigNumber("0"), new BigNumber(i));
           const decoded = defaultAbiCoder.decode(
             ["uint", "uint"],
-            params.replayProtection
+            params._replayProtection
           );
 
           // No point checking QueueNo, it will be a random number each time.
           expect(decoded[1]).to.eq(flippedBit);
-          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
+
           const tx = sender.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -135,24 +135,22 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions
         for (let i = 0; i < 10; i++) {
-          // @ts-ignore
-          const params = await forwarder.signMetaTransaction({
+          const minimalTx = await forwarder.signMetaTransaction({
             to: msgSenderCon.address,
             value: new BigNumber("0"),
             data: msgSenderCall,
           });
 
           const flippedBit = flipBit(new BigNumber("0"), new BigNumber(i));
+          const params = forwarder.decodeTx(minimalTx.data);
           const decoded = defaultAbiCoder.decode(
             ["uint", "uint"],
-            params.replayProtection
+            params._replayProtection
           );
 
           // No point checking QueueNumber It will be random each time.
           expect(decoded[1]).to.eq(flippedBit);
 
-          //@ts-ignore
-          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -191,19 +189,18 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions.
         for (let i = 0; i < 10; i++) {
-          // @ts-ignore
-          const params = await forwarder.signMetaTransaction({
+          const minimalTx = await forwarder.signMetaTransaction({
             to: msgSenderCon.address,
             data: msgSenderCall,
           });
+          const params = forwarder.decodeTx(minimalTx.data);
 
           const decoded = defaultAbiCoder.decode(
             ["uint", "uint"],
-            params.replayProtection
+            params._replayProtection
           );
           expect(decoded[1]).to.eq(counter);
           counter = counter + 1;
-          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -257,22 +254,20 @@ describe("End to End Library to Contract", () => {
 
         // Send 10 transactions
         for (let i = 0; i < 10; i++) {
-          // @ts-ignore
-          const params = await forwarder.signMetaTransaction({
+          const minimalTx = await forwarder.signMetaTransaction({
             to: msgSenderCon.address,
             value: new BigNumber("0"),
             data: msgSenderCall,
           });
+          const params = forwarder.decodeTx(minimalTx.data);
           const decoded = defaultAbiCoder.decode(
             ["uint", "uint"],
-            params.replayProtection
+            params._replayProtection
           );
           expect(decoded[0]).to.eq(0);
           expect(decoded[1]).to.eq(counter);
           counter = counter + 1;
 
-          // @ts-ignore
-          const minimalTx = await forwarder.encodeSignedMetaTransaction(params);
           const tx = sender.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -330,25 +325,21 @@ describe("End to End Library to Contract", () => {
         for (let i = 0; i < 10; i++) {
           // Iterate over each queue.
           for (let j = 0; j < queues; j++) {
-            // @ts-ignore
-            const params = await forwarder.signMetaTransaction({
+            const minimalTx = await forwarder.signMetaTransaction({
               to: msgSenderCon.address,
               value: new BigNumber("0"),
               data: msgSenderCall,
             });
+            const params = forwarder.decodeTx(minimalTx.data);
             const decoded = defaultAbiCoder.decode(
               ["uint", "uint"],
-              params.replayProtection
+              params._replayProtection
             );
 
             expect(decoded[0]).to.eq(j);
             const resetCount = reset * 10;
             expect(decoded[1]).to.eq(i + resetCount);
 
-            // @ts-ignore
-            const minimalTx = await forwarder.encodeSignedMetaTransaction(
-              params
-            );
             const tx = sender.sendTransaction({
               to: minimalTx.to,
               data: minimalTx.data,
@@ -386,23 +377,19 @@ describe("End to End Library to Contract", () => {
         const msgSenderCall = msgSenderCon.interface.functions.test.encode([]);
         for (let i = 0; i < 10; i++) {
           for (let j = 0; j < queues; j++) {
-            // @ts-ignore
-            const params = await forwarder.signMetaTransaction({
+            const minimalTx = await forwarder.signMetaTransaction({
               to: msgSenderCon.address,
               data: msgSenderCall,
             });
 
+            const params = forwarder.decodeTx(minimalTx.data);
             const decoded = defaultAbiCoder.decode(
               ["uint", "uint"],
-              params.replayProtection
+              params._replayProtection
             );
             expect(decoded[0]).to.eq(j);
             const resetCount = reset * 10;
             expect(decoded[1]).to.eq(i + resetCount);
-
-            const minimalTx = await forwarder.encodeSignedMetaTransaction(
-              params
-            );
             const tx = sender.sendTransaction({
               to: minimalTx.to,
               data: minimalTx.data,
