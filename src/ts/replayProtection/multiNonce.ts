@@ -1,5 +1,5 @@
 import { defaultAbiCoder, BigNumber } from "ethers/utils";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 
@@ -20,10 +20,14 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
    */
   constructor(
     private readonly concurrency: number,
-    signer: Wallet,
+    signer: Signer,
     forwarderAddress: string
   ) {
-    super(signer, forwarderAddress);
+    super(
+      signer,
+      forwarderAddress,
+      "0x0000000000000000000000000000000000000000"
+    );
     this.lock = new Lock();
     this.index = new BigNumber(0);
     this.nonceTracker = new Map<string, BigNumber>();
@@ -45,6 +49,7 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
 
     // Store for next time
     this.nonceTracker.set(this.index.toString(), storedNonce.add(1));
+
     this.index = this.index.add(1).mod(this.concurrency);
     return { newIndex, storedNonce };
   }
@@ -60,12 +65,5 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
     } finally {
       this.lock.release();
     }
-  }
-
-  /**
-   * Return address of replay protection authority
-   */
-  public getAddress() {
-    return "0x0000000000000000000000000000000000000000";
   }
 }

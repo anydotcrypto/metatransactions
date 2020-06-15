@@ -1,19 +1,25 @@
-import { defaultAbiCoder, BigNumber } from "ethers/utils";
-import { Wallet } from "ethers";
+import { defaultAbiCoder, BigNumber, BigNumberish } from "ethers/utils";
+import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
-import { wait } from "@pisa-research/test-utils";
 import BN from "bn.js";
 
 /**
- * We re-purpose the on-chai nonce (uint) as a bitmap
- * and simply flip bits in the map. It only supports
- * concurrent transactions (e.g. processing 1000 withdrawals, order
- * does not matter).
+ * The signer can flip a bit for every new transaction. Each
+ * queue supports 256 bit flips. It only supports concurrent &
+ * out-of-order transactions (e.g. processsing 10000 withdrawals).
  */
 export class BitFlipReplayProtection extends ReplayProtectionAuthority {
-  private index: BigNumber; // Keep track of bitmap index
-  private bitmap: BigNumber;
+  public get index() {
+    return this.mIndex;
+  }
+
+  public get bitmap() {
+    return this.mBitmap;
+  }
+
+  private mIndex: BigNumber; // Keep track of bitmap index
+  private mBitmap: BigNumber;
   private readonly lock: Lock;
 
   /**
@@ -21,8 +27,12 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param signer Signer's wallet
    * @param forwarderAddress RelayHub or ProxyAccount address
    */
-  constructor(signer: Wallet, forwarderAddress: string) {
-    super(signer, forwarderAddress);
+  constructor(signer: Signer, forwarderAddress: string) {
+    super(
+      signer,
+      forwarderAddress,
+      "0x0000000000000000000000000000000000000001"
+    );
     this.lock = new Lock();
   }
 
@@ -33,40 +43,37 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param searchFrom Starting bitmap index
    */
   private async searchBitmaps() {
-    let foundEmptyBit = false;
-    let bitToFlip = new BigNumber("0");
+    let bitToFlip: number;
 
     // Lets confirm they are defined
-    if (!this.index || !this.bitmap) {
-      const min = 6174; // Magic number to separate MultiNonce and BitFlip
+    if (!this.mIndex || !this.mBitmap) {
+      const min = 0; // Magic number to separate MultiNonce and BitFlip
       const max = Number.MAX_SAFE_INTEGER;
       // Would prefer something better than Math.random()
-      this.index = new BigNumber(
+      this.mIndex = new BigNumber(
         Math.floor(Math.random() * (max - min + 1) + min)
       );
-      this.bitmap = await this.accessNonceStore(this.index);
+      this.mBitmap = await this.accessNonceStore(this.mIndex);
     }
 
     // Let's try to find an empty bit for 30 indexes
     // If it fails after that... something bad happened
     // with the random number generator.
-    for (let i = 0; i < 30; i) {
+    for (let i = 0; i < 30; i++) {
       // Try to find an empty bit
-      bitToFlip = this.findEmptyBit(this.bitmap);
+      bitToFlip = this.findEmptyBit(this.mBitmap);
 
       // Did we find one?
-      if (bitToFlip.eq(new BigNumber("-1"))) {
+      if (bitToFlip === -1) {
         // No, let's try the next bitmap
-        this.index = this.index.add(1);
-        this.bitmap = await this.accessNonceStore(this.index);
+        this.mIndex = this.mIndex.add(1);
+        this.mBitmap = await this.accessNonceStore(this.mIndex);
       } else {
-        // We found an empty bit
-        foundEmptyBit = true;
-
-        const flipped = this.flipBit(this.bitmap, bitToFlip);
-        this.bitmap = flipped;
-        const newIndex = this.index;
-        return { newIndex, bitToFlip };
+        const flippedWithBitmap = this.flipBit(this.mBitmap, bitToFlip);
+        this.mBitmap = flippedWithBitmap;
+        const newIndex = this.mIndex;
+        const singleBitFlipped = this.flipBit(new BigNumber("0"), bitToFlip);
+        return { newIndex, singleBitFlipped };
       }
     }
 
@@ -76,22 +83,17 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * A simple function that returns the index of the first 0 bit in the bitmap.
    * @param bitmap Bitmap to find an empty bit.
    */
-  public findEmptyBit(bitmap: BigNumber) {
-    const emptyBitmap = new BigNumber("0");
+  public findEmptyBit(bitmap: BigNumber): number {
+    const bitmapBN = new BN(bitmap.toString());
+    let c = new BN(1);
+
     for (let i = 0; i < 256; i++) {
-      const flipped = this.flipBit(emptyBitmap, new BigNumber(i));
-
-      // Convert BigNumber to BN
-      const bitmapBN = new BN(bitmap.toString());
-      const flippedBN = new BN(flipped.toString());
-
-      // bitmap & flipped = flipped'
-      // If flipped' is 0, then neither bitmap or flipped shared a flipped bit.
-      if (bitmapBN.and(flippedBN).eq(new BN("0"))) {
-        return new BigNumber(i);
+      if (bitmapBN.and(c).isZero()) {
+        return i;
       }
+      c = c.add(c);
     }
-    return new BigNumber("-1");
+    return -1;
   }
 
   /**
@@ -99,7 +101,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param bits 256 bits
    * @param toFlip index to flip (0,...,255)
    */
-  public flipBit(bits: BigNumber, bitToFlip: BigNumber): BigNumber {
+  public flipBit(bits: BigNumber, bitToFlip: number): BigNumber {
     return new BigNumber(bits).add(new BigNumber(2).pow(bitToFlip));
   }
 
@@ -112,18 +114,14 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    */
   public async getEncodedReplayProtection() {
     try {
-      this.lock.acquire();
-      const { newIndex, bitToFlip } = await this.searchBitmaps();
-      return defaultAbiCoder.encode(["uint", "uint"], [newIndex, bitToFlip]);
+      await this.lock.acquire();
+      const { newIndex, singleBitFlipped } = await this.searchBitmaps();
+      return defaultAbiCoder.encode(
+        ["uint", "uint"],
+        [newIndex, singleBitFlipped]
+      );
     } finally {
       this.lock.release();
     }
-  }
-
-  /**
-   * Return address of replay protection authority
-   */
-  public getAddress() {
-    return "0x0000000000000000000000000000000000000000";
   }
 }

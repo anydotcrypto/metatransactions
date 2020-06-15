@@ -1,6 +1,5 @@
 import "mocha";
 import * as chai from "chai";
-import chaiAsPromised from "chai-as-promised";
 import { solidity, loadFixture } from "ethereum-waffle";
 import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import {
@@ -12,41 +11,30 @@ import {
   RelayHubForwarder,
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
+  deployMetaTxContracts,
 } from "../../src";
-import { when, spy } from "ts-mockito";
 
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import {
   ChainID,
   ReplayProtectionType,
+  ForwarderFactory,
 } from "../../src/ts/forwarders/forwarderFactory";
 
 const expect = chai.expect;
 chai.use(solidity);
-chai.use(chaiAsPromised);
 
 async function createHubs(provider: Provider, [admin]: Wallet[]) {
-  const relayHubFactory = new RelayHubFactory(admin);
-  const relayHubCreationTx = relayHubFactory.getDeployTransaction();
+  const {
+    relayHubAddress,
+    proxyAccountDeployerAddress,
+  } = await deployMetaTxContracts(admin);
 
-  const relayHubCreation = await admin.sendTransaction(relayHubCreationTx);
-  const relayResult = await relayHubCreation.wait(1);
-
-  const relayHub = relayHubFactory.attach(relayResult.contractAddress!);
-
-  const proxyDeployerFactory = new ProxyAccountDeployerFactory(admin);
-  const proxyDeployerCreationTx = proxyDeployerFactory.getDeployTransaction();
-
-  const proxyDeployerCreation = await admin.sendTransaction(
-    proxyDeployerCreationTx
+  const relayHub = new RelayHubFactory(admin).attach(relayHubAddress);
+  const proxyDeployer = new ProxyAccountDeployerFactory(admin).attach(
+    proxyAccountDeployerAddress
   );
-  const proxyResult = await proxyDeployerCreation.wait(1);
-
-  const proxyDeployer = proxyDeployerFactory.attach(
-    proxyResult.contractAddress!
-  );
-
   const msgSenderExample = await new MsgSenderExampleFactory(admin).deploy(
     relayHub.address
   );
@@ -82,33 +70,28 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
-      const forwardParams = await proxyForwarder.signMetaTransaction({
+      const metaTx = await proxyForwarder.signMetaTransaction({
         to: msgSenderExample.address,
         data: callData,
       });
+      const forwardParams = proxyForwarder.decodeTx(metaTx.data);
 
       const decodedReplayProtection = defaultAbiCoder.decode(
         ["uint", "uint"],
-        forwardParams.replayProtection
+        forwardParams._replayProtection
       );
-      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-      expect(forwardParams.data).to.eq(callData, "Calldata");
-      expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
+      expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+      expect(metaTx.to).to.eq(relayHub.address, "RelayHub address");
       expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
       expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
-      expect(forwardParams.replayProtectionAuthority).to.eq(
+      expect(forwardParams._replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
-      expect(forwardParams.signer).to.eq(
-        admin.address,
-        "Signer address is the admin wallet"
-      );
-      expect(forwardParams.target).to.eq(
+      expect(forwardParams._metaTx.to).to.eq(
         msgSenderExample.address,
         "Target contract"
       );
-      expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins");
     }
   }).timeout(50000);
 
@@ -123,78 +106,65 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
-      const forwardParams = await relayForwarder.signMetaTransaction({
+      const metaTx = await relayForwarder.signMetaTransaction({
         to: msgSenderExample.address,
         data: callData,
       });
+      const forwardParams = relayForwarder.decodeTx(metaTx.data);
 
       const decodedReplayProtection = defaultAbiCoder.decode(
         ["uint", "uint"],
-        forwardParams.replayProtection
+        forwardParams._replayProtection
       );
-      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-      expect(forwardParams.data).to.eq(callData, "Calldata");
-      expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
-      expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
-      expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-      expect(forwardParams.replayProtectionAuthority).to.eq(
+
+      expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+      expect(metaTx.to).to.eq(relayHub.address, "RelayHub address");
+      expect(decodedReplayProtection[0], "Nonce1").to.eq(new BigNumber(i));
+      expect(decodedReplayProtection[1], "Nonce2").to.eq(new BigNumber("0"));
+      expect(forwardParams._replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
-      expect(forwardParams.signer).to.eq(
-        admin.address,
-        "Signer address is the admin wallet"
-      );
-      expect(forwardParams.target).to.eq(
+      expect(forwardParams._metaTx.to).to.eq(
         msgSenderExample.address,
         "Target contract"
       );
-      expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins");
     }
   }).timeout(50000);
 
   it("Create the RelayForwarder with Bitflip ", async () => {
-    const {
-      relayHub,
-      admin,
-      msgSenderExample,
-      relayHubForwardsFactory,
-    } = await loadFixture(createHubs);
+    const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address)
     const relayForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       admin,
       relayHub.address,
-      new BitFlipReplayProtection(admin, relayHub.address)
+      bitflip
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await relayForwarder.signMetaTransaction({
+    const metaTx = await relayForwarder.signMetaTransaction({
       to: msgSenderExample.address,
       data: callData,
     });
+    const forwardParams = relayForwarder.decodeTx(metaTx.data);
 
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
-      forwardParams.replayProtection
+      forwardParams._replayProtection
     );
-    expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-    expect(forwardParams.data).to.eq(callData, "Calldata");
-    expect(forwardParams.to).to.eq(relayHub.address, "RelayHub address");
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
+    expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+    expect(metaTx.to).to.eq(relayHub.address, "RelayHub address");
+    expect(decodedReplayProtection[0]).to.eq(bitflip.index, "Nonce1");
+    expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
+    expect(forwardParams._replayProtectionAuthority).to.eq(
+      "0x0000000000000000000000000000000000000001",
+      "Multinonce replay protection"
     );
-    expect(forwardParams.signer).to.eq(
-      admin.address,
-      "Signer address is the admin wallet"
-    );
-    expect(forwardParams.target).to.eq(
+    expect(forwardParams._metaTx.to).to.eq(
       msgSenderExample.address,
       "Target contract"
     );
-    expect(forwardParams.value).to.eq(new BigNumber("0"), "0 coins sent");
   }).timeout(50000);
 
   it("Create the ProxyForwarder with Nonce ", async () => {
@@ -203,7 +173,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.NONCE,
       admin
@@ -211,40 +181,30 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
-      const forwardParams = await proxyForwarder.signMetaTransaction({
+      const metaTx = await proxyForwarder.signMetaTransaction({
         to: msgSenderExample.address,
-        value: new BigNumber("10"),
+        value: new BigNumber(10),
         data: callData,
       });
+      const forwardParams = proxyForwarder.decodeTx(metaTx.data);
 
       const decodedReplayProtection = defaultAbiCoder.decode(
         ["uint", "uint"],
-        forwardParams.replayProtection
+        forwardParams._replayProtection
       );
-      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-      expect(forwardParams.data).to.eq(callData, "Calldata");
-      expect(forwardParams.to).to.eq(
-        proxyForwarder.address,
-        "Proxy account address"
-      );
-      expect(decodedReplayProtection[0]).to.eq(new BigNumber(0), "Nonce1");
+      expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+      expect(metaTx.to).to.eq(proxyForwarder.address, "RelayHub address");
+      expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
       expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
-      expect(forwardParams.replayProtectionAuthority).to.eq(
+      expect(forwardParams._replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
-      expect(forwardParams.signer).to.eq(
-        admin.address,
-        "Signer address is the admin wallet"
-      );
-      expect(forwardParams.target).to.eq(
+      expect(forwardParams._metaTx.to).to.eq(
         msgSenderExample.address,
         "Target contract"
       );
-      expect(forwardParams.value).to.eq(
-        new BigNumber("10"),
-        "10 coins sent to the proxy hub"
-      );
+      expect(forwardParams._metaTx.value).to.eq(new BigNumber(10));
     }
   }).timeout(50000);
 
@@ -254,7 +214,7 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.MULTINONCE,
       admin
@@ -262,40 +222,30 @@ describe("Forwarder Factory", () => {
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
     for (let i = 0; i < 10; i++) {
-      const forwardParams = await proxyForwarder.signMetaTransaction({
+      const metaTx = await proxyForwarder.signMetaTransaction({
         to: msgSenderExample.address,
-        value: new BigNumber("10"),
+        value: new BigNumber(10),
         data: callData,
       });
+      const forwardParams = proxyForwarder.decodeTx(metaTx.data);
 
       const decodedReplayProtection = defaultAbiCoder.decode(
         ["uint", "uint"],
-        forwardParams.replayProtection
+        forwardParams._replayProtection
       );
-      expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-      expect(forwardParams.data).to.eq(callData, "Calldata");
-      expect(forwardParams.to).to.eq(
-        proxyForwarder.address,
-        "Proxy account address"
-      );
+      expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+      expect(metaTx.to).to.eq(proxyForwarder.address, "RelayHub address");
       expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
       expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-      expect(forwardParams.replayProtectionAuthority).to.eq(
+      expect(forwardParams._replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
-        "Built-in replay protection"
+        "Multinonce replay protection"
       );
-      expect(forwardParams.signer).to.eq(
-        admin.address,
-        "Signer address is the admin wallet"
-      );
-      expect(forwardParams.target).to.eq(
+      expect(forwardParams._metaTx.to).to.eq(
         msgSenderExample.address,
         "Target contract"
       );
-      expect(forwardParams.value).to.eq(
-        new BigNumber("10"),
-        "10 coins sent to the proxy hub"
-      );
+      expect(forwardParams._metaTx.value).to.eq(new BigNumber(10));
     }
   }).timeout(50000);
 
@@ -305,46 +255,204 @@ describe("Forwarder Factory", () => {
       msgSenderExample,
       proxyAccountsForwardersFactory,
     } = await loadFixture(createHubs);
-    const proxyForwarder = proxyAccountsForwardersFactory.createNew(
+    const proxyForwarder = await proxyAccountsForwardersFactory.createNew(
       ChainID.MAINNET,
       ReplayProtectionType.BITFLIP,
       admin
     );
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const forwardParams = await proxyForwarder.signMetaTransaction({
+    const metaTx = await proxyForwarder.signMetaTransaction({
       to: msgSenderExample.address,
-      value: new BigNumber("10"),
+      value: new BigNumber(10),
       data: callData,
     });
+    const forwardParams = proxyForwarder.decodeTx(metaTx.data);
 
     const decodedReplayProtection = defaultAbiCoder.decode(
       ["uint", "uint"],
-      forwardParams.replayProtection
+      forwardParams._replayProtection
     );
-    expect(forwardParams.chainId).to.eq(ChainID.MAINNET, "Mainnet chainID");
-    expect(forwardParams.data).to.eq(callData, "Calldata");
-    expect(forwardParams.to).to.eq(
-      proxyForwarder.address,
-      "Proxy account address"
+    expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+    expect(metaTx.to).to.eq(proxyForwarder.address, "RelayHub address");
+    // we dont test the bitflip here - but we shouldnt need to for this unit test
+    expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
+    expect(forwardParams._replayProtectionAuthority).to.eq(
+      "0x0000000000000000000000000000000000000001",
+      "Multinonce replay protection"
     );
-    expect(decodedReplayProtection[0].gt(new BigNumber("6174"))).to.be.true;
-    expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(forwardParams.replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
-      "Built-in replay protection"
-    );
-    expect(forwardParams.signer).to.eq(
-      admin.address,
-      "Signer address is the admin wallet"
-    );
-    expect(forwardParams.target).to.eq(
+    expect(forwardParams._metaTx.to).to.eq(
       msgSenderExample.address,
       "Target contract"
     );
-    expect(forwardParams.value).to.eq(
-      new BigNumber("10"),
-      "10 coins sent to the proxy hub"
-    );
+    expect(forwardParams._metaTx.value).to.eq(new BigNumber(10));
   }).timeout(50000);
+});
+
+const doesCache = async <T extends ForwarderFactory<T2>, T2>(
+  factory: T,
+  chainId: ChainID,
+  replayProtectionType: ReplayProtectionType,
+  signer: Wallet
+) => {
+  const forwarder1 = await factory.create(
+    chainId,
+    replayProtectionType,
+    signer
+  );
+
+  const forwarder2 = await factory.create(
+    chainId,
+    replayProtectionType,
+    signer
+  );
+
+  expect(forwarder1).to.eq(forwarder2);
+};
+
+const doesNotCache = async <T>(
+  factory: ForwarderFactory<T>,
+  chainId1: ChainID,
+  replayProtectionType1: ReplayProtectionType,
+  signer1: Wallet,
+  chainId2: ChainID,
+  replayProtectionType2: ReplayProtectionType,
+  signer2: Wallet
+) => {
+  const forwarder1 = await factory.create(
+    chainId1,
+    replayProtectionType1,
+    signer1
+  );
+
+  const forwarder2 = await factory.create(
+    chainId2,
+    replayProtectionType2,
+    signer2
+  );
+
+  expect(forwarder1).to.not.eq(forwarder2);
+};
+
+const getUser = async (provider: Provider, [user1, user2]: Wallet[]) => {
+  return { user1, user2 };
+};
+
+describe("RelayHubForwarderFactory", () => {
+  it("does cache on create", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesCache(
+      new RelayHubForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across chains", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new RelayHubForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across replay protections", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new RelayHubForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.MULTINONCE,
+      user1
+    );
+  });
+
+  it("does not cache across wallets", async () => {
+    const { user1, user2 } = await loadFixture(getUser);
+    await doesNotCache(
+      new RelayHubForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user2
+    );
+  });
+
+  it("RelayHub does not cache proxy account", async () => {
+    const { user1 } = await loadFixture(getUser);
+    const forwarder1 = await new RelayHubForwarderFactory().create(
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+
+    const forwarder2 = await new ProxyAccountForwarderFactory().create(
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+
+    expect(forwarder1).to.not.eq(forwarder2);
+  });
+});
+
+describe("ProxyAccountForwarderFactory", () => {
+  it("does cache on create", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across chains", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.MAINNET,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1
+    );
+  });
+
+  it("does not cache across replay protections", async () => {
+    const { user1 } = await loadFixture(getUser);
+    await doesNotCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.MULTINONCE,
+      user1
+    );
+  });
+
+  it("does not cache across wallets", async () => {
+    const { user1, user2 } = await loadFixture(getUser);
+    await doesNotCache(
+      new ProxyAccountForwarderFactory(),
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user1,
+      ChainID.ROPSTEN,
+      ReplayProtectionType.BITFLIP,
+      user2
+    );
+  });
 });

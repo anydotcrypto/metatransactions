@@ -1,7 +1,6 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import { ReplayProtectionFactory } from "../../typedContracts/ReplayProtectionFactory";
-import { Forwarder } from "../forwarders/forwarder";
 
 export interface Nonces {
   index: BigNumber;
@@ -14,16 +13,14 @@ export abstract class ReplayProtectionAuthority {
   /**
    * Replay protection is dedicated for a single user
    * @param signer Signer's wallet
+   * @param forwarderAddress Address of the forwarder using the replay protection
+   * @param address address for the authority.
    */
   constructor(
-    protected readonly signer: Wallet,
-    protected readonly forwarderAddress: string
+    protected readonly signer: Signer,
+    protected readonly forwarderAddress: string,
+    public readonly address: string
   ) {}
-
-  /**
-   * On-chain contract address for the authority.
-   */
-  abstract getAddress(): string;
 
   /**
    * Fetch and encode the latest replay protection
@@ -31,16 +28,14 @@ export abstract class ReplayProtectionAuthority {
   abstract async getEncodedReplayProtection(): Promise<string>;
 
   /**
-   * We may need to access on-chain contract to fetch the starting
-   * point for the replay protection. e.g. in replace-by-nonce,
-   * you want to fetch the latest and only valid nonce (50).
-   * @param signerAddress Signer's address
+   * We try to access the on-chain nonce store to fetch the
+   * latest nonce. If the contract is not yet deployed, then
+   * it returns 0.
    * @param index Index in Nonce Store
-   * @param contract Hub Contract
    */
   protected async accessNonceStore(index: BigNumber): Promise<BigNumber> {
     // Does the forwarder exist?
-    const code = await this.signer.provider.getCode(this.forwarderAddress);
+    const code = await this.signer.provider!.getCode(this.forwarderAddress);
     // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
     const codeIsEmpty = !code || code === "0x" || code === "0x0";
 
@@ -58,7 +53,10 @@ export abstract class ReplayProtectionAuthority {
     // Onchain ID = H(signerAddress, index).
     // Mostly benefits bitflip & multinonce.
     const onchainId = keccak256(
-      defaultAbiCoder.encode(["address", "uint"], [this.signer.address, index])
+      defaultAbiCoder.encode(
+        ["address", "uint", "address"],
+        [await this.signer.getAddress(), index, this.address]
+      )
     );
 
     return await replayProtection.nonceStore(onchainId);

@@ -1,15 +1,20 @@
 import { ChainID } from "../..";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { Wallet } from "ethers";
+import { Signer } from "ethers";
 import {
   defaultAbiCoder,
   BigNumberish,
   arrayify,
   keccak256,
-  solidityKeccak256,
-  getCreate2Address,
 } from "ethers/utils";
-import { Create2Options } from "ethers/utils/address";
+import { DELEGATE_DEPLOYER_ADDRESS } from "../../deployment/addresses";
+import { DelegateDeployerFactory } from "../../typedContracts/DelegateDeployerFactory";
+
+export enum CallType {
+  CALL = 0,
+  DELEGATE = 1,
+  BATCH = 2,
+}
 
 export interface MinimalTx {
   to: string;
@@ -22,40 +27,47 @@ export interface ForwardParams {
   target: string;
   value: string;
   data: string;
+  callType: CallType;
   replayProtection: string;
   replayProtectionAuthority: string;
   chainId: number;
   signature: string;
 }
 
-export interface DeploymentParams {
+type DirectCallData = {
   to: string;
-  signer: string;
-  initCode: string;
-  replayProtection: string;
-  replayProtectionAuthority: string;
-  chainId: number;
-  signature: string;
-}
+  data?: string;
+  value?: BigNumberish;
+};
 
-export interface RelayHubCallData {
-  to: string;
+type DeployCallData = {
   data: string;
-}
+  value?: BigNumberish;
+  salt: string;
+};
 
-export interface ProxyAccountCallData extends RelayHubCallData {
-  value: BigNumberish;
-}
+type CallData = DirectCallData | DeployCallData;
+
+// https://stackoverflow.com/questions/42123407/does-typescript-support-mutually-exclusive-types
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
+export type XOR<T, U> = T | U extends object
+  ? (Without<T, U> & U) | (Without<U, T> & T)
+  : T | U;
 
 /**
  * Provides common functionality for the RelayHub and the ProxyAccounts.
  * Possible to extend it with additional functionality if another
  * msg.sender solution emerges.
  */
-export abstract class Forwarder<T> {
+export abstract class Forwarder<
+  TCallData extends DirectCallData,
+  TDeployCallData extends DeployCallData,
+  TBatchCallData extends CallData,
+  TBatchDeployCallData extends CallData
+> {
   constructor(
     protected readonly chainID: ChainID,
-    public readonly signer: Wallet,
+    public readonly signer: Signer,
     /**
      * The address of this forwarder contract
      */
@@ -63,164 +75,182 @@ export abstract class Forwarder<T> {
     protected readonly replayProtectionAuthority: ReplayProtectionAuthority
   ) {}
 
-  /**
-   * Encodes calldata for the meta-transaction signature.
-   * @param data Target contract, calldata, and sometimes value
-   */
-  protected abstract getEncodedCallData(data: T): string;
+  protected abstract encodeBatchCallData(data: TBatchCallData[]): string;
+  protected abstract async encodeBatchTx(
+    data: TBatchCallData[],
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ): Promise<string>;
+  protected abstract encodeCallData(data: TCallData): string;
+  protected abstract async encodeTx(
+    data: TCallData,
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ): Promise<string>;
+  protected abstract deployDataToBatchCallData(
+    initCode: string,
+    extraData: string,
+    value?: BigNumberish,
+    revertOnFail?: boolean
+  ): TBatchCallData;
+  protected abstract deployDataToCallData(
+    initCode: string,
+    extraData: string,
+    value?: BigNumberish
+  ): TCallData;
+  public abstract decodeTx(
+    data: string
+  ): {
+    _metaTx: Required<TCallData>;
+    _replayProtection: string;
+    _replayProtectionAuthority: string;
+    _signature: string;
+  };
+  public abstract decodeBatchTx(
+    data: string
+  ): {
+    _metaTxList: Required<TBatchCallData[]>;
+    _replayProtection: string;
+    _replayProtectionAuthority: string;
+    _signature: string;
+  };
+
+  private isDeployTx(tx: CallData): tx is DeployCallData {
+    return !!(tx as DeployCallData).salt;
+  }
 
   /**
-   * A meta-transaction includes:
-   * - Calldata
-   * - Replay protection (and authority)
-   * - Verifier contract address
-   *
-   * We compute and return the encoded meta-transaction to be signed.
-   * @param encodedCallData Encoding includes target, value and calldata
-   * @param encodedReplayProtection Encoding includes the replay protection nonces (e.g. typically 2 nonces)
-   * @param replayProtectionAuthority Address of replay protection
-   * @param proxyAddress RelayHub or ProxyAccount contract address
+   * Sign a meta transaction or a batch of meta transactions.
+   * Deployments can als be made by specifiying a salt along with the data.
+   * @param tx 
    */
-  protected encodeMetaTransactionToSign(
-    encodedCallData: string,
-    encodedReplayProtection: string,
-    replayProtectionAuthority: string,
-    proxyAddress: string
-  ): string {
-    // We expect encoded call data to include target contract address, the value, and the callData.
-    return defaultAbiCoder.encode(
+  public async signMetaTransaction(
+    tx:
+      | XOR<TCallData, TDeployCallData>
+      | XOR<TBatchCallData, TBatchDeployCallData>[]
+  ): Promise<MinimalTx> {
+    if (Array.isArray(tx)) {
+      const encodedTransactions = tx.map((t) =>
+        this.isDeployTx(t)
+          ? this.deployDataToBatchCallData(t.data, t.salt, t.value || "0x")
+          : (t as TBatchCallData)
+      );
+
+      return await this.signAndEncodeBatchMetaTransaction(encodedTransactions);
+    } else {
+      const txOrDeploy = this.isDeployTx(tx)
+        ? this.deployDataToCallData(tx.data, tx.salt, tx.value || "0x")
+        : (tx as TCallData);
+
+      return await this.signAndEncodeMetaTransaction(txOrDeploy);
+    }
+  }
+
+  protected encodeForDeploy(
+    initCode: string,
+    extraData: string,
+    value: BigNumberish
+  ) {
+    const deployer = new DelegateDeployerFactory(this.signer).attach(
+      DELEGATE_DEPLOYER_ADDRESS
+    );
+
+    const data = deployer.interface.functions.deploy.encode([
+      initCode,
+      value,
+      keccak256(extraData),
+    ]);
+
+    return {
+      to: deployer.address,
+      data: data,
+    };
+  }
+
+  public async encodeAndSignParams(
+    callData: string,
+    replayProtection: string,
+    replayProtectionAuthority: string
+  ) {
+    const encodedMetaTx = defaultAbiCoder.encode(
       ["bytes", "bytes", "address", "address", "uint"],
       [
-        encodedCallData,
-        encodedReplayProtection,
+        callData,
+        replayProtection,
         replayProtectionAuthority,
-        proxyAddress,
+        this.address,
         this.chainID,
       ]
     );
+
+    const signature = await this.signer.signMessage(
+      arrayify(keccak256(encodedMetaTx))
+    );
+
+    return {
+      encodedMetaTx,
+      signature,
+    };
   }
 
   /**
    * Takes care of replay protection and signs a meta-transaction.
-   * @param data Target contract address, value (wei) to send, and the calldata to exeucte in the target contract
+   * @param data ProxyAccountCallData or RelayCallData
    */
-  public async signMetaTransaction(data: T) {
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-    const encodedCallData = this.getEncodedCallData(data);
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
+  protected async signAndEncodeMetaTransaction(
+    data: TCallData
+  ): Promise<MinimalTx> {
+    const encodedCallData = this.encodeCallData(data);
+
+    const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+
+    const { signature } = await this.encodeAndSignParams(
       encodedCallData,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
-      this.address
+      replayProtection,
+      this.replayProtectionAuthority.address
     );
 
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const params = this.getForwardParams(
-      this.address,
+    const encodedTx = await this.encodeTx(
       data,
-      encodedReplayProtection,
+      replayProtection,
+      this.replayProtectionAuthority.address,
+      signature
+    );
+    return {
+      to: this.address,
+      data: encodedTx
+    };
+  }
+
+  /**
+   * Batches a list of transactions into a single meta-transaction.
+   * It supports both meta-transactions & meta-deployment.
+   * @param dataList List of meta-transactions to batch
+   */
+  protected async signAndEncodeBatchMetaTransaction(
+    dataList: TBatchCallData[]
+  ): Promise<MinimalTx> {
+    const encodedCallData = this.encodeBatchCallData(dataList);
+    const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+
+    const { signature } = await this.encodeAndSignParams(
+      encodedCallData,
+      replayProtection,
+      this.replayProtectionAuthority.address
+    );
+
+    const encodedBatch = await this.encodeBatchTx(
+      dataList,
+      replayProtection,
+      this.replayProtectionAuthority.address,
       signature
     );
 
-    return params;
-  }
-
-  /**
-   * Fetches the forward parameters. Used when signing a new
-   * meta-transaction.
-   * @param to Forwarder address
-   * @param data Target, value and calldata
-   * @param replayProtection Encoded replay protection
-   * @param signature Signature to authorise meta-transaction
-   */
-  protected abstract getForwardParams(
-    to: string,
-    data: T,
-    replayProtection: string,
-    signature: string
-  ): ForwardParams;
-
-  /**
-   * Encodes the forward function and its arguments such that
-   * included in the data field of an Ethereum Transaction.
-   * @param params ForwardParameters
-   */
-  public abstract async encodeSignedMetaTransaction(
-    params: ForwardParams
-  ): Promise<string>;
-
-  /**
-   * Authorises the deployment of a smart contract with a deterministic address
-   * @param initCode Bytecode of contract
-   */
-  /**
-   * Signs a meta-transaction to deploy a contract via CREATE2.
-   * Takes care of replay protection.
-   * @param initCode Bytecode for the smart contract
-   */
-  public async signMetaDeployment(initCode: string) {
-    const encodedReplayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-    const encodedMetaTx = this.encodeMetaTransactionToSign(
-      initCode,
-      encodedReplayProtection,
-      this.replayProtectionAuthority.getAddress(),
-      this.address
-    );
-
-    const signature = await this.signer.signMessage(
-      arrayify(keccak256(encodedMetaTx))
-    );
-
-    const params: DeploymentParams = {
+    return {
       to: this.address,
-      signer: this.signer.address,
-      initCode,
-      replayProtection: encodedReplayProtection,
-      replayProtectionAuthority: this.replayProtectionAuthority.getAddress(),
-      chainId: this.chainID,
-      signature: signature,
+      data: encodedBatch,
     };
-
-    return params;
-  }
-
-  public abstract async encodeSignedMetaDeployment(
-    params: DeploymentParams
-  ): Promise<string>;
-
-  /**
-   * Computes the deterministic address for a deployed contract
-   * @param params Meta-deployment parameters
-   */
-  public buildDeployedContractAddress(params: DeploymentParams): string {
-    const byteCodeHash = solidityKeccak256(["bytes"], [params.initCode]);
-    const saltHex = keccak256(
-      defaultAbiCoder.encode(
-        ["address", "bytes"],
-        [params.signer, params.replayProtection]
-      )
-    );
-
-    const options: Create2Options = {
-      from: params.to,
-      salt: saltHex,
-      initCodeHash: byteCodeHash,
-    };
-
-    return getCreate2Address(options);
-  }
-
-  /**
-   * Checks if the ProxyContract is already deployed.
-   * @returns TRUE if deployed, FALSE if not deployed.
-   */
-  public async isContractDeployed(): Promise<boolean> {
-    const code = await this.signer.provider.getCode(this.address);
-    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
-    const codeIsEmpty = !code || code === "0x" || code === "0x0";
-    return !codeIsEmpty;
   }
 }

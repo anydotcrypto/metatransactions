@@ -15,8 +15,41 @@ export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
 export { ReplayProtection } from "./typedContracts/ReplayProtection";
 export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
 
-export { ProxyAccountForwarder } from "./ts/forwarders/proxyAccountFowarder";
-export { RelayHubForwarder } from "./ts/forwarders/relayHubForwarder";
+export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
+export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
+
+export {
+  RELAY_HUB_ADDRESS,
+  PROXY_ACCOUNT_DEPLOYER_ADDRESS,
+  BASE_ACCOUNT_ADDRESS,
+  MULTI_SEND_ADDRESS,
+  VERSION,
+  BASE_ACCOUNT_SALT_STRING,
+  MULTI_SEND_SALT_STRING,
+  PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
+  RELAY_HUB_SALT_STRING,
+} from "./deployment/addresses";
+
+export {
+  MinimalTx,
+  ForwardParams,
+  CallType,
+  Forwarder,
+} from "./ts/forwarders/forwarder";
+export {
+  ProxyAccountForwarder,
+  ProxyAccountCallData,
+  ProxyAccountDeployCallData,
+  RevertableProxyAccountDeployCallData,
+  RevertableProxyAccountCallData,
+} from "./ts/forwarders/proxyAccountFowarder";
+export {
+  RelayHubForwarder,
+  RelayHubCallData,
+  RelayHubDeployCallData,
+  RevertableRelayHubDeployCallData,
+  RevertableRelayHubCallData,
+} from "./ts/forwarders/relayHubForwarder";
 
 export { MultiNonceReplayProtection } from "./ts/replayProtection/multiNonce";
 export { BitFlipReplayProtection } from "./ts/replayProtection/bitFlip";
@@ -32,3 +65,15 @@ export { RelayHubForwarderFactory } from "./ts/forwarders/relayHubForwarderFacto
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };
 export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
+export { EchoFactory } from "./typedContracts/EchoFactory";
+export { CounterFactory } from "./typedContracts/CounterFactory";
+export { DelegateDeployer } from "./typedContracts/DelegateDeployer";
+export { DelegateDeployerFactory } from "./typedContracts/DelegateDeployerFactory";
+export { CallWrapper } from "./typedContracts/CallWrapper";
+export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
+export { RevertMessageTester } from "./typedContracts/RevertMessageTester";
+export { RevertMessageTesterFactory } from "./typedContracts/RevertMessageTesterFactory";
+
+export { MultiSender, MultiSendTx } from "./ts/batch/MultiSend";
+
+export { deployMetaTxContracts } from "./deployment/deploy";
