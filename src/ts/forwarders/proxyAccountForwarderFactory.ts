@@ -1,29 +1,28 @@
 import { ReplayProtectionType, ChainID, ProxyAccountForwarder } from "../..";
-import { Wallet } from "ethers";
-import { ForwarderFactory } from "./forwarderFactory";
-import {
-  PROXY_ACCOUNT_DEPLOYER_ADDRESS,
-  BASE_ACCOUNT_ADDRESS,
-} from "../../deployment/addresses";
+import { Signer } from "ethers";
+import { ForwarderFactory, ForwarderType } from "./forwarderFactory";
+import { PROXY_ACCOUNT_DEPLOYER_ADDRESS } from "../../deployment/addresses";
 
 export class ProxyAccountForwarderFactory extends ForwarderFactory<
   ProxyAccountForwarder
 > {
+  public constructor() {
+    super(ForwarderType.ProxyAccount);
+  }
+
   /**
-   * Create a new instance of the forwarder
+   * Create a new instance of the forwarder. Does not get or set in forwarder cache.
    * @param chainid MAINNET or ROPSTEN
    * @param replayProtectionType Bitflip, Multinonce or Nonce
    * @param signer Signer's wallet
    */
-  public createNew(
+  public async createNew(
     chainid: ChainID,
     replayProtectionType: ReplayProtectionType,
-    signer: Wallet
-  ): ProxyAccountForwarder {
+    signer: Signer
+  ): Promise<ProxyAccountForwarder> {
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      PROXY_ACCOUNT_DEPLOYER_ADDRESS,
-      signer.address,
-      BASE_ACCOUNT_ADDRESS
+      await signer.getAddress()
     );
 
     return new ProxyAccountForwarder(

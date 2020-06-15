@@ -5,21 +5,21 @@ import { deployerAddress } from "../../src/deployment/deployer";
 import {
   VERSION,
   PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
-  MULTI_SEND_SALT_STRING,
   RELAY_HUB_SALT_STRING,
   BASE_ACCOUNT_SALT_STRING,
   BASE_ACCOUNT_ADDRESS,
   RELAY_HUB_ADDRESS,
-  MULTI_SEND_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
+  MULTI_SEND_SALT_STRING,
+  MULTI_SEND_ADDRESS,
 } from "../../src/deployment/addresses";
 import {
   ProxyAccountDeployerFactory,
   RelayHubFactory,
   ProxyAccountFactory,
 } from "../../src";
-import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 import { ContractFactory } from "ethers";
+import { MultiSendFactory } from "../../src/typedContracts/MultiSendFactory";
 
 const checkAddress = (
   saltString: string,
@@ -60,6 +60,14 @@ describe("Contract addresses", () => {
       VERSION + "|" + RELAY_HUB_SALT_STRING,
       new RelayHubFactory(),
       RELAY_HUB_ADDRESS
+    );
+  });
+
+  it("MultiSend", () => {
+    checkAddress(
+      VERSION + "|" + MULTI_SEND_SALT_STRING,
+      new MultiSendFactory(),
+      MULTI_SEND_ADDRESS
     );
   });
 });

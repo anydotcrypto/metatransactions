@@ -2,3 +2,4 @@ build/*
 dist/*
 node_modules/*
 src/typedContracts/*
+pnpm-debug.log
