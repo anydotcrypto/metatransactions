@@ -1,0 +1,243 @@
+Una biblioteca mínima de metatransacciones
+Las transacciones de Ethereum entrelazan la identidad de quién pagó por la transacción (gas.payer) y quién quiere ejecutar un comando (msg.sender). Como resultado, no es sencillo para Alice pagar la tarifa de gasolina en nombre de Bob, que quiere ejecutar un comando en un contrato inteligente. Hasta que se solucione a nivel de plataforma, Alice y Bob deben adoptar un estándar de metatransacciones para admitir esta funcionalidad (por ejemplo, la infraestructura de transacciones como un servicio sin custodia).
+
+Hay dos enfoques:
+
+Contrato de proxy: cada usuario tiene un contrato de proxy y todas las transacciones se envían a través del contrato de proxy. Es compatible con todos los contratos inteligentes existentes.
+_msgSender (): todas las transacciones se envían a través de un único contrato de RelayHub y el contrato de destino debe ser compatible con el estándar _msgSender (). Conserva la dirección de la clave de firma del usuario como su identidad.
+Nuestra biblioteca de meta-transacciones se enfoca en ambos enfoques y esperamos que beneficie a la comunidad de la siguiente manera:
+
+Un estándar RelayHub candidato : nuestro RelayHub.sol es un candidato mínimo y potencial para el estándar _msgSender ().
+Contratos de proxy mínimos : nuestro contrato de proxy solo es responsable de reenviar y agrupar llamadas. Implementa EIP-1167 para minimizar la sobrecarga de almacenamiento / implementación.
+Protección de reproducción flexible: hemos implementado Nonce, MultiNonce y BitFlip, para que pueda decidir si todas las transacciones deben ordenarse, si desea hasta N transacciones simultáneas, o para admitir siempre transacciones fuera de orden.
+Nuestro repositorio es un protocolo y un enfoque independiente de retransmisión que cualquier proyecto puede adoptar. Esperamos que sea más fácil para los proyectos aprovechar las API de retransmisores de terceros y evitar volver a implementar la rueda para una infraestructura de transacciones confiable.
+
+Empezando
+Asumimos que ha configurado su entorno de nodejs y que simplemente necesita conectar nuestra biblioteca.
+
+Instalar . Necesita instalar el paquete NPM:
+npm i @anydotcrypto/metatransactions --save-dev
+Medio ambiente . Decida qué red y protección de reproducción usar.
+Tendrá que importar el ChainID y la Protección de reproducción en su código:
+
+import { ChainID, ReplayProtectionType } from "@anydotcrypto/metatransactions";
+Nuestra biblioteca actualmente admite MAINNET o ROPSTEN.
+
+// Blockchain ID (Mainnet = 3)
+ChainID.MAINNET;
+ChainID.ROPSTEN;
+Nuestra biblioteca tiene tres tipos de protección de reproducción (y puede encontrar más información detallada aquí ):
+
+Nonce : igual que Ethereum, incrementa un nonce por cada nueva transacción.
+Multinonce: hay varias colas de reemplazo por nonce, por lo que admite hasta N transacciones simultáneas en cualquier momento.
+Bitflip: no hay cola y todas las transacciones se procesan fuera de servicio (por ejemplo, retiros por lotes).
+Para acceder a la protección de reproducción:
+
+// ReplayProtection
+ReplayProtectionType.NONCE // Single queue
+ReplayProtectionType.MULTINONCE // N queues (default == 30 queues)
+ReplayProtectionType.BITFLIP // Always out-of-order & concurrent
+MultiNonce y Bitflip admiten transacciones concurrentes y fuera de orden de forma predeterminada. Si desea garantizar que todas las transacciones se procesen en orden, simplemente configúrelas ReplayProtectionType.NONCE.
+
+Solución msg.sender . Decide qué solución para msg.sender quieres usar.
+Si bien admitimos tanto RelayHub como ProxyContract en esta biblioteca, recomendamos el enfoque de contrato de cuenta proxy para la mayoría de los propósitos, ya que funciona para todos los contratos inteligentes existentes.
+
+Si desea obtener más información, consulte Contratos de cuenta proxy frente a RelayHub .
+
+Para el resto de la documentación, solo consideramos el enfoque del contrato de representación.
+
+Instantiate . ¡Creemos la biblioteca de metatransacciones con sus opciones preferidas!
+Para crear una instancia del reenviador de cuentas proxy:
+
+const signer = Wallet.Mnemonic("");
+const forwarder = await new ProxyAccountForwarderFactory().createNew(
+    ChainID.ROPSTEN,
+    ReplayProtectionType.MULTINONCE,
+    signer
+ );
+El reenviador vincula la billetera del firmante a su contrato de cuenta proxy.
+
+Importante: nuestra biblioteca puede autorizar una metatransacción si el contrato de la cuenta de proxy aún no existe (por ejemplo, no implementado). Usando el contrato MultiSend , es posible realizar un meta-despliegue del contrato proxy y luego ejecutar la primera meta-transacción en una sola transacción de Ethereum. Por lo tanto, no hay proceso de espera / configuración.
+
+¡Ahora está listo para autorizar una metatransacción!
+Mostraremos cómo autorizar una metatransacción utilizando un contrato de cuenta proxy o el centro de retransmisión.
+
+Ejemplo de contrato de eco
+El contrato inteligente Echo se utiliza para nuestro ejemplo:
+
+pragma solidity ^0.6.2;
+contract Echo {
+    event Broadcast(address signer, string message);
+    function submit(string memory _message) public
+    {
+        emit Broadcast(msg.sender, _message);
+    }
+}
+Cómo usar el contrato de Cuenta Proxy
+El ejemplo completo está disponible y cubre:
+
+La comprobación del contrato de proxy existe antes de implementarlo.
+Implementación del contrato Echo a través del contrato proxy
+Enviar una metatransacción al Contrato de Eco a través del contrato de representación.
+Configuremos nuestro reenviador y firmante:
+
+const user = Wallet.Mnemonic("");
+const relayer = Wallet.Mnemonic("");
+const forwarder = await new ProxyAccountForwarderFactory().createNew(
+    ChainID.ROPSTEN,
+    ReplayProtectionType.MULTINONCE,
+    user
+);
+Podemos implementar el contrato de cuenta proxy.
+
+const isProxyDeployed = await forwarder.isContractDeployed();
+if (!isProxyDeployed) {
+    const minimalTx = await forwarder.createProxyContract();
+
+    // For our example we mimic the relayer API with a relayer wallet.
+    const proxyTx = await relayer.sendTransaction({
+      to: minimalTx.to,
+      data: minimalTx.data,
+    });
+
+    // Wait 1 block confirmation
+    const proxyReceipt = await proxyTx.wait(1);
+}
+Proporcione la siguiente información:
+
+A la dirección del contrato (requerido)
+Datos del nombre de la función y sus argumentos (requerido)
+Valor a enviar (en wei) - (opcional)
+Una vez que haya decidido que el mensaje se repita, puede usar este ejemplo de código para autorizar la metatransacción:
+
+// Fetch the contract and the data.
+const echo = new EchoFactory(user).attach("");
+const data = echo.interface.functions.submit.encode(["hello"]);
+
+// Sign the meta transaction & encode it.
+const metaTx = await forwarder.signMetaTransaction({
+    to: echo.address,
+    value: "0",
+    data: data,
+});
+
+const submitTicketTx = await relayer.sendTransaction({
+    to: metaTx.to,
+    data: metaTx.data,
+});
+
+const submitTicketReceipt = await submitTicketTx.wait(1);
+Fácil verdad? Acaba de implementar el contrato de cuenta proxy y envió una metatransacción a través del contrato de cuenta proxy. Nuestra biblioteca se ha encargado de la protección de reproducción y la construcción de los datos de la transacción por usted.
+
+¡Bien hecho!
+
+Funcionalidad del contrato de cuenta proxy
+Aprovechamos esta oportunidad para cubrir cada función en la biblioteca.
+
+Instanciar al promotor
+Puede usar la fábrica para configurar un nuevo reenviador. Requiere que seleccione ChainID y ReplayProtectionType. Tenga en cuenta que si selecciona MULTINONCE, genera 30 colas nonce de forma predeterminada. (p. ej., hasta 30 transacciones simultáneas a la vez).
+
+  const proxyAccount = await new ProxyAccountForwarderFactory().createNew(
+    ChainID.ROPSTEN,
+    ReplayProtectionType.BITFLIP,
+    user
+  );
+Propiedades
+Una vez que haya instanciado el reenviador, puede acceder a las siguientes propiedades:
+
+const proxyAccountAddress = proxyAccount.address;
+const signer = proxyAccount.signer;
+Gracias al ProxyDeployer, hay un mapeo uno a uno para la clave del firmante y la dirección del contrato de la cuenta proxy. La biblioteca calculará automáticamente la dirección y la hará disponible a través de proxyAccount.address. Además, Signerse puede acceder a través de proxyAccount.signer.
+
+Implementar el contrato de proxy
+Hay dos funciones auxiliares:
+
+const isProxyDeployed = await proxyAccount.isContractDeployed();
+const minimalTx = await proxyAccount.createProxyContract();
+El primero le permite verificar si el contrato de proxy ya está implementado. Este último prepara una metatransacción que se puede empaquetar en una transacción de Ethereum para implementar el contrato de proxy. Tenga en cuenta que MinimalTxsolo contiene los campos to, data.
+
+Autorizando una meta-transacción.
+Hay una única función para autorizar una metatransacción:
+
+const echoAddress = "0x...";
+const data = echoContract.interface.functions.sendMessage.encode([
+  "any.sender is nice",
+]);
+const metaTx = await proxyAccount.signMetaTransaction({
+  to: echoAddress,
+  data: data,
+  value: "0"
+});
+Devuelve un MinimalTxque solo contiene los campos to, dataque se pueden empaquetar en una transacción de Ethereum. Esto se encarga de preparar la protección de repetición y envolver la llamada para que pueda ser procesada por el contrato de cuenta proxy.
+
+Tenga en cuenta que hay un callTypecampo adicional que se puede utilizar para decidir si es a callo a delegatecall. Solo hablamos de llamadas y los usuarios avanzados pueden ver el contrato sobre cómo usar delegatecall.
+
+Autorización de un metadespliegue.
+Para implementar, use la función signMetaTransaction pero reemplace el toargumento con un salt:
+
+const initCode = new EchoFactory(user).getDeployTransaction().data!;
+const value = "0";
+const salt = "0x123";
+const metaDeploy = await proxyAccount.signMetaTransaction({
+  initCode,
+  value,
+  salt
+});
+La signAndEncodeMetaDeploymentfunción prepara a MinimalTxpara el despliegue. De nuevo, solo contiene uno to,value,dataque se puede empaquetar en la transacción Ethereum. En realidad, está utilizando delegatecalldesde el contrato de proxy a un contrato de implementación global y luego implementa el contrato inteligente.
+
+El buildDeployedContractAddresscalcula la dirección del contrato. Solo requiere el initCodey el saltutilizado para la implementación.
+
+Enviar un lote de metatransacciones
+Debe preparar una lista de transacciones para usar en el lote:
+
+const metaTxList = [{
+  to: msgSenderCon.address,
+  value: 0,
+  data: data,
+  revertOnFail: true,
+},
+{
+  data: initCode,
+  salt: "v0.1",
+  value: 0
+},
+{
+  to: echoCon.address,
+  value: 0,
+  data: data,
+  revertOnFail: false,
+}];
+Una característica adicional es la revertOnFailque le permite decidir si el lote completo de transacciones debería revertirse si la metatransacción falla. Nuevamente, omitimos CallTypeya que solo debe ser utilizado por usuarios avanzados y el 99% de las metatransacciones solo requieren la .callfuncionalidad.
+
+Ahora puede agrupar las transacciones:
+
+const minimalTx = await forwarder.signMetaTransaction(metaTxList);
+El MinimalTxcontiene los campos to, dataque pueden ser envasados en una Etereum Transacción. Cada metatransacción se procesa en orden por el contrato de la cuenta de poder.
+
+Decodificando una metatransacción
+Puede decodificar una metatransacción en sus partes integrantes utilizando las funciones decodeTx o decodeBatchTx.
+
+Para un solo tx:
+
+const echoAddress = "0x...";
+const data = echoContract.interface.functions.sendMessage.encode([
+  "any.sender is nice",
+]);
+const metaTx = await proxyAccount.signMetaTransaction({
+  to: echoAddress,
+  data: data,
+  value: "0"
+});
+const forwardFunctionArguments = proxyAccount.decodeTx(metaTx.data);
+O para un lote de tx:
+
+const echoAddress = "0x...";
+const data = echoContract.interface.functions.sendMessage.encode([
+  "any.sender is nice",
+]);
+const metaTx = await proxyAccount.signMetaTransaction([{
+  to: echoAddress,
+  data: data,
+  value: "0"
+}]);
+const forwardFunctionArguments = proxyAccount.decodeBatchTx(metaTx.data);
