@@ -72,11 +72,10 @@ async function setup() {
   // Lets META-DEPLOY the echo contract
   const initCode = new EchoFactory(user).getDeployTransaction().data! as string;
 
-  const metaDeploy = await proxyAccount.signAndEncodeMetaDeployment(
-    initCode,
-    0,
-    "0x123"
-  );
+  const metaDeploy = await proxyAccount.signMetaTransaction({
+    data: initCode,
+    salt: "0x123",
+  });
 
   const echoAddress = proxyAccount.buildDeployedContractAddress(
     initCode,
@@ -102,8 +101,8 @@ async function setup() {
   const callData = echoContract.interface.functions.sendMessage.encode([
     "any.sender is nice",
   ]);
-  const metaTx = await proxyAccount.signAndEncodeMetaTransaction({
-    target: echoAddress,
+  const metaTx = await proxyAccount.signMetaTransaction({
+    to: echoAddress,
     data: callData,
   });
 
