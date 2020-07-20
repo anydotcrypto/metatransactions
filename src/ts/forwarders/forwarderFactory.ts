@@ -16,6 +16,7 @@ export enum ChainID {
 export enum ForwarderType {
   ProxyAccount = 1,
   RelayHub = 2,
+  GnosisSafe = 3,
 }
 
 export abstract class ForwarderFactory<D> {
@@ -61,7 +62,7 @@ export abstract class ForwarderFactory<D> {
         signer
       );
       // always check before setting in the cache
-      // since we aren locking above
+      // since we arent locking above
       if (!ForwarderFactory.cache.get(cacheId)) {
         ForwarderFactory.cache.set(cacheId, forwarder);
       }

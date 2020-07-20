@@ -18,12 +18,12 @@ export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactor
 export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
 export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
 
-export { GnosisSafe } from "./gnosisTypedContracts/GnosisSafe";
-export { GnosisSafeFactory } from "./gnosisTypedContracts/GnosisSafeFactory";
-export { ProxyFactory } from "./gnosisTypedContracts/ProxyFactory";
-export { ProxyFactoryFactory } from "./gnosisTypedContracts/ProxyFactoryFactory";
-export { Proxy1 } from "./gnosisTypedContracts/Proxy1";
-export { Proxy1Factory } from "./gnosisTypedContracts/Proxy1Factory";
+export { GnosisSafe } from "./typedContracts/GnosisSafe";
+export { GnosisSafeFactory } from "./typedContracts/GnosisSafeFactory";
+export { ProxyFactory } from "./typedContracts/ProxyFactory";
+export { ProxyFactoryFactory } from "./typedContracts/ProxyFactoryFactory";
+export { GnosisProxy } from "./typedContracts/GnosisProxy";
+export { GnosisProxyFactory } from "./typedContracts/GnosisProxyFactory";
 
 export {
   RELAY_HUB_ADDRESS,
@@ -72,6 +72,7 @@ export {
 
 export { ProxyAccountForwarderFactory } from "./ts/forwarders/proxyAccountForwarderFactory";
 export { RelayHubForwarderFactory } from "./ts/forwarders/relayHubForwarderFactory";
+export { GnosisSafeForwarderFactory } from "./ts/forwarders/gnosisSafeForwarderFactory";
 
 import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
 export { IReplayProtectionJson };

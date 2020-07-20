@@ -13,12 +13,27 @@ import {
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { ChainID } from "../../src/ts/forwarders/forwarderFactory";
-import { PROXY_FACTORY_ADDRESS } from "../../src/deployment/addresses";
 import { parseEther, BigNumber } from "ethers/utils";
+import { Echo } from "../../src/typedContracts/Echo";
 
 const expect = chai.expect;
 chai.use(solidity);
 
+async function setupProxy(owner: Wallet) {
+  const gnosisForwarder = new GnosisSafeForwarder(
+    ChainID.MAINNET,
+    owner,
+    owner.address
+  );
+
+  const tx = await gnosisForwarder.createProxyContract();
+
+  await owner.sendTransaction({ to: tx.to, data: tx.data });
+
+  expect(await gnosisForwarder.isContractDeployed()).to.be.true;
+
+  return { gnosisForwarder };
+}
 async function createSafe(
   provider: Provider,
   [admin, owner, sender]: Wallet[]
@@ -48,53 +63,18 @@ async function createSafe(
 
 describe("GnosisSafe Forwarder", () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
-    const { provider, owner, sender } = await loadFixture(createSafe);
+    const { provider, owner } = await loadFixture(createSafe);
 
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
-
-    const tx = await gnosisForwarder.createProxyContract();
-
-    await sender.sendTransaction({ to: tx.to, data: tx.data });
-    const code = await provider.getCode(proxyAccountAddress);
-
+    const { gnosisForwarder } = await setupProxy(owner);
+    const code = await provider.getCode(gnosisForwarder.address);
     expect(code).to.not.eq("0x");
-    expect(await gnosisForwarder.isContractDeployed()).to.be.true;
   }).timeout(50000);
 
   it("Send a single transaction to an echo contract", async () => {
-    const { provider, owner, gnosisSafeMaster } = await loadFixture(createSafe);
+    const { owner } = await loadFixture(createSafe);
+    const { gnosisForwarder } = await setupProxy(owner);
 
     const echoCon = await new EchoFactory(owner).deploy();
-
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
-
-    const tx = await gnosisForwarder.createProxyContract();
-
-    await owner.sendTransaction({ to: tx.to, data: tx.data });
-    const code = await provider.getCode(proxyAccountAddress);
-
-    expect(await gnosisForwarder.isContractDeployed()).to.be.true;
-
     // Let's send a transaction via Gnosis Safe
     const data = echoCon.interface.functions.sendMessage.encode(["hello"]);
 
@@ -117,31 +97,62 @@ describe("GnosisSafe Forwarder", () => {
     ).to.eq("hello");
   }).timeout(50000);
 
+  it("Meta-deploy the echo contract", async () => {
+    const { owner } = await loadFixture(createSafe);
+    const { gnosisForwarder } = await setupProxy(owner);
+
+    const initCode = new EchoFactory(owner).getDeployTransaction()
+      .data! as string;
+
+    const minimalTx = await gnosisForwarder.signMetaTransaction({
+      data: initCode,
+      salt: "0x123",
+      value: 0,
+    });
+
+    const deployTx = await owner.sendTransaction({
+      to: minimalTx.to,
+      data: minimalTx.data,
+    });
+    await deployTx.wait(1);
+
+    const echoAddress = gnosisForwarder.buildDeployedContractAddress(
+      initCode,
+      "0x123"
+    );
+
+    const echoInterface = new EchoFactory().interface as Echo["interface"];
+    const data = echoInterface.functions.sendMessage.encode([
+      "meta-deployed yay",
+    ]);
+
+    const echoMinimaltx = await gnosisForwarder.signMetaTransaction({
+      to: echoAddress,
+      data: data,
+    });
+    const echoTx = await owner.sendTransaction({
+      to: echoMinimaltx.to,
+      data: echoMinimaltx.data,
+    });
+    await echoTx.wait(1);
+
+    const echoCon = new EchoFactory(owner).attach(echoAddress);
+    const lastMessage = await echoCon.lastMessage();
+
+    expect(
+      lastMessage,
+      "Last message should be recorded in the echo contract."
+    ).to.eq("meta-deployed yay");
+  }).timeout(50000);
+
   it("Transfer 1 eth via the wallet contract to a random wallet address", async () => {
-    const { provider, owner, gnosisSafeMaster } = await loadFixture(createSafe);
+    const { provider, owner } = await loadFixture(createSafe);
 
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
-
-    const tx = await gnosisForwarder.createProxyContract();
-
-    await owner.sendTransaction({ to: tx.to, data: tx.data });
-    const code = await provider.getCode(proxyAccountAddress);
-
-    expect(await gnosisForwarder.isContractDeployed()).to.be.true;
+    const { gnosisForwarder } = await setupProxy(owner);
 
     const transferAmount = parseEther("1");
     await owner.sendTransaction({
-      to: proxyAccountAddress,
+      to: gnosisForwarder.address,
       value: transferAmount,
     });
 
@@ -165,28 +176,10 @@ describe("GnosisSafe Forwarder", () => {
   }).timeout(50000);
 
   it("Send 10 transactions in a row to an echo contract", async () => {
-    const { provider, owner } = await loadFixture(createSafe);
+    const { owner } = await loadFixture(createSafe);
+    const { gnosisForwarder } = await setupProxy(owner);
 
     const echoCon = await new EchoFactory(owner).deploy();
-
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
-
-    const tx = await gnosisForwarder.createProxyContract();
-
-    await owner.sendTransaction({ to: tx.to, data: tx.data });
-    const code = await provider.getCode(proxyAccountAddress);
-
-    expect(await gnosisForwarder.isContractDeployed()).to.be.true;
 
     for (let i = 0; i < 10; i++) {
       const msg = "hello" + i;
@@ -214,28 +207,10 @@ describe("GnosisSafe Forwarder", () => {
   }).timeout(50000);
 
   it("Send a single batch transaction that increments the counter contract 5 times.", async () => {
-    const { provider, owner } = await loadFixture(createSafe);
+    const { owner } = await loadFixture(createSafe);
 
+    const { gnosisForwarder } = await setupProxy(owner);
     const counterCon = await new CounterFactory(owner).deploy();
-
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
-
-    const tx = await gnosisForwarder.createProxyContract();
-
-    await owner.sendTransaction({ to: tx.to, data: tx.data });
-    const code = await provider.getCode(proxyAccountAddress);
-
-    expect(await gnosisForwarder.isContractDeployed()).to.be.true;
 
     // Let's send a transaction via Gnosis Safe
     const data = counterCon.interface.functions.increment.encode([]);
@@ -277,28 +252,10 @@ describe("GnosisSafe Forwarder", () => {
   }).timeout(50000);
 
   it("Send a 10 batch transaction that increments the counter contract 5 times.", async () => {
-    const { provider, owner } = await loadFixture(createSafe);
+    const { owner } = await loadFixture(createSafe);
 
     const counterCon = await new CounterFactory(owner).deploy();
-
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
-
-    const tx = await gnosisForwarder.createProxyContract();
-
-    await owner.sendTransaction({ to: tx.to, data: tx.data });
-    const code = await provider.getCode(proxyAccountAddress);
-
-    expect(await gnosisForwarder.isContractDeployed()).to.be.true;
+    const { gnosisForwarder } = await setupProxy(owner);
 
     // Let's send a transaction via Gnosis Safe
     const data = counterCon.interface.functions.increment.encode([]);
@@ -346,17 +303,7 @@ describe("GnosisSafe Forwarder", () => {
 
     const echoCon = await new EchoFactory(owner).deploy();
 
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
-    const gnosisForwarder = new GnosisSafeForwarder(
-      ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
-      owner,
-      proxyAccountAddress
-    );
+    const { gnosisForwarder } = await setupProxy(owner);
 
     // Let's send a transaction via Gnosis Safe
     const data = echoCon.interface.functions.sendMessage.encode(["hello"]);
@@ -379,7 +326,7 @@ describe("GnosisSafe Forwarder", () => {
     expect(
       decodedTx._replayProtectionAuthority,
       "Proxy account address manages the replay protection"
-    ).to.eq(proxyAccountAddress);
+    ).to.eq(gnosisForwarder.address);
     expect(
       decodedTx._replayProtection,
       "We cannot fetch the replay protection nonce, so it returns -1"
@@ -391,16 +338,10 @@ describe("GnosisSafe Forwarder", () => {
 
     const echoCon = await new EchoFactory(owner).deploy();
 
-    const proxyAccountAddress = GnosisSafeForwarder.buildProxyAccountAddress(
-      owner,
-      owner.address
-    );
-
     const gnosisForwarder = new GnosisSafeForwarder(
       ChainID.MAINNET,
-      PROXY_FACTORY_ADDRESS,
       owner,
-      proxyAccountAddress
+      owner.address
     );
 
     // Let's send a transaction via Gnosis Safe
@@ -418,6 +359,7 @@ describe("GnosisSafe Forwarder", () => {
         value: new BigNumber(1),
       },
     ];
+
     const minimalTx = await gnosisForwarder.signMetaTransaction(toBatch);
 
     const decodedTx = gnosisForwarder.decodeBatchTx(minimalTx.data);
@@ -429,7 +371,6 @@ describe("GnosisSafe Forwarder", () => {
       expect(decodedTx._metaTxList[i].data, "Data for the echo contract").to.eq(
         toBatch[i].data
       );
-      const zero = new BigNumber(0);
       expect(
         toBatch[i].value.eq(decodedTx._metaTxList[i].value),
         "Zero value sent"
@@ -438,7 +379,7 @@ describe("GnosisSafe Forwarder", () => {
       expect(
         decodedTx._replayProtectionAuthority,
         "Proxy account address manages the replay protection"
-      ).to.eq(proxyAccountAddress);
+      ).to.eq(gnosisForwarder.address);
       expect(
         decodedTx._replayProtection,
         "We cannot fetch the replay protection nonce, so it returns -1"

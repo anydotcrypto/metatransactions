@@ -9,7 +9,7 @@ import {
   ProxyFactoryFactory,
   GnosisSafe,
   ProxyFactory,
-  Proxy1Factory,
+  GnosisProxyFactory,
   EchoFactory,
   CounterFactory,
   MultiSender,
@@ -28,14 +28,12 @@ import {
   SigningKey,
   hexlify,
   concat,
-  BigNumber,
 } from "ethers/utils";
 import { Create2Options } from "ethers/utils/address";
 
 const expect = chai.expect;
 chai.use(solidity);
 
-let dummyAccount: GnosisSafeFactory;
 type gnosisSafeFunctions = GnosisSafe["functions"];
 type proxyFactoryFunctions = ProxyFactory["functions"];
 
@@ -71,6 +69,7 @@ async function deployProxy(
     AddressZero,
     0,
     AddressZero,
+    (await owner.provider.getNetwork()).chainId, // ChainID
   ]);
 
   const salt = keccak256("0x123");
@@ -83,7 +82,7 @@ async function deployProxy(
 
   await tx.wait(1);
 
-  const deployTx = new Proxy1Factory(owner).getDeployTransaction(
+  const deployTx = new GnosisProxyFactory(owner).getDeployTransaction(
     gnosisSafeMaster.address
   );
   const create2Options: Create2Options = {
@@ -129,6 +128,7 @@ async function prepareTransactionData(
       "address",
       "address",
       "uint",
+      "uint",
     ],
     [
       TYPEHASH,
@@ -142,6 +142,7 @@ async function prepareTransactionData(
       gasToken,
       refundReceiver,
       nonce,
+      (await signer.provider.getNetwork()).chainId, // ChainID
     ]
   );
 
@@ -165,7 +166,6 @@ async function prepareTransactionData(
 
   let jointSignature: string;
   if (prefix != undefined && prefix) {
-    console.log("signing here");
     const signature = await signer.signMessage(arrayify(txHashData));
     const splitSig = splitSignature(signature);
     jointSignature = hexlify(

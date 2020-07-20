@@ -14,9 +14,9 @@ import {
   ProxyAccountDeployCallData,
   RevertableProxyAccountCallData,
   RevertableProxyAccountDeployCallData,
-  Proxy1Factory,
   MultiSender,
   GnosisReplayProtection,
+  GnosisProxyFactory,
 } from "../..";
 import { Forwarder, MinimalTx, CallType } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
@@ -25,11 +25,11 @@ import {
   PROXY_FACTORY_ADDRESS,
   MULTI_SEND_ADDRESS,
 } from "../../deployment/addresses";
-import { Signer, Wallet } from "ethers";
-import { ProxyFactoryFactory } from "../../gnosisTypedContracts/ProxyFactoryFactory";
-import { ProxyFactory } from "../../gnosisTypedContracts/ProxyFactory";
-import { GnosisSafe } from "../../gnosisTypedContracts/GnosisSafe";
-import { GnosisSafeFactory } from "../../gnosisTypedContracts/GnosisSafeFactory";
+import { Signer } from "ethers";
+import { ProxyFactoryFactory } from "../../typedContracts/ProxyFactoryFactory";
+import { ProxyFactory } from "../../typedContracts/ProxyFactory";
+import { GnosisSafe } from "../../typedContracts/GnosisSafe";
+import { GnosisSafeFactory } from "../../typedContracts/GnosisSafeFactory";
 import { AddressZero } from "ethers/constants";
 
 /**
@@ -49,24 +49,29 @@ export class GnosisSafeForwarder extends Forwarder<
   /**
    * All meta-transactions are sent via a Gnosis Safe walletr contract.
    * @param chainID Chain ID
-   * @param proxyFactoryAddress Address of the Proxy Factory (responsible for deploying proxy)
    * @param signer Signer's wallet
-   * @param proxyAddress Proxy contract
+   * @param signerAddress Signer's address
    */
-  constructor(
-    chainID: ChainID,
-    proxyFactoryAddress: string,
-    signer: Signer,
-    address: string
-  ) {
+  constructor(chainID: ChainID, signer: Signer, signerAddress: string) {
     super(
       chainID,
       signer,
-      address,
-      new GnosisReplayProtection(signer, address)
+      GnosisSafeForwarder.buildProxyAccountAddress(
+        signer,
+        signerAddress,
+        chainID
+      ),
+      new GnosisReplayProtection(
+        signer,
+        GnosisSafeForwarder.buildProxyAccountAddress(
+          signer,
+          signerAddress,
+          chainID
+        )
+      )
     );
     this.proxyFactory = new ProxyFactoryFactory(signer).attach(
-      proxyFactoryAddress
+      PROXY_FACTORY_ADDRESS
     );
     this.gnosisSafeMaster = new GnosisSafeFactory(signer).attach(
       GNOSIS_SAFE_ADDRESS
@@ -213,6 +218,7 @@ export class GnosisSafeForwarder extends Forwarder<
         "address",
         "address",
         "uint",
+        "uint",
       ],
       [
         this.TYPEHASH,
@@ -226,6 +232,7 @@ export class GnosisSafeForwarder extends Forwarder<
         AddressZero,
         AddressZero,
         nonce,
+        this.chainID,
       ]
     );
 
@@ -251,6 +258,8 @@ export class GnosisSafeForwarder extends Forwarder<
 
     let recParam;
 
+    // It can either be 27 or 28.
+    // Gnosis safe expects it as 31 or 32 (for prefixed messages)
     if (splitSig.v! == 27) {
       recParam = "0x1f";
     } else {
@@ -340,6 +349,7 @@ export class GnosisSafeForwarder extends Forwarder<
       AddressZero,
       0,
       AddressZero,
+      this.chainID,
     ]);
 
     const salt = keccak256("0x123");
@@ -361,8 +371,9 @@ export class GnosisSafeForwarder extends Forwarder<
    * @param cloneAddress Contract to clone address
    */
   public static buildProxyAccountAddress(
-    wallet: Wallet,
-    signersAddress: string
+    wallet: Signer,
+    signersAddress: string,
+    chainId: number
   ): string {
     const gnosisSafeInterface = new GnosisSafeFactory()
       .interface as GnosisSafe["interface"];
@@ -376,11 +387,12 @@ export class GnosisSafeForwarder extends Forwarder<
       AddressZero,
       0,
       AddressZero,
+      chainId,
     ]);
 
     const salt = keccak256("0x123");
 
-    const deployTx = new Proxy1Factory(wallet).getDeployTransaction(
+    const deployTx = new GnosisProxyFactory(wallet).getDeployTransaction(
       GNOSIS_SAFE_ADDRESS
     );
 

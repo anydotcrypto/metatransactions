@@ -12,6 +12,7 @@ import {
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   deployMetaTxContracts,
+  GnosisSafeForwarderFactory,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -134,7 +135,7 @@ describe("Forwarder Factory", () => {
 
   it("Create the RelayForwarder with Bitflip ", async () => {
     const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const bitflip = new BitFlipReplayProtection(admin, relayHub.address)
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     const relayForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       admin,
@@ -199,6 +200,42 @@ describe("Forwarder Factory", () => {
       expect(forwardParams._replayProtectionAuthority).to.eq(
         "0x0000000000000000000000000000000000000000",
         "Multinonce replay protection"
+      );
+      expect(forwardParams._metaTx.to).to.eq(
+        msgSenderExample.address,
+        "Target contract"
+      );
+      expect(forwardParams._metaTx.value).to.eq(new BigNumber(10));
+    }
+  }).timeout(50000);
+
+  it("Create the Gnosis Safe Forwarder ", async () => {
+    const { admin, msgSenderExample } = await loadFixture(createHubs);
+    const gnosisSafeForwarder = await new GnosisSafeForwarderFactory().create(
+      ChainID.MAINNET,
+      0,
+      admin
+    );
+
+    const callData = msgSenderExample.interface.functions.willRevert.encode([]);
+
+    for (let i = 0; i < 10; i++) {
+      const metaTx = await gnosisSafeForwarder.signMetaTransaction({
+        to: msgSenderExample.address,
+        value: new BigNumber(10),
+        data: callData,
+      });
+      const forwardParams = gnosisSafeForwarder.decodeTx(metaTx.data);
+
+      expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
+      expect(metaTx.to).to.eq(gnosisSafeForwarder.address, "RelayHub address");
+      expect(forwardParams._replayProtection).to.eq(
+        "-1",
+        "Cannot fetch nonce from decoded tx"
+      );
+      expect(forwardParams._replayProtectionAuthority).to.eq(
+        gnosisSafeForwarder.address,
+        "Gnosis safe handles the replay protection"
       );
       expect(forwardParams._metaTx.to).to.eq(
         msgSenderExample.address,
