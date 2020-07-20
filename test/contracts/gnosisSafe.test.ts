@@ -168,9 +168,13 @@ async function prepareTransactionData(
   if (prefix != undefined && prefix) {
     const signature = await signer.signMessage(arrayify(txHashData));
     const splitSig = splitSignature(signature);
-    jointSignature = hexlify(
-      concat([splitSig.r, splitSig.s, splitSig.v! ? "0x20" : "0x1f"])
-    );
+    let recParam;
+    if (splitSig.v! == 27) {
+      recParam = "0x1f";
+    } else {
+      recParam = "0x20";
+    }
+    jointSignature = hexlify(concat([splitSig.r, splitSig.s, recParam]));
   } else {
     const key = new SigningKey(signer.privateKey);
     const signature = key.signDigest(arrayify(txHashData));
@@ -368,7 +372,7 @@ describe("GnosisSafe", () => {
 
   fnIt<proxyFactoryFunctions>(
     (a) => a.createProxyWithNonce,
-    "executes a transaction that increments the counter contract 5 times. Verified by signature (with prefix) and performs a CALL.",
+    "executes the echo contract, but with the message prefix as part of signature (v > 30)",
     async () => {
       const {
         provider,
