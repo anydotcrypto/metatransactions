@@ -1,0 +1,73 @@
+{
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "name": "_mastercopy",
+          "type": "address"
+        },
+        {
+          "name": "initializer",
+          "type": "bytes"
+        },
+        {
+          "name": "saltNonce",
+          "type": "uint256"
+        }
+      ],
+      "name": "proxyCreated",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "evm": {
+    "bytecode": {
+      "linkReferences": {},
+      "object": "",
+      "opcodes": "",
+      "sourceMap": ""
+    },
+    "deployedBytecode": {
+      "linkReferences": {},
+      "object": "",
+      "opcodes": "",
+      "sourceMap": ""
+    }
+  },
+  "interface": [
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "name": "_mastercopy",
+          "type": "address"
+        },
+        {
+          "name": "initializer",
+          "type": "bytes"
+        },
+        {
+          "name": "saltNonce",
+          "type": "uint256"
+        }
+      ],
+      "name": "proxyCreated",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": ""
+}

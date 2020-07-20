@@ -1,0 +1,791 @@
+{
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "invocationCount",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenCalldataRunOutOfGas",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "bool"
+        }
+      ],
+      "name": "givenAnyReturnBool",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "givenAnyRunOutOfGas",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        }
+      ],
+      "name": "invocationCountForMethod",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        }
+      ],
+      "name": "invocationCountForCalldata",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bool"
+        }
+      ],
+      "name": "givenCalldataReturnBool",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenCalldataReturn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "address"
+        }
+      ],
+      "name": "givenAnyReturnAddress",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenMethodRunOutOfGas",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bool"
+        }
+      ],
+      "name": "givenMethodReturnBool",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "givenAnyRevertWithMessage",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "givenMethodRevertWithMessage",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "givenCalldataRevertWithMessage",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenMethodRevert",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "uint256"
+        }
+      ],
+      "name": "givenAnyReturnUint",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "address"
+        }
+      ],
+      "name": "givenCalldataReturnAddress",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenMethodReturn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "address"
+        }
+      ],
+      "name": "givenMethodReturnAddress",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenAnyReturn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "uint256"
+        }
+      ],
+      "name": "givenCalldataReturnUint",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "reset",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "givenAnyRevert",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenCalldataRevert",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "uint256"
+        }
+      ],
+      "name": "givenMethodReturnUint",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "evm": {
+    "bytecode": {
+      "linkReferences": {},
+      "object": "",
+      "opcodes": "",
+      "sourceMap": ""
+    },
+    "deployedBytecode": {
+      "linkReferences": {},
+      "object": "",
+      "opcodes": "",
+      "sourceMap": ""
+    }
+  },
+  "interface": [
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "invocationCount",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenCalldataRunOutOfGas",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "bool"
+        }
+      ],
+      "name": "givenAnyReturnBool",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "givenAnyRunOutOfGas",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        }
+      ],
+      "name": "invocationCountForMethod",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        }
+      ],
+      "name": "invocationCountForCalldata",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bool"
+        }
+      ],
+      "name": "givenCalldataReturnBool",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenCalldataReturn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "address"
+        }
+      ],
+      "name": "givenAnyReturnAddress",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenMethodRunOutOfGas",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bool"
+        }
+      ],
+      "name": "givenMethodReturnBool",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "givenAnyRevertWithMessage",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "givenMethodRevertWithMessage",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "givenCalldataRevertWithMessage",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenMethodRevert",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "uint256"
+        }
+      ],
+      "name": "givenAnyReturnUint",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "address"
+        }
+      ],
+      "name": "givenCalldataReturnAddress",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenMethodReturn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "address"
+        }
+      ],
+      "name": "givenMethodReturnAddress",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "response",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenAnyReturn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "uint256"
+        }
+      ],
+      "name": "givenCalldataReturnUint",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "reset",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "givenAnyRevert",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "call",
+          "type": "bytes"
+        }
+      ],
+      "name": "givenCalldataRevert",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "method",
+          "type": "bytes"
+        },
+        {
+          "name": "response",
+          "type": "uint256"
+        }
+      ],
+      "name": "givenMethodReturnUint",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": ""
+}

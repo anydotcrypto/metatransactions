@@ -162,15 +162,13 @@ export class ProxyAccountForwarder extends Forwarder<
       _replayProtectionAuthority: string;
       _signature: string;
     } = {
-      _metaTxList: parsedTransaction.args[0].map(
-        (a: any) => ({
-            to: a[0],
-            value: a[1],
-            data: a[2],
-            revertOnFail: a[3],
-            callType: a[4],
-        })
-      ),        
+      _metaTxList: parsedTransaction.args[0].map((a: any) => ({
+        to: a[0],
+        value: a[1],
+        data: a[2],
+        revertOnFail: a[3],
+        callType: a[4],
+      })),
       _replayProtection: parsedTransaction.args[1],
       _replayProtectionAuthority: parsedTransaction.args[2],
       _signature: parsedTransaction.args[3],
@@ -208,7 +206,7 @@ export class ProxyAccountForwarder extends Forwarder<
   protected encodeBatchCallData(
     txBatch: RevertableProxyAccountCallData[]
   ): string {
-    const metaTxList = txBatch.map(b => this.defaultRevertableCallData(b));
+    const metaTxList = txBatch.map((b) => this.defaultRevertableCallData(b));
     return defaultAbiCoder.encode(
       [
         "uint",
@@ -224,7 +222,7 @@ export class ProxyAccountForwarder extends Forwarder<
     replayProtectionAuthority: string,
     signature: string
   ): Promise<string> {
-    const metaTxList = txBatch.map(b => this.defaultRevertableCallData(b));
+    const metaTxList = txBatch.map((b) => this.defaultRevertableCallData(b));
 
     const proxyAccountInterface = new Interface(
       abi

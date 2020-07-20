@@ -951,16 +951,16 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        [
-          "uint",
-          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-        ],
-        [CallType.BATCH, metaTxList]
-      );
+      // const encodedCallData = defaultAbiCoder.encode(
+      //   [
+      //     "uint",
+      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+      //   ],
+      //   [CallType.BATCH, metaTxList]
+      // );
 
       const { signature } = await forwarder.encodeAndSignParams(
-        encodedCallData,
+        metaTxList,
         replayProtection,
         AddressZero
       );
@@ -1029,16 +1029,16 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        [
-          "uint",
-          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-        ],
-        [CallType.BATCH, metaTxList]
-      );
+      // const encodedCallData = defaultAbiCoder.encode(
+      //   [
+      //     "uint",
+      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+      //   ],
+      //   [CallType.BATCH, metaTxList]
+      // );
 
       const { signature } = await forwarder.encodeAndSignParams(
-        encodedCallData,
+        metaTxList,
         replayProtection,
         AddressZero
       );
@@ -1112,16 +1112,16 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        [
-          "uint",
-          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-        ],
-        [CallType.BATCH, metaTxList]
-      );
+      // const encodedCallData = defaultAbiCoder.encode(
+      //   [
+      //     "uint",
+      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+      //   ],
+      //   [CallType.BATCH, metaTxList]
+      // );
 
       const { signature } = await forwarder.encodeAndSignParams(
-        encodedCallData,
+        metaTxList,
         replayProtection,
         AddressZero
       );
@@ -1196,16 +1196,16 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        [
-          "uint",
-          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-        ],
-        [CallType.BATCH, metaTxList]
-      );
+      // const encodedCallData = defaultAbiCoder.encode(
+      //   [
+      //     "uint",
+      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+      //   ],
+      //   [CallType.BATCH, metaTxList]
+      // );
 
       const { signature } = await forwarder.encodeAndSignParams(
-        encodedCallData,
+        metaTxList,
         replayProtection,
         AddressZero
       );
@@ -1285,16 +1285,16 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const encodedCallData = defaultAbiCoder.encode(
-        [
-          "uint",
-          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-        ],
-        [CallType.BATCH, metaTxList]
-      );
+      // const encodedCallData = defaultAbiCoder.encode(
+      //   [
+      //     "uint",
+      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+      //   ],
+      //   [CallType.BATCH, metaTxList]
+      // );
 
       const { signature } = await forwarder.encodeAndSignParams(
-        encodedCallData,
+        metaTxList,
         replayProtection,
         AddressZero
       );

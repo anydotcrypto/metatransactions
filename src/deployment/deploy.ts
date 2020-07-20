@@ -3,8 +3,14 @@ import {
   RelayHubFactory,
   ProxyAccountDeployerFactory,
   DelegateDeployerFactory,
+  GnosisSafeFactory,
 } from "..";
-import { keccak256, toUtf8Bytes, getCreate2Address } from "ethers/utils";
+import {
+  keccak256,
+  toUtf8Bytes,
+  getCreate2Address,
+  parseEther,
+} from "ethers/utils";
 import { MultiSendFactory } from "../typedContracts/MultiSendFactory";
 import { deployerAddress, deployDeployer } from "./deployer";
 import {
@@ -12,7 +18,10 @@ import {
   VERSION,
   PROXY_ACCOUNT_DEPLOYER_SALT_STRING,
   MULTI_SEND_SALT_STRING,
+  GNOSIS_SAFE_SALT_STRING,
+  PROXY_FACTORY_SALT_STRING,
 } from "./addresses";
+import { ProxyFactoryFactory } from "../gnosisTypedContracts/ProxyFactoryFactory";
 
 async function deployContract(
   deployerContract: Contract,
@@ -25,6 +34,7 @@ async function deployContract(
     1.2;
   const deployResponse = await deployerContract.deploy(deployTx.data, salt, {
     gasLimit: gas,
+    gasPrice: parseEther("0.000000027"),
   });
   await deployResponse.wait();
   return getCreate2Address({
@@ -83,6 +93,7 @@ export const deployMetaTxContracts = async (
   const multiSendSalt = keccak256(
     toUtf8Bytes(VERSION + "|" + MULTI_SEND_SALT_STRING)
   );
+
   const multiSendAddress = await deployContract(
     deployerContract,
     multiSendFactory,
@@ -90,11 +101,37 @@ export const deployMetaTxContracts = async (
   );
   logProgress && console.log("MultiSend address: " + multiSendAddress);
 
+  const gnosisSafeMasterFactory = new GnosisSafeFactory(admin);
+  const gnosisSafeSalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + GNOSIS_SAFE_SALT_STRING)
+  );
+
+  const gnosisSafeAddress = await deployContract(
+    deployerContract,
+    gnosisSafeMasterFactory,
+    gnosisSafeSalt
+  );
+  logProgress && console.log("GnosisSafe address: " + gnosisSafeAddress);
+
+  const proxyFactoryFactory = new ProxyFactoryFactory(admin);
+  const proxyFactorySalt = keccak256(
+    toUtf8Bytes(VERSION + "|" + PROXY_FACTORY_SALT_STRING)
+  );
+
+  const proxyFactoryAddress = await deployContract(
+    deployerContract,
+    proxyFactoryFactory,
+    proxyFactorySalt
+  );
+  logProgress && console.log("ProxyFactory address: " + proxyFactoryAddress);
+
   return {
     relayHubAddress,
     proxyAccountDeployerAddress: proxyAddress,
     baseAccountAddress: baseAccount,
     multiSendAddress: multiSendAddress,
     delegateDeployerAddress: delegateDeployerAddress,
+    proxyFactoryAddress: proxyFactoryAddress,
+    gnosisSafeAddress: gnosisSafeAddress,
   };
 };

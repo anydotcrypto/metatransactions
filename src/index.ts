@@ -18,6 +18,13 @@ export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactor
 export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
 export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
 
+export { GnosisSafe } from "./gnosisTypedContracts/GnosisSafe";
+export { GnosisSafeFactory } from "./gnosisTypedContracts/GnosisSafeFactory";
+export { ProxyFactory } from "./gnosisTypedContracts/ProxyFactory";
+export { ProxyFactoryFactory } from "./gnosisTypedContracts/ProxyFactoryFactory";
+export { Proxy1 } from "./gnosisTypedContracts/Proxy1";
+export { Proxy1Factory } from "./gnosisTypedContracts/Proxy1Factory";
+
 export {
   RELAY_HUB_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
@@ -43,6 +50,8 @@ export {
   RevertableProxyAccountDeployCallData,
   RevertableProxyAccountCallData,
 } from "./ts/forwarders/proxyAccountFowarder";
+
+export { GnosisSafeForwarder } from "./ts/forwarders/gnosisSafeForwarder";
 export {
   RelayHubForwarder,
   RelayHubCallData,
@@ -50,6 +59,8 @@ export {
   RevertableRelayHubDeployCallData,
   RevertableRelayHubCallData,
 } from "./ts/forwarders/relayHubForwarder";
+
+export { GnosisReplayProtection } from "./ts/replayProtection/gnosisNonce";
 
 export { MultiNonceReplayProtection } from "./ts/replayProtection/multiNonce";
 export { BitFlipReplayProtection } from "./ts/replayProtection/bitFlip";

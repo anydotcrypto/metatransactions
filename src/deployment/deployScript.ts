@@ -1,13 +1,15 @@
 import { ethers } from "ethers";
 import { deployMetaTxContracts } from "./deploy";
 
-export const ADMIN_MNEMONIC = "";
+export const ADMIN_MNEMONIC =
+  "faint soul weapon churn there eagle awkward pause wagon pepper poverty farm";
+
 /**
  * Set up the provider and wallet
  */
 async function setup() {
   const infuraProvider = new ethers.providers.InfuraProvider(
-    "ropsten",
+    "mainnet",
     "7333c8bcd07b4a179b0b0a958778762b"
   );
 
