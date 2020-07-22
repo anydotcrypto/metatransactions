@@ -51,8 +51,6 @@ contract GnosisSafe is
 
     uint256 public nonce;
     bytes32 public domainSeparator;
-    uint256 public evmChainId;
-
     // Mapping to keep track of all message hashes that have been approve by ALL REQUIRED owners
     mapping(bytes32 => uint256) public signedMessages;
     // Mapping to keep track of all hashes (message or transaction) that have been approve by ANY owners
@@ -83,13 +81,9 @@ contract GnosisSafe is
         address fallbackHandler,
         address paymentToken,
         uint256 payment,
-        address payable paymentReceiver,
-        uint256 _evmChainId
+        address payable paymentReceiver
     ) external {
         require(domainSeparator == 0, "Domain Separator already set!");
-        require(_evmChainId != 0, "ChainID cannot be zero");
-        evmChainId = _evmChainId;
-
         domainSeparator = keccak256(
             abi.encode(DOMAIN_SEPARATOR_TYPEHASH, this)
         );
@@ -329,30 +323,6 @@ contract GnosisSafe is
         }
     }
 
-    function test(bytes32 _dataHash, bytes memory _signature)
-        public
-        pure
-        returns (address)
-    {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-        (v, r, s) = signatureSplit(_signature, 1);
-
-        return
-            ecrecover(
-                keccak256(
-                    abi.encodePacked(
-                        "\x19Ethereum Signed Message:\n32",
-                        _dataHash
-                    )
-                ),
-                v - 4,
-                r,
-                s
-            );
-    }
-
     /// @dev Allows to estimate a Safe transaction.
     ///      This method is only meant for estimation purpose, therefore two different protection mechanism against execution in a transaction have been made:
     ///      1.) The method can only be called from the safe itself
@@ -483,8 +453,7 @@ contract GnosisSafe is
                 gasPrice,
                 gasToken,
                 refundReceiver,
-                _nonce,
-                evmChainId
+                _nonce
             )
         );
         return

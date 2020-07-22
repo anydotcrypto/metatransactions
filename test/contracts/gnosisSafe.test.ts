@@ -68,9 +68,7 @@ async function deployProxy(
     AddressZero,
     AddressZero,
     0,
-    AddressZero,
-    (await owner.provider.getNetwork()).chainId, // ChainID
-  ]);
+    AddressZero  ]);
 
   const salt = keccak256("0x123");
   // Signer's address is inside the initializer data and that is used to create the contract address
@@ -128,7 +126,6 @@ async function prepareTransactionData(
       "address",
       "address",
       "uint",
-      "uint",
     ],
     [
       TYPEHASH,
@@ -142,7 +139,6 @@ async function prepareTransactionData(
       gasToken,
       refundReceiver,
       nonce,
-      (await signer.provider.getNetwork()).chainId, // ChainID
     ]
   );
 

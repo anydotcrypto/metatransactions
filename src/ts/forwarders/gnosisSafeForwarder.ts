@@ -46,6 +46,7 @@ export class GnosisSafeForwarder extends Forwarder<
   private gnosisSafeMaster: GnosisSafe;
   private TYPEHASH: string =
     "0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8";
+  private salt: string;
   /**
    * All meta-transactions are sent via a Gnosis Safe walletr contract.
    * @param chainID Chain ID
@@ -76,6 +77,7 @@ export class GnosisSafeForwarder extends Forwarder<
     this.gnosisSafeMaster = new GnosisSafeFactory(signer).attach(
       GNOSIS_SAFE_ADDRESS
     );
+    this.salt = keccak256(defaultAbiCoder.encode(["uint"], [this.chainID]));
   }
 
   private defaultCallData(
@@ -218,7 +220,6 @@ export class GnosisSafeForwarder extends Forwarder<
         "address",
         "address",
         "uint",
-        "uint",
       ],
       [
         this.TYPEHASH,
@@ -232,7 +233,6 @@ export class GnosisSafeForwarder extends Forwarder<
         AddressZero,
         AddressZero,
         nonce,
-        this.chainID,
       ]
     );
 
@@ -349,13 +349,10 @@ export class GnosisSafeForwarder extends Forwarder<
       AddressZero,
       0,
       AddressZero,
-      this.chainID,
     ]);
 
-    const salt = keccak256("0x123");
-
     const callData = this.proxyFactory.interface.functions.createProxyWithNonce.encode(
-      [this.gnosisSafeMaster.address, setup, salt]
+      [this.gnosisSafeMaster.address, setup, this.salt]
     );
 
     return {
@@ -387,14 +384,13 @@ export class GnosisSafeForwarder extends Forwarder<
       AddressZero,
       0,
       AddressZero,
-      chainId,
     ]);
-
-    const salt = keccak256("0x123");
 
     const deployTx = new GnosisProxyFactory(wallet).getDeployTransaction(
       GNOSIS_SAFE_ADDRESS
     );
+
+    const salt = keccak256(defaultAbiCoder.encode(["uint"], [chainId]));
 
     const create2Options: Create2Options = {
       from: PROXY_FACTORY_ADDRESS,
