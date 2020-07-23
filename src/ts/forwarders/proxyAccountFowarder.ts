@@ -21,7 +21,7 @@ import {
   BASE_ACCOUNT_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
-import { WalletForwarder } from "./WalletForwarder";
+import { WalletForwarder } from "./walletForwarder";
 
 export interface ProxyAccountCallData {
   to: string;
