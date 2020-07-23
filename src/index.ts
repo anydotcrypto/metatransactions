@@ -42,6 +42,8 @@ export {
   ForwardParams,
   CallType,
   Forwarder,
+  DirectCallData,
+  DeployCallData,
 } from "./ts/forwarders/forwarder";
 
 export { WalletForwarder } from "./ts/forwarders/walletForwarder";

@@ -34,13 +34,13 @@ export interface ForwardParams {
   signature: string;
 }
 
-type DirectCallData = {
+export type DirectCallData = {
   to: string;
   data?: string;
   value?: BigNumberish;
 };
 
-type DeployCallData = {
+export type DeployCallData = {
   data: string;
   value?: BigNumberish;
   salt: string;
