@@ -43,6 +43,8 @@ export {
   CallType,
   Forwarder,
 } from "./ts/forwarders/forwarder";
+
+export { WalletForwarder } from "./ts/forwarders/walletForwarder";
 export {
   ProxyAccountForwarder,
   ProxyAccountCallData,

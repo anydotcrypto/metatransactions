@@ -11,14 +11,12 @@ import {
 import {
   ChainID,
   ProxyAccountCallData,
-  ProxyAccountDeployCallData,
   RevertableProxyAccountCallData,
-  RevertableProxyAccountDeployCallData,
   MultiSender,
   GnosisReplayProtection,
   GnosisProxyFactory,
 } from "../..";
-import { Forwarder, MinimalTx, CallType } from "./forwarder";
+import { MinimalTx, CallType } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import {
   GNOSIS_SAFE_ADDRESS,
@@ -31,17 +29,13 @@ import { ProxyFactory } from "../../typedContracts/ProxyFactory";
 import { GnosisSafe } from "../../typedContracts/GnosisSafe";
 import { GnosisSafeFactory } from "../../typedContracts/GnosisSafeFactory";
 import { AddressZero } from "ethers/constants";
+import { WalletForwarder } from "./walletForwarder";
 
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class GnosisSafeForwarder extends Forwarder<
-  ProxyAccountCallData,
-  ProxyAccountDeployCallData,
-  RevertableProxyAccountCallData,
-  RevertableProxyAccountDeployCallData
-> {
+export class GnosisSafeForwarder extends WalletForwarder {
   private proxyFactory: ProxyFactory;
   private gnosisSafeMaster: GnosisSafe;
   private TYPEHASH: string =
