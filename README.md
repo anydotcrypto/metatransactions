@@ -5,15 +5,15 @@ Ethereum transaction's intertwine the identity of who paid for the transaction (
 There are two approaches:
 
 - **Proxy contract:** Every user has a proxy contract and all transactions are sent via the proxy contract. It is compatible with all existing smart contracts.
-- **\_msgSender():** All transactions are sent via a single RelayHub contract and the target contract must support the \_msgSender() standard. It preserves the user's signing key address as their identity.
+- **\_msgSender():** All transactions are sent via a single UniverisalForwarder contract and the target contract must support the \_msgSender() standard. It preserves the user's signing key address as their identity.
 
 Our meta-transaction library focuses on both approaches and we hope it benefits the community in the following way:
 
-- **A candidate RelayHub standard**: Our RelayHub.sol is a minimal and potential candidate for the \_msgSender() standard.
-- **Minimal proxy contracts**: Our proxy contract is only responsible for forwarding and batching calls. It implements EIP-1167 to minimise storage/deployment overhead.
-- **Flexible replay protection:** We have implemented Nonce, MultiNonce and BitFlip, so you can decide if all transactions must be ordered, if you want up to N concurrent transactions, or to always support out-of-order transactions.
+- **A Univerisal Forwarder**: Our RelayHub.sol can be used for the \_msgSender() standard.
+- **Minimal wallet contract**: Our proxy contract only requires 67k gas to deploy & 26k gas per transaction. It is minimal code and supports batching transactions. Supports exotic replay protection for out of order-transactions (bitflip) and N concurrent transactions (multinonmce). 
+- **GnosisSafe**: We have incorporated GnosisSafe and our library tracks the replay protection nonce such that it is meta-transaction friendly. It is an audited wallet contract that is increasingly widely used. 
 
-Our repository is a protocol and relay-independent approach that any project can adopt. We hope it will make it easier for projects to tap into third party relayer APIs and to avoid re-implementing the wheel for reliable transaction infrastructure.
+**Our repository is a protocol and relay-independent approach** that any project can adopt. We hope it will make it easier for projects to tap into third party relayer APIs and to avoid re-implementing the wheel for reliable transaction infrastructure.
 
 # Getting started
 
