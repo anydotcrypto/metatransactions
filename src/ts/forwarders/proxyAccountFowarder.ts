@@ -21,6 +21,7 @@ import {
   BASE_ACCOUNT_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
+import { WalletForwarder } from "./walletForwarder";
 
 export interface ProxyAccountCallData {
   to: string;
@@ -48,12 +49,14 @@ export interface RevertableProxyAccountDeployCallData
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyAccountForwarder extends MiniForwarder<
-  ProxyAccountCallData,
-  ProxyAccountDeployCallData,
-  RevertableProxyAccountCallData,
-  RevertableProxyAccountDeployCallData
-> {
+export class ProxyAccountForwarder
+  extends MiniForwarder<
+    ProxyAccountCallData,
+    ProxyAccountDeployCallData,
+    RevertableProxyAccountCallData,
+    RevertableProxyAccountDeployCallData
+  >
+  implements WalletForwarder {
   private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.

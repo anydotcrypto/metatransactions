@@ -34,17 +34,20 @@ import {
   ProxyFactoryFactory,
 } from "../../typedContracts";
 import { AddressZero } from "ethers/constants";
+import { WalletForwarder } from "./walletForwarder";
 
 /**
- * A single library for approving meta-transactions and its associated
- * replay protection. All meta-transactions are sent via proxy contracts.
+ * Tools for interacting with the gnosis safe contract wallet.
+ * https://github.com/gnosis/safe-contracts
  */
-export class GnosisSafeForwarder extends Forwarder<
-  ProxyAccountCallData,
-  ProxyAccountDeployCallData,
-  RevertableProxyAccountCallData,
-  RevertableProxyAccountDeployCallData
-> {
+export class GnosisSafeForwarder
+  extends Forwarder<
+    ProxyAccountCallData,
+    ProxyAccountDeployCallData,
+    RevertableProxyAccountCallData,
+    RevertableProxyAccountDeployCallData
+  >
+  implements WalletForwarder {
   private readonly proxyFactory: ProxyFactory;
   private readonly gnosisSafeMaster: GnosisSafe;
   private readonly TYPEHASH: string =
