@@ -20,20 +20,17 @@ import {
   ProxyAccountForwarderFactory,
   EchoFactory,
   DelegateDeployerFactory,
-} from "../../src";
-
-import { Provider } from "ethers/providers";
-import { Wallet } from "ethers/wallet";
-import {
+  MultiSender,
   ChainID,
   ReplayProtectionType,
-} from "../../src/ts/forwarders/forwarderFactory";
+  ProxyAccountForwarder,
+  DELEGATE_DEPLOYER_ADDRESS,
+} from "../../src";
+import { Provider } from "ethers/providers";
+import { Wallet } from "ethers/wallet";
 import { AddressZero } from "ethers/constants";
-import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
-import { MultiSender } from "../../src/ts/batch/MultiSend";
-import { DELEGATE_DEPLOYER_ADDRESS } from "../../src/deployment/addresses";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -250,7 +247,7 @@ describe("Proxy Account Forwarder", () => {
     const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
       user1.address
     );
-    const bitflip = new BitFlipReplayProtection(user1, proxyAccountAddress)
+    const bitflip = new BitFlipReplayProtection(user1, proxyAccountAddress);
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,

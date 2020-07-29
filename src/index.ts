@@ -1,30 +1,3 @@
-export { BitFlipNonceStore } from "./typedContracts/BitFlipNonceStore";
-import BitFlipNonceStoreJson from "./typedContracts/BitFlipNonceStore.json";
-export { BitFlipNonceStoreJson };
-export { BitFlipNonceStoreFactory } from "./typedContracts/BitFlipNonceStoreFactory";
-
-export { ProxyAccount } from "./typedContracts/ProxyAccount";
-export { ProxyAccountFactory } from "./typedContracts/ProxyAccountFactory";
-
-export { ProxyAccountDeployer } from "./typedContracts/ProxyAccountDeployer";
-export { ProxyAccountDeployerFactory } from "./typedContracts/ProxyAccountDeployerFactory";
-
-export { RelayHub } from "./typedContracts/RelayHub";
-export { RelayHubFactory } from "./typedContracts/RelayHubFactory";
-
-export { ReplayProtection } from "./typedContracts/ReplayProtection";
-export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactory";
-
-export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
-export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
-
-export { GnosisSafe } from "./typedContracts/GnosisSafe";
-export { GnosisSafeFactory } from "./typedContracts/GnosisSafeFactory";
-export { ProxyFactory } from "./typedContracts/ProxyFactory";
-export { ProxyFactoryFactory } from "./typedContracts/ProxyFactoryFactory";
-export { GnosisProxy } from "./typedContracts/GnosisProxy";
-export { GnosisProxyFactory } from "./typedContracts/GnosisProxyFactory";
-
 export {
   RELAY_HUB_ADDRESS,
   PROXY_ACCOUNT_DEPLOYER_ADDRESS,
@@ -78,18 +51,9 @@ export { ProxyAccountForwarderFactory } from "./ts/forwarders/proxyAccountForwar
 export { RelayHubForwarderFactory } from "./ts/forwarders/relayHubForwarderFactory";
 export { GnosisSafeForwarderFactory } from "./ts/forwarders/gnosisSafeForwarderFactory";
 
-import IReplayProtectionJson from "./typedContracts/IReplayProtectionAuthority.json";
-export { IReplayProtectionJson };
-export { MsgSenderExampleFactory } from "./typedContracts/MsgSenderExampleFactory";
-export { EchoFactory } from "./typedContracts/EchoFactory";
-export { CounterFactory } from "./typedContracts/CounterFactory";
-export { DelegateDeployer } from "./typedContracts/DelegateDeployer";
-export { DelegateDeployerFactory } from "./typedContracts/DelegateDeployerFactory";
-export { CallWrapper } from "./typedContracts/CallWrapper";
-export { CallWrapperFactory } from "./typedContracts/CallWrapperFactory";
-export { RevertMessageTester } from "./typedContracts/RevertMessageTester";
-export { RevertMessageTesterFactory } from "./typedContracts/RevertMessageTesterFactory";
-
-export { MultiSender, MultiSendTx } from "./ts/batch/MultiSend";
+export { MultiSender, MultiSendTx } from "./ts/batch/multiSend";
 
 export { deployMetaTxContracts } from "./deployment/deploy";
+export * from "./typedContracts";
+
+export * from "./deployment/addresses";

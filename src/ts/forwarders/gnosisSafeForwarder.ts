@@ -7,35 +7,44 @@ import {
   splitSignature,
   hexlify,
   concat,
+  BigNumber,
 } from "ethers/utils";
-import {
-  ChainID,
-  ProxyAccountCallData,
-  RevertableProxyAccountCallData,
-  MultiSender,
-  GnosisReplayProtection,
-  GnosisProxyFactory,
-} from "../..";
-import { MinimalTx, CallType } from "./forwarder";
+import { GnosisReplayProtection } from "../replayProtection/gnosisNonce";
+import { MultiSender } from "../batch/multiSend";
+import { MinimalTx, CallType, Forwarder } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
+import { ChainID } from "./forwarderFactory";
+import {
+  ProxyAccountCallData,
+  ProxyAccountDeployCallData,
+  RevertableProxyAccountCallData,
+  RevertableProxyAccountDeployCallData,
+} from "./proxyAccountFowarder";
 import {
   GNOSIS_SAFE_ADDRESS,
   PROXY_FACTORY_ADDRESS,
   MULTI_SEND_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
-import { ProxyFactoryFactory } from "../../typedContracts/ProxyFactoryFactory";
-import { ProxyFactory } from "../../typedContracts/ProxyFactory";
-import { GnosisSafe } from "../../typedContracts/GnosisSafe";
-import { GnosisSafeFactory } from "../../typedContracts/GnosisSafeFactory";
+import {
+  GnosisProxyFactory,
+  GnosisSafeFactory,
+  GnosisSafe,
+  ProxyFactory,
+  ProxyFactoryFactory,
+} from "../../typedContracts";
 import { AddressZero } from "ethers/constants";
-import { WalletForwarder } from "./walletForwarder";
 
 /**
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class GnosisSafeForwarder extends WalletForwarder {
+export class GnosisSafeForwarder extends Forwarder<
+  ProxyAccountCallData,
+  ProxyAccountDeployCallData,
+  RevertableProxyAccountCallData,
+  RevertableProxyAccountDeployCallData
+> {
   private proxyFactory: ProxyFactory;
   private gnosisSafeMaster: GnosisSafe;
   private TYPEHASH: string =
@@ -47,7 +56,15 @@ export class GnosisSafeForwarder extends WalletForwarder {
    * @param signer Signer's wallet
    * @param signerAddress Signer's address
    */
-  constructor(chainID: ChainID, signer: Signer, signerAddress: string) {
+  constructor(
+    chainID: ChainID,
+    signer: Signer,
+    signerAddress: string,
+    options?: {
+      proxyFactoryAddress?: string;
+      gnosisSafeMaster?: string;
+    }
+  ) {
     super(
       chainID,
       signer,
@@ -66,12 +83,57 @@ export class GnosisSafeForwarder extends WalletForwarder {
       )
     );
     this.proxyFactory = new ProxyFactoryFactory(signer).attach(
-      PROXY_FACTORY_ADDRESS
+      options?.proxyFactoryAddress || PROXY_FACTORY_ADDRESS
     );
     this.gnosisSafeMaster = new GnosisSafeFactory(signer).attach(
-      GNOSIS_SAFE_ADDRESS
+      options?.gnosisSafeMaster || GNOSIS_SAFE_ADDRESS
     );
     this.salt = keccak256(defaultAbiCoder.encode(["uint"], [this.chainID]));
+  }
+
+  public decodeTx(
+    data: string
+  ): {
+    to: string;
+    value: BigNumber;
+    data: string;
+    operation: CallType;
+    safeTxGas: BigNumber;
+    baseGas: BigNumber;
+    gasPrice: BigNumber;
+    gasToken: string;
+    refundReceiver: string;
+    signatures: string;
+  } {
+    const parsedTransaction = this.gnosisSafeMaster.interface.parseTransaction({
+      data,
+    });
+
+    const functionArgs: {
+      to: string;
+      value: BigNumber;
+      data: string;
+      operation: CallType;
+      safeTxGas: BigNumber;
+      baseGas: BigNumber;
+      gasPrice: BigNumber;
+      gasToken: string;
+      refundReceiver: string;
+      signatures: string;
+    } = {
+      to: parsedTransaction.args[0],
+      value: parsedTransaction.args[1],
+      data: parsedTransaction.args[2],
+      operation: parsedTransaction.args[3],
+      safeTxGas: parsedTransaction.args[4],
+      baseGas: parsedTransaction.args[5],
+      gasPrice: parsedTransaction.args[6],
+      gasToken: parsedTransaction.args[7],
+      refundReceiver: parsedTransaction.args[8],
+      signatures: parsedTransaction.args[9],
+    };
+
+    return functionArgs;
   }
 
   private defaultCallData(
@@ -120,86 +182,61 @@ export class GnosisSafeForwarder extends WalletForwarder {
     };
   }
 
-  public decodeTx(data: string) {
-    const parsedTransaction = this.gnosisSafeMaster.interface.parseTransaction({
-      data,
-    });
-    const functionArgs: {
-      _metaTx: Required<ProxyAccountCallData>;
-      _replayProtection: string;
-      _replayProtectionAuthority: string;
-      _signature: string;
-    } = {
-      _metaTx: {
-        to: parsedTransaction.args[0],
-        value: parsedTransaction.args[1],
-        data: parsedTransaction.args[2],
-        callType: parsedTransaction.args[3],
-      },
-      _replayProtection: "-1", // TODO: Nonce signed, but not sent.
-      _replayProtectionAuthority: this.address, // Technically, proxy address has the nonce information.
-      _signature: parsedTransaction.args[9],
-    };
-    return functionArgs;
-  }
+  protected async signAndEncodeMetaTransaction(
+    data: ProxyAccountCallData
+  ): Promise<MinimalTx> {
+    const dataWithDefaults = this.defaultCallData(data);
 
-  public decodeBatchTx(data: string) {
-    const decodedTx = this.decodeTx(data);
-
-    const multiSendList = new MultiSender(MULTI_SEND_ADDRESS).decodeBatch(
-      decodedTx._metaTx.data
+    const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+    const signature = await this.hashAndSign(
+      dataWithDefaults,
+      replayProtection
     );
 
-    const metaTxList: Required<RevertableProxyAccountCallData>[] = [];
-    for (let i = 0; i < multiSendList.length; i++) {
-      const metaTx = this.defaultRevertableCallData(multiSendList[i]);
-      metaTxList.push(metaTx);
-    }
+    const encoded = this.gnosisSafeMaster.interface.functions.execTransaction.encode(
+      [
+        dataWithDefaults.to,
+        dataWithDefaults.value,
+        dataWithDefaults.data,
+        dataWithDefaults.callType,
+        0,
+        0,
+        0,
+        AddressZero,
+        AddressZero,
+        signature,
+      ]
+    );
 
-    const functionArgs: {
-      _metaTxList: Required<RevertableProxyAccountCallData>[];
-      _replayProtection: string;
-      _replayProtectionAuthority: string;
-      _signature: string;
-    } = {
-      _metaTxList: metaTxList,
-      _replayProtection: decodedTx._replayProtection, // Cannot fetch, but Forwarder.ts requires us to return it.
-      _replayProtectionAuthority: decodedTx._replayProtectionAuthority, // Proxy account contract stores nonce
-      _signature: decodedTx._signature,
+    return {
+      data: encoded,
+      to: this.address,
     };
-    return functionArgs;
   }
 
-  protected encodeCallData(data: ProxyAccountCallData): string {
-    const defaulted = this.defaultCallData(data);
+  protected async signAndEncodeBatchMetaTransaction(
+    dataList: RevertableProxyAccountCallData[]
+  ): Promise<MinimalTx> {
+    // this data should be added to a batch
+    // get the defaults for this list
+    const withDefaults = dataList.map((d) => this.defaultRevertableCallData(d));
 
-    return defaultAbiCoder.encode(
-      ["uint", "address", "uint", "bytes"],
-      [defaulted.callType, defaulted.to, defaulted.value, defaulted.data]
-    );
+    const minimalTx = new MultiSender(MULTI_SEND_ADDRESS).batch(withDefaults);
+    const callData = {
+      to: minimalTx.to,
+      data: minimalTx.data,
+      value: 0,
+      callType: CallType.DELEGATE,
+    };
+
+    return await this.signAndEncodeMetaTransaction(callData);
   }
 
   // Overrides the encodeAndSignParams from the Forwarder class.
-  public async encodeAndSignParams(
-    callData: ProxyAccountCallData | RevertableProxyAccountCallData,
-    replayProtection: string,
-    replayProtectionAuthority: string
+  public async hashAndSign(
+    callData: Required<ProxyAccountCallData>,
+    replayProtection: string
   ) {
-    let proxyData: ProxyAccountCallData;
-
-    if (Array.isArray(callData)) {
-      const minimalTx = new MultiSender().batch(callData);
-
-      proxyData = {
-        to: minimalTx.to,
-        data: minimalTx.data,
-        value: 0,
-        callType: CallType.DELEGATE,
-      };
-    } else {
-      proxyData = this.defaultCallData(callData);
-    }
-
     const nonce = defaultAbiCoder.decode(["uint"], replayProtection);
     const encodedData = defaultAbiCoder.encode(
       [
@@ -217,10 +254,10 @@ export class GnosisSafeForwarder extends WalletForwarder {
       ],
       [
         this.TYPEHASH,
-        proxyData.to,
-        proxyData.value!,
-        keccak256(proxyData.data!),
-        proxyData.callType,
+        callData.to,
+        callData.value,
+        keccak256(callData.data),
+        callData.callType,
         0,
         0,
         0,
@@ -231,7 +268,6 @@ export class GnosisSafeForwarder extends WalletForwarder {
     );
 
     const txHash = keccak256(encodedData);
-
     const domainSeparator = keccak256(
       defaultAbiCoder.encode(
         ["bytes32", "address"],
@@ -241,79 +277,19 @@ export class GnosisSafeForwarder extends WalletForwarder {
         ]
       )
     );
-
     const txHashData = solidityKeccak256(
       ["bytes1", "bytes1", "bytes32", "bytes32"],
       ["0x19", "0x01", domainSeparator, txHash]
     );
-
     const signature = await this.signer.signMessage(arrayify(txHashData));
     const splitSig = splitSignature(signature);
 
-    let recParam;
-
     // It can either be 27 or 28.
     // Gnosis safe expects it as 31 or 32 (for prefixed messages)
-    if (splitSig.v! == 27) {
-      recParam = "0x1f";
-    } else {
-      recParam = "0x20";
-    }
+    const recParam = splitSig.v === 27 ? "0x1f" : "0x20";
     const jointSignature = hexlify(concat([splitSig.r, splitSig.s, recParam]));
 
-    const encodedTx = await this.encodeTx(
-      proxyData,
-      "0x",
-      AddressZero,
-      jointSignature
-    );
-
-    return {
-      encodedTx,
-      signature: jointSignature,
-    };
-  }
-  protected async encodeTx(
-    data: ProxyAccountCallData,
-    replayProtection: string,
-    replayProtectionAuthority: string,
-    signature: string
-  ): Promise<string> {
-    const gnosisSafeMaster = new GnosisSafeFactory(this.signer).attach(
-      GNOSIS_SAFE_ADDRESS
-    );
-
-    return gnosisSafeMaster.interface.functions.execTransaction.encode([
-      data.to,
-      data.value!,
-      data.data!,
-      data.callType!,
-      0,
-      0,
-      0,
-      AddressZero,
-      AddressZero,
-      signature,
-    ]);
-  }
-
-  protected encodeBatchCallData(
-    txBatch: RevertableProxyAccountCallData[]
-  ): string {
-    const metaTxList = txBatch.map((b) => this.defaultRevertableCallData(b));
-    return new MultiSender(MULTI_SEND_ADDRESS).batch(metaTxList).data;
-  }
-
-  // We have not implemented encodeBatchTx as Gnosis Safe does not support it natively.
-  // Instead we just delegatecall into the MultiSend class and this is implemented in
-  // .encodeBatchCallData().
-  protected async encodeBatchTx(
-    txBatch: RevertableProxyAccountCallData[],
-    replayProtection: string,
-    replayProtectionAuthority: string,
-    signature: string
-  ): Promise<string> {
-    throw new Error("Not implemented");
+    return jointSignature;
   }
 
   /**
@@ -364,7 +340,11 @@ export class GnosisSafeForwarder extends WalletForwarder {
   public static buildProxyAccountAddress(
     wallet: Signer,
     signersAddress: string,
-    chainId: number
+    chainId: number,
+    options?: {
+      gnosisSafeMasterAddress: string;
+      proxyFactoryAddress: string;
+    }
   ): string {
     const gnosisSafeInterface = new GnosisSafeFactory()
       .interface as GnosisSafe["interface"];
@@ -381,13 +361,13 @@ export class GnosisSafeForwarder extends WalletForwarder {
     ]);
 
     const deployTx = new GnosisProxyFactory(wallet).getDeployTransaction(
-      GNOSIS_SAFE_ADDRESS
+      options?.gnosisSafeMasterAddress || GNOSIS_SAFE_ADDRESS
     );
 
     const salt = keccak256(defaultAbiCoder.encode(["uint"], [chainId]));
 
     const create2Options: Create2Options = {
-      from: PROXY_FACTORY_ADDRESS,
+      from: options?.proxyFactoryAddress || PROXY_FACTORY_ADDRESS,
       salt: solidityKeccak256(["bytes32", "uint"], [keccak256(setup), salt]),
       initCode: deployTx.data,
     };

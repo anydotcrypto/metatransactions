@@ -1,7 +1,8 @@
 import { defaultAbiCoder } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { RelayHub, ChainID, RelayHubFactory } from "../..";
-import { Forwarder, CallType } from "./forwarder";
+import { ChainID } from "./forwarderFactory";
+import { RelayHub, RelayHubFactory } from "../../typedContracts";
+import { CallType, MiniForwarder } from "./forwarder";
 import { Signer } from "ethers";
 import { BigNumberish } from "ethers/utils";
 
@@ -28,7 +29,7 @@ export interface RevertableRelayHubDeployCallData
  * A single library for approving meta-transactions and its associated
  * replay protection. All contracts must support the msgSender() standard.
  */
-export class RelayHubForwarder extends Forwarder<
+export class RelayHubForwarder extends MiniForwarder<
   RelayHubCallData,
   RelayHubDeployCallData,
   RevertableRelayHubCallData,
@@ -98,7 +99,7 @@ export class RelayHubForwarder extends Forwarder<
     return functionArgs;
   }
 
-  protected async encodeTx(
+  protected async encodeForForward(
     data: RelayHubCallData,
     replayProtection: string,
     replayProtectionAuthority: string,
@@ -121,7 +122,9 @@ export class RelayHubForwarder extends Forwarder<
     );
   }
 
-  private callDataWithDefaults(data: RelayHubCallData): Required<RelayHubCallData> {
+  private callDataWithDefaults(
+    data: RelayHubCallData
+  ): Required<RelayHubCallData> {
     return {
       to: data.to,
       data: data.data ? data.data : "0x",
@@ -138,20 +141,24 @@ export class RelayHubForwarder extends Forwarder<
   }
 
   protected encodeBatchCallData(batchTx: RevertableRelayHubCallData[]): string {
-    const metaTxList = batchTx.map(b => this.revertableCallDataWithDefaults(b));
+    const metaTxList = batchTx.map((b) =>
+      this.revertableCallDataWithDefaults(b)
+    );
     return defaultAbiCoder.encode(
       ["uint", "tuple(address to, bytes data, bool revertOnFail)[]"],
       [CallType.BATCH, metaTxList]
     );
   }
 
-  protected async encodeBatchTx(
+  protected async encodeForBatchForward(
     batchTx: RevertableRelayHubCallData[],
     replayProtection: string,
     replayProtectionAuthority: string,
     signature: string
   ) {
-    const metaTxList = batchTx.map(b => this.revertableCallDataWithDefaults(b));
+    const metaTxList = batchTx.map((b) =>
+      this.revertableCallDataWithDefaults(b)
+    );
 
     return this.relayHub.interface.functions.batch.encode([
       metaTxList,
@@ -173,7 +180,10 @@ export class RelayHubForwarder extends Forwarder<
     };
   }
 
-  protected deployDataToCallData(initCode: string, extraData: string): RelayHubCallData {
+  protected deployDataToCallData(
+    initCode: string,
+    extraData: string
+  ): RelayHubCallData {
     return this.encodeForDeploy(initCode, extraData, "0x");
   }
 

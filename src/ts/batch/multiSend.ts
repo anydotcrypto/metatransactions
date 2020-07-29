@@ -55,7 +55,7 @@ export class MultiSender {
     };
   }
 
-  public decodeBatch(data: string): MultiSendTx[] {
+  public decodeBatch(data: string): Required<MultiSendTx>[] {
     const multiSend = new Interface(abi) as MultiSend["interface"];
 
     const parsedTransaction = multiSend.parseTransaction({

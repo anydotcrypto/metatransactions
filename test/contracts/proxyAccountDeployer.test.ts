@@ -951,18 +951,27 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      // const encodedCallData = defaultAbiCoder.encode(
-      //   [
-      //     "uint",
-      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-      //   ],
-      //   [CallType.BATCH, metaTxList]
-      // );
+      const encodedCallData = defaultAbiCoder.encode(
+        [
+          "uint",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
+      );
 
-      const { signature } = await forwarder.encodeAndSignParams(
-        metaTxList,
-        replayProtection,
-        AddressZero
+      const encodedMetaTx = defaultAbiCoder.encode(
+        ["bytes", "bytes", "address", "address", "uint"],
+        [
+          encodedCallData,
+          replayProtection,
+          AddressZero,
+          proxyAccountAddress,
+          ChainID.MAINNET,
+        ]
+      );
+
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
       );
 
       const proxyAccountInterface = new Interface(
@@ -1029,18 +1038,26 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      // const encodedCallData = defaultAbiCoder.encode(
-      //   [
-      //     "uint",
-      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-      //   ],
-      //   [CallType.BATCH, metaTxList]
-      // );
+      const encodedCallData = defaultAbiCoder.encode(
+        [
+          "uint",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
+      );
+      const encodedMetaTx = defaultAbiCoder.encode(
+        ["bytes", "bytes", "address", "address", "uint"],
+        [
+          encodedCallData,
+          replayProtection,
+          AddressZero,
+          proxyAccountAddress,
+          ChainID.MAINNET,
+        ]
+      );
 
-      const { signature } = await forwarder.encodeAndSignParams(
-        metaTxList,
-        replayProtection,
-        AddressZero
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
       );
 
       const proxyAccountInterface = new Interface(
@@ -1112,18 +1129,26 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      // const encodedCallData = defaultAbiCoder.encode(
-      //   [
-      //     "uint",
-      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-      //   ],
-      //   [CallType.BATCH, metaTxList]
-      // );
+      const encodedCallData = defaultAbiCoder.encode(
+        [
+          "uint",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
+      );
+      const encodedMetaTx = defaultAbiCoder.encode(
+        ["bytes", "bytes", "address", "address", "uint"],
+        [
+          encodedCallData,
+          replayProtection,
+          AddressZero,
+          proxyAccountAddress,
+          ChainID.MAINNET,
+        ]
+      );
 
-      const { signature } = await forwarder.encodeAndSignParams(
-        metaTxList,
-        replayProtection,
-        AddressZero
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
       );
 
       const proxyAccountInterface = new Interface(
@@ -1196,20 +1221,27 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      // const encodedCallData = defaultAbiCoder.encode(
-      //   [
-      //     "uint",
-      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-      //   ],
-      //   [CallType.BATCH, metaTxList]
-      // );
-
-      const { signature } = await forwarder.encodeAndSignParams(
-        metaTxList,
-        replayProtection,
-        AddressZero
+      const encodedCallData = defaultAbiCoder.encode(
+        [
+          "uint",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
+      );
+      const encodedMetaTx = defaultAbiCoder.encode(
+        ["bytes", "bytes", "address", "address", "uint"],
+        [
+          encodedCallData,
+          replayProtection,
+          AddressZero,
+          proxyAccountAddress,
+          ChainID.MAINNET,
+        ]
       );
 
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
+      );
       const proxyAccountInterface = new Interface(
         abi
       ) as ProxyAccount["interface"];
@@ -1285,18 +1317,26 @@ describe("ProxyAccountDeployer", () => {
       ];
 
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      // const encodedCallData = defaultAbiCoder.encode(
-      //   [
-      //     "uint",
-      //     "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
-      //   ],
-      //   [CallType.BATCH, metaTxList]
-      // );
+      const encodedCallData = defaultAbiCoder.encode(
+        [
+          "uint",
+          "tuple(address to, uint value, bytes data, bool revertOnFail, uint callType)[]",
+        ],
+        [CallType.BATCH, metaTxList]
+      );
+      const encodedMetaTx = defaultAbiCoder.encode(
+        ["bytes", "bytes", "address", "address", "uint"],
+        [
+          encodedCallData,
+          replayProtection,
+          AddressZero,
+          proxyAccountAddress,
+          ChainID.MAINNET,
+        ]
+      );
 
-      const { signature } = await forwarder.encodeAndSignParams(
-        metaTxList,
-        replayProtection,
-        AddressZero
+      const signature = await admin.signMessage(
+        arrayify(keccak256(encodedMetaTx))
       );
 
       const proxyAccountInterface = new Interface(

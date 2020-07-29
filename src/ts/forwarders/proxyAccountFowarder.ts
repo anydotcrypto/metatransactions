@@ -6,13 +6,13 @@ import {
   BigNumberish,
 } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
+import { ChainID } from "./forwarderFactory";
 import {
-  ChainID,
   ProxyAccountDeployer,
   ProxyAccountFactory,
   ProxyAccount,
-} from "../..";
-import { Forwarder, MinimalTx, CallType } from "./forwarder";
+} from "../../typedContracts";
+import { MinimalTx, CallType, MiniForwarder } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { abi } from "../../typedContracts/ProxyAccount.json";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -21,7 +21,6 @@ import {
   BASE_ACCOUNT_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
-import { WalletForwarder } from "./walletForwarder";
 
 export interface ProxyAccountCallData {
   to: string;
@@ -49,7 +48,12 @@ export interface RevertableProxyAccountDeployCallData
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyAccountForwarder extends WalletForwarder {
+export class ProxyAccountForwarder extends MiniForwarder<
+  ProxyAccountCallData,
+  ProxyAccountDeployCallData,
+  RevertableProxyAccountCallData,
+  RevertableProxyAccountDeployCallData
+> {
   private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.
@@ -181,7 +185,7 @@ export class ProxyAccountForwarder extends WalletForwarder {
     );
   }
 
-  protected async encodeTx(
+  protected async encodeForForward(
     data: ProxyAccountCallData,
     replayProtection: string,
     replayProtectionAuthority: string,
@@ -212,7 +216,7 @@ export class ProxyAccountForwarder extends WalletForwarder {
     );
   }
 
-  protected async encodeBatchTx(
+  protected async encodeForBatchForward(
     txBatch: RevertableProxyAccountCallData[],
     replayProtection: string,
     replayProtectionAuthority: string,

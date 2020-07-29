@@ -1,20 +1,14 @@
 import "mocha";
 import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
-
 import { fnIt } from "@pisa-research/test-utils";
 import {
-  deployMetaTxContracts,
   MsgSenderExampleFactory,
-  CounterFactory,
   RevertMessageTesterFactory,
   RevertMessageTester,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { MultiSend } from "../../src/typedContracts/MultiSend";
-import { MultiSender } from "../../src/ts/batch/MultiSend";
-import { MULTI_SEND_ADDRESS } from "../../src/deployment/addresses";
 
 const expect = chai.expect;
 chai.use(solidity);

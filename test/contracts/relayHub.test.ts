@@ -1,7 +1,7 @@
 import "mocha";
 import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, defaultAbiCoder } from "ethers/utils";
+import { BigNumber, defaultAbiCoder, keccak256, arrayify } from "ethers/utils";
 import Doppelganger from "ethereum-doppelganger";
 
 import { fnIt } from "@pisa-research/test-utils";
@@ -19,6 +19,7 @@ import {
   deployMetaTxContracts,
   EchoFactory,
   RelayHubCallData,
+  RevertableRelayHubCallData,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
@@ -29,6 +30,7 @@ import {
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
 import { CallType } from "../../src/ts/forwarders/forwarder";
+import { ReplayProtectionAuthority } from "../../src/ts/replayProtection/replayProtectionAuthority";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -284,10 +286,6 @@ describe("RelayHub Contract", () => {
         to: msgSenderCon.address,
         data: msgSenderCall,
       };
-      const encodedCallData = defaultAbiCoder.encode(
-        ["address", "uint", "bytes"],
-        [msgSenderCon.address, value, msgSenderCall]
-      );
 
       // We expect encoded call data to include target contract address, the value, and the callData.
       // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
@@ -297,16 +295,18 @@ describe("RelayHub Contract", () => {
         owner
       );
 
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsign(
         callData,
         encodedReplayProtection,
-        replayProtectionAuthority
+        AddressZero,
+        forwarder.address,
+        owner
       );
 
       const tx = relayHub
         .connect(sender)
         .forward(
-          { to: msgSenderCon.address, data: encodedCallData },
+          { to: msgSenderCon.address, data: callData.data },
           encodedReplayProtection,
           replayProtectionAuthority,
           signature
@@ -316,6 +316,58 @@ describe("RelayHub Contract", () => {
       await expect(tx).to.be.reverted;
     }
   );
+
+  const encodeAndsign = async (
+    callData: RelayHubCallData,
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    forwarderAddress: string,
+    owner: Wallet
+  ) => {
+    const encodedData = defaultAbiCoder.encode(
+      ["uint", "address", "bytes"],
+      [CallType.CALL, callData.to, callData.data]
+    );
+
+    const encodedMetaTx = defaultAbiCoder.encode(
+      ["bytes", "bytes", "address", "address", "uint"],
+      [
+        encodedData,
+        replayProtection,
+        replayProtectionAuthority,
+        forwarderAddress,
+        ChainID.MAINNET,
+      ]
+    );
+
+    return await owner.signMessage(arrayify(keccak256(encodedMetaTx)));
+  };
+
+  const encodeAndsignBatch = async (
+    callData: Required<RevertableRelayHubCallData>[],
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    forwarderAddress: string,
+    owner: Wallet
+  ) => {
+    const encodedData = defaultAbiCoder.encode(
+      ["uint", "tuple(address to, bytes data, bool revertOnFail)[]"],
+      [CallType.BATCH, callData]
+    );
+
+    const encodedMetaTx = defaultAbiCoder.encode(
+      ["bytes", "bytes", "address", "address", "uint"],
+      [
+        encodedData,
+        replayProtection,
+        replayProtectionAuthority,
+        forwarderAddress,
+        ChainID.MAINNET,
+      ]
+    );
+
+    return await owner.signMessage(arrayify(keccak256(encodedMetaTx)));
+  };
 
   fnIt<relayHubFunctions>(
     (a) => a.forward,
@@ -340,29 +392,25 @@ describe("RelayHub Contract", () => {
         data: msgSenderCall,
       };
 
-      const encodedCallData = defaultAbiCoder.encode(
-        ["address", "uint", "bytes"],
-        [msgSenderCon.address, value, msgSenderCall]
-      );
-
-      // We expect encoded call data to include target contract address, the value, and the callData.
-      // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
       const forwarder = await forwarderFactory.createNew(
         ChainID.MAINNET,
         ReplayProtectionType.MULTINONCE,
         owner
       );
-
-      const { signature } = await forwarder.encodeAndSignParams(
+      // We expect encoded call data to include target contract address, the value, and the callData.
+      // Message signed: H(encodedCallData, encodedReplayProtection, replay protection authority, relay contract address, chainid);
+      const signature = await encodeAndsign(
         callData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000000"
+        AddressZero,
+        forwarder.address,
+        owner
       );
 
       const tx = relayHub
         .connect(sender)
         .forward(
-          { to: msgSenderCon.address, data: encodedCallData },
+          { to: msgSenderCon.address, data: callData.data },
           encodedReplayProtection,
           "0x0000000000000000000000000000000000000000",
           signature
@@ -483,17 +531,18 @@ describe("RelayHub Contract", () => {
         ReplayProtectionType.MULTINONCE,
         owner
       );
-
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsign(
         callData,
         encodedReplayProtection,
-        bitFlipNonceStore.address
+        AddressZero,
+        forwarder.address,
+        owner
       );
 
       const tx = relayHub
         .connect(sender)
         .forward(
-          { to: msgSenderCon.address, data: msgSenderCall },
+          { to: msgSenderCon.address, data: callData.data },
           encodedReplayProtection,
           bitFlipNonceStore.address,
           signature
@@ -539,10 +588,12 @@ describe("RelayHub Contract", () => {
         new BitFlipReplayProtection(owner, RELAY_HUB_ADDRESS) // NOT USED IN TEST
       );
 
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsign(
         callData,
         encodedReplayProtection,
-        bitFlipNonceStore.address
+        AddressZero,
+        forwarder.address,
+        owner
       );
 
       const tx = relayHub
@@ -648,11 +699,12 @@ describe("RelayHub Contract", () => {
         { to: msgSenderCon.address, data: msgSenderCall, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsignBatch(
         metaTxList,
         replayProtection,
-        AddressZero
+        AddressZero,
+        forwarder.address,
+        admin
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
@@ -698,10 +750,12 @@ describe("RelayHub Contract", () => {
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
 
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsignBatch(
         metaTxList,
         replayProtection,
-        AddressZero
+        AddressZero,
+        forwarder.address,
+        admin
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
@@ -751,10 +805,12 @@ describe("RelayHub Contract", () => {
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
 
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsignBatch(
         metaTxList,
         replayProtection,
-        AddressZero
+        AddressZero,
+        forwarder.address,
+        admin
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([
@@ -803,10 +859,12 @@ describe("RelayHub Contract", () => {
         { to: echoCon.address, data: echoData, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const { signature } = await forwarder.encodeAndSignParams(
+      const signature = await encodeAndsignBatch(
         metaTxList,
         replayProtection,
-        AddressZero
+        AddressZero,
+        forwarder.address,
+        admin
       );
 
       const encodedBatch = relayHub.interface.functions.batch.encode([

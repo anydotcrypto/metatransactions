@@ -7,6 +7,7 @@ import {
   MinimalTx,
 } from "../..";
 
+// ANY:50: this should be an interface
 export abstract class WalletForwarder extends Forwarder<
   ProxyAccountCallData,
   ProxyAccountDeployCallData,

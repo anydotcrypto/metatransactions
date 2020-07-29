@@ -22,6 +22,7 @@ import {
   ReplayProtectionType,
   ForwarderFactory,
 } from "../../src/ts/forwarders/forwarderFactory";
+import { AddressZero } from "ethers/constants";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -225,23 +226,20 @@ describe("Forwarder Factory", () => {
         value: new BigNumber(10),
         data: callData,
       });
-      const forwardParams = gnosisSafeForwarder.decodeTx(metaTx.data);
+      const decodedTx = gnosisSafeForwarder.decodeTx(metaTx.data);
 
-      expect(forwardParams._metaTx.data).to.eq(callData, "Calldata");
-      expect(metaTx.to).to.eq(gnosisSafeForwarder.address, "RelayHub address");
-      expect(forwardParams._replayProtection).to.eq(
-        "-1",
-        "Cannot fetch nonce from decoded tx"
+      expect(decodedTx.to, "Sending to the echo contract").to.eq(
+        msgSenderExample.address
       );
-      expect(forwardParams._replayProtectionAuthority).to.eq(
-        gnosisSafeForwarder.address,
-        "Gnosis safe handles the replay protection"
-      );
-      expect(forwardParams._metaTx.to).to.eq(
-        msgSenderExample.address,
-        "Target contract"
-      );
-      expect(forwardParams._metaTx.value).to.eq(new BigNumber(10));
+      expect(decodedTx.data, "Data for the echo contract").to.eq(callData);
+      expect(decodedTx.value.toString(), "Zero value sent").to.eq("10");
+      expect(decodedTx.operation.toString(), "CALL type").to.eq("0");
+
+      expect(decodedTx.baseGas.toString()).to.eq("0");
+      expect(decodedTx.gasPrice.toString()).to.eq("0");
+      expect(decodedTx.gasToken).to.eq(AddressZero);
+      expect(decodedTx.refundReceiver).to.eq(AddressZero);
+      expect(decodedTx.safeTxGas.toString()).to.eq("0");
     }
   }).timeout(50000);
 

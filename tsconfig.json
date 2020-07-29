@@ -16,5 +16,6 @@
     "outDir": "./dist",
     "rootDir": "src"
   },
-  "exclude": ["node_modules", "test", "example"]
+  "exclude": ["node_modules", "test", "example"],
+  "files": ["src/typedContracts/index.d.ts"]
 }
