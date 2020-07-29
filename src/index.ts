@@ -49,7 +49,6 @@ export {
 
 export { ProxyAccountForwarderFactory } from "./ts/forwarders/proxyAccountForwarderFactory";
 export { RelayHubForwarderFactory } from "./ts/forwarders/relayHubForwarderFactory";
-export { GnosisSafeForwarderFactory } from "./ts/forwarders/gnosisSafeForwarderFactory";
 
 export { MultiSender, MultiSendTx } from "./ts/batch/multiSend";
 

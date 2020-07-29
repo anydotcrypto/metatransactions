@@ -12,7 +12,6 @@ import {
   MultiNonceReplayProtection,
   BitFlipReplayProtection,
   deployMetaTxContracts,
-  GnosisSafeForwarderFactory,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -207,39 +206,6 @@ describe("Forwarder Factory", () => {
         "Target contract"
       );
       expect(forwardParams._metaTx.value).to.eq(new BigNumber(10));
-    }
-  }).timeout(50000);
-
-  it("Create the Gnosis Safe Forwarder ", async () => {
-    const { admin, msgSenderExample } = await loadFixture(createHubs);
-    const gnosisSafeForwarder = await new GnosisSafeForwarderFactory().create(
-      ChainID.MAINNET,
-      0,
-      admin
-    );
-
-    const callData = msgSenderExample.interface.functions.willRevert.encode([]);
-
-    for (let i = 0; i < 10; i++) {
-      const metaTx = await gnosisSafeForwarder.signMetaTransaction({
-        to: msgSenderExample.address,
-        value: new BigNumber(10),
-        data: callData,
-      });
-      const decodedTx = gnosisSafeForwarder.decodeTx(metaTx.data);
-
-      expect(decodedTx.to, "Sending to the echo contract").to.eq(
-        msgSenderExample.address
-      );
-      expect(decodedTx.data, "Data for the echo contract").to.eq(callData);
-      expect(decodedTx.value.toString(), "Zero value sent").to.eq("10");
-      expect(decodedTx.operation.toString(), "CALL type").to.eq("0");
-
-      expect(decodedTx.baseGas.toString()).to.eq("0");
-      expect(decodedTx.gasPrice.toString()).to.eq("0");
-      expect(decodedTx.gasToken).to.eq(AddressZero);
-      expect(decodedTx.refundReceiver).to.eq(AddressZero);
-      expect(decodedTx.safeTxGas.toString()).to.eq("0");
     }
   }).timeout(50000);
 
