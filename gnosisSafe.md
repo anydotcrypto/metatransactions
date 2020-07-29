@@ -85,9 +85,9 @@ const gnosisForwarder = new GnosisSafeForwarder(
 We can deploy the Gnosis Safe contract.
 
 ```js
-const isGnosisSafeDeployed = await forwarder.isContractDeployed();
+const isGnosisSafeDeployed = await gnosisForwarder.isContractDeployed();
 if (!isGnosisSafeDeployed) {
-  const minimalTx = await forwarder.createProxyContract();
+  const minimalTx = await gnosisForwarder.createProxyContract();
 
   // For our example we mimic the relayer API with a relayer wallet.
   const gnosisSafeTx = await relayer.sendTransaction({
@@ -114,7 +114,7 @@ const echo = new EchoFactory(user).attach("");
 const data = echo.interface.functions.submit.encode(["hello"]);
 
 // Sign the meta transaction & encode it.
-const metaTx = await forwarder.signMetaTransaction({
+const metaTx = await gnosisForwarder.signMetaTransaction({
   to: echo.address,
   value: "0",
   data: data,

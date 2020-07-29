@@ -47,7 +47,7 @@ To instantiate the proxy account forwarder:
 
 ```js
 const signer = Wallet.Mnemonic("");
-const forwarder = await new ProxyAccountForwarderFactory().createNew(
+const proxyAccountForwarder = await new ProxyAccountForwarderFactory().createNew(
   ChainID.ROPSTEN,
   ReplayProtectionType.MULTINONCE,
   signer
@@ -100,9 +100,9 @@ const forwarder = await new ProxyAccountForwarderFactory().createNew(
 We can deploy the proxy account contract.
 
 ```js
-const isProxyDeployed = await forwarder.isContractDeployed();
+const isProxyDeployed = await proxyAccountForwarder.isContractDeployed();
 if (!isProxyDeployed) {
-  const minimalTx = await forwarder.createProxyContract();
+  const minimalTx = await proxyAccountForwarder.createProxyContract();
 
   // For our example we mimic the relayer API with a relayer wallet.
   const proxyTx = await relayer.sendTransaction({
@@ -129,7 +129,7 @@ const echo = new EchoFactory(user).attach("");
 const data = echo.interface.functions.submit.encode(["hello"]);
 
 // Sign the meta transaction & encode it.
-const metaTx = await forwarder.signMetaTransaction({
+const metaTx = await proxyAccountForwarder.signMetaTransaction({
   to: echo.address,
   value: "0",
   data: data,
@@ -156,7 +156,7 @@ We take this opportunity to cover each function in the library.
 You can use the factory to set up a new forwarder. It requires you to select the ChainID and the ReplayProtectionType. Note if you select MULTINONCE, then it generates 30 nonce queues by default. (e.g. up to 30 concurrent transactions at any single time).
 
 ```js
-const proxyAccount = await new ProxyAccountForwarderFactory().createNew(
+const proxyAccountForwarder = await new ProxyAccountForwarderFactory().createNew(
   ChainID.ROPSTEN,
   ReplayProtectionType.BITFLIP,
   user
@@ -168,19 +168,19 @@ const proxyAccount = await new ProxyAccountForwarderFactory().createNew(
 Once you have instantiated the forwarder, then you can access the following properties:
 
 ```js
-const proxyAccountAddress = proxyAccount.address;
-const signer = proxyAccount.signer;
+const proxyAccountAddress = proxyAccountForwarder.address;
+const signer = proxyAccountForwarder.signer;
 ```
 
-Thanks to the ProxyDeployer, there is a one-to-one mapping for a signer's key and the proxy account contract address. The library will automatically compute the address and make it available via `proxyAccount.address`. Furthermore, the `Signer` is accessible via `proxyAccount.signer`.
+Thanks to the ProxyDeployer, there is a one-to-one mapping for a signer's key and the proxy account contract address. The library will automatically compute the address and make it available via `proxyAccountForwarder.address`. Furthermore, the `Signer` is accessible via `proxyAccountForwarder.signer`.
 
 ## Deploying the Proxy Contract
 
 There are two helper functions:
 
-```
-const isProxyDeployed = await proxyAccount.isContractDeployed();
-const minimalTx = await proxyAccount.createProxyContract();
+```js
+const isProxyDeployed = await proxyAccountForwarder.isContractDeployed();
+const minimalTx = await proxyAccountForwarder.createProxyContract();
 ```
 
 The former lets you check if the proxy contract is already deployed. The latter prepares a meta-transaction that can be packed into an Ethereum Transaction to deploy the proxy contract. Note the `MinimalTx` only contains the fields `to, data`.
@@ -194,7 +194,7 @@ const echoAddress = "0x...";
 const data = echoContract.interface.functions.sendMessage.encode([
   "any.sender is nice",
 ]);
-const metaTx = await proxyAccount.signMetaTransaction({
+const metaTx = await proxyAccountForwarder.signMetaTransaction({
   to: echoAddress,
   data: data,
   value: "0",
@@ -213,7 +213,7 @@ To deploy use the signMetaTransaction function but replace the `to` argument wit
 const initCode = new EchoFactory(user).getDeployTransaction().data!;
 const value = "0";
 const salt = "0x123";
-const metaDeploy = await proxyAccount.signMetaTransaction({
+const metaDeploy = await proxyAccountForwarder.signMetaTransaction({
   initCode,
   value,
   salt
@@ -271,12 +271,12 @@ const echoAddress = "0x...";
 const data = echoContract.interface.functions.sendMessage.encode([
   "any.sender is nice",
 ]);
-const metaTx = await proxyAccount.signMetaTransaction({
+const metaTx = await proxyAccountForwarder.signMetaTransaction({
   to: echoAddress,
   data: data,
   value: "0",
 });
-const forwardFunctionArguments = proxyAccount.decodeTx(metaTx.data);
+const forwardFunctionArguments = proxyAccountForwarder.decodeTx(metaTx.data);
 ```
 
 Or for a batch tx:
@@ -286,12 +286,14 @@ const echoAddress = "0x...";
 const data = echoContract.interface.functions.sendMessage.encode([
   "any.sender is nice",
 ]);
-const metaTx = await proxyAccount.signMetaTransaction([
+const metaTx = await proxyAccountForwarder.signMetaTransaction([
   {
     to: echoAddress,
     data: data,
     value: "0",
   },
 ]);
-const forwardFunctionArguments = proxyAccount.decodeBatchTx(metaTx.data);
+const forwardFunctionArguments = proxyAccountForwarder.decodeBatchTx(
+  metaTx.data
+);
 ```

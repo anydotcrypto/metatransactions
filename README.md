@@ -10,7 +10,7 @@ There are two approaches:
 Our meta-transaction library focuses on both approaches and we hope it benefits the community in the following way:
 
 - **A Univerisal Forwarder**: Our RelayHub.sol can be used for the \_msgSender() standard.
-- **Minimal wallet contract**: Our proxy contract only requires 67k gas to deploy & 26k gas per transaction. It is minimal code and supports batching transactions. Supports exotic replay protection for out of order-transactions (bitflip) and N concurrent transactions (multinonmce).
+- **Minimal wallet contract**: Our proxy contract only requires 67k gas to deploy & 26k gas per transaction. It is minimal code and supports batching transactions. Supports exotic replay protection for out of order-transactions (bitflip) and N concurrent transactions (multinonce).
 - **GnosisSafe**: We have incorporated GnosisSafe and our library tracks the replay protection nonce such that it is meta-transaction friendly. It is an audited wallet contract that is increasingly widely used.
 
 **Our repository is a protocol and relay-independent approach** that any project can adopt. We hope it will make it easier for projects to tap into third party relayer APIs and to avoid re-implementing the wheel for reliable transaction infrastructure.
@@ -30,8 +30,8 @@ Our unit tests also evaluate the gas costs for the wallet contracts:
 | Name               | Deploy Wallet | 1st Transaction | 2nd Transaction | 10 Transactions (AVG) | 100 Transactions (AVG) | Meta-deployment Echo Contract |
 | ------------------ | ------------- | --------------- | --------------- | --------------------- | ---------------------- | ----------------------------- |
 | Gnosis Safe        | 223,240       | 39,014          | 24,014          | 24,009                | 24,011                 | 24,9179                       |
-| Proxy - Bitflip    | 67,303        | 39,718          | 24,698          | 24,701                | 24,704                 | 25,9423                       |
-| Proxy - Multinonce | 67,303        | 39,490          | 39,502          | 39,521                | 27,228                 | 25,9239                       |
+| Proxy (Bitflip)    | 67,303        | 39,718          | 24,698          | 24,701                | 24,704                 | 25,9423                       |
+| Proxy (Multinonce) | 67,303        | 39,490          | 39,502          | 39,521                | 27,228                 | 25,9239                       |
 
 **Deploy wallet**. Both proxy contracts are deployed using EIP-1167 which is the minimal clone factory technique. Whereas Gnosis Safe deploys a proxy contract using CREATE2 and then has ~5 storage operations during setup.
 
