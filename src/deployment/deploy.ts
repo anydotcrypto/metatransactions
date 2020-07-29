@@ -21,7 +21,7 @@ import {
   GNOSIS_SAFE_SALT_STRING,
   PROXY_FACTORY_SALT_STRING,
 } from "./addresses";
-import { ProxyFactoryFactory } from "../typedContracts/ProxyFactoryFactory";
+import { ProxyFactoryFactory } from "../gnosisTypedContracts/ProxyFactoryFactory";
 
 async function deployContract(
   deployerContract: Contract,

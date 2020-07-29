@@ -15,8 +15,7 @@
     "build-test": "npm run clean && npm run build && npm run runtest",
     "build-execute": "npm run build && npm run execute",
     "build-just": "waffle waffle.json",
-    "build": "waffle waffle.json && npm run build-gnosis && npm run build-types",
-    "build-gnosis": "waffle waffle053.json",
+    "build": "waffle waffle.json && npm run build-types",
     "build-types": "typechain --target ethers --outDir ./src/typedContracts ./build/**/*.json && cp ./build/* ./src/typedContracts",
     "build-ts": "tsc -p tsconfig.json",
     "publish-contracts": "cp -r ./src/typedContracts/*.d.ts ./dist/typedContracts && cp ./build/* ./dist/typedContracts && cp -r ./src/contracts ./dist/contracts",
@@ -28,7 +27,6 @@
     "clean": "rm -rf ./dist && rm -rf ./build"
   },
   "devDependencies": {
-    "@gnosis.pm/mock-contract": "^3.0.8",
     "@types/bn.js": "^4.11.6",
     "@types/chai": "^4.2.7",
     "@types/mocha": "^5.2.7",

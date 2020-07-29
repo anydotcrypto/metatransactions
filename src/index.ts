@@ -18,12 +18,12 @@ export { ReplayProtectionFactory } from "./typedContracts/ReplayProtectionFactor
 export { ReplayProtectionWrapper } from "./typedContracts/ReplayProtectionWrapper";
 export { ReplayProtectionWrapperFactory } from "./typedContracts/ReplayProtectionWrapperFactory";
 
-export { GnosisSafe } from "./typedContracts/GnosisSafe";
-export { GnosisSafeFactory } from "./typedContracts/GnosisSafeFactory";
-export { ProxyFactory } from "./typedContracts/ProxyFactory";
-export { ProxyFactoryFactory } from "./typedContracts/ProxyFactoryFactory";
-export { GnosisProxy } from "./typedContracts/GnosisProxy";
-export { GnosisProxyFactory } from "./typedContracts/GnosisProxyFactory";
+export { GnosisSafe } from "./gnosisTypedContracts/GnosisSafe";
+export { GnosisSafeFactory } from "./gnosisTypedContracts/GnosisSafeFactory";
+export { ProxyFactory } from "./gnosisTypedContracts/ProxyFactory";
+export { ProxyFactoryFactory } from "./gnosisTypedContracts/ProxyFactoryFactory";
+export { GnosisProxy } from "./gnosisTypedContracts/GnosisProxy";
+export { GnosisProxyFactory } from "./gnosisTypedContracts/GnosisProxyFactory";
 
 export {
   RELAY_HUB_ADDRESS,

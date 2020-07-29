@@ -12,7 +12,7 @@ import {
   ProxyAccountFactory,
   ProxyAccount,
 } from "../..";
-import { Forwarder, MinimalTx, CallType } from "./forwarder";
+import { MinimalTx, CallType } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { abi } from "../../typedContracts/ProxyAccount.json";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";

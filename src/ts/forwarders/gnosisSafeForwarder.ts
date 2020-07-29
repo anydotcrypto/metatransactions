@@ -24,10 +24,10 @@ import {
   MULTI_SEND_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
-import { ProxyFactoryFactory } from "../../typedContracts/ProxyFactoryFactory";
-import { ProxyFactory } from "../../typedContracts/ProxyFactory";
-import { GnosisSafe } from "../../typedContracts/GnosisSafe";
-import { GnosisSafeFactory } from "../../typedContracts/GnosisSafeFactory";
+import { ProxyFactoryFactory } from "../../gnosisTypedContracts/ProxyFactoryFactory";
+import { ProxyFactory } from "../../gnosisTypedContracts/ProxyFactory";
+import { GnosisSafe } from "../../gnosisTypedContracts/GnosisSafe";
+import { GnosisSafeFactory } from "../../gnosisTypedContracts/GnosisSafeFactory";
 import { AddressZero } from "ethers/constants";
 import { WalletForwarder } from "./walletForwarder";
 

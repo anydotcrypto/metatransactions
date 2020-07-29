@@ -1,8 +1,8 @@
-import { defaultAbiCoder, BigNumber } from "ethers/utils";
+import { defaultAbiCoder } from "ethers/utils";
 import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
-import { GnosisSafeFactory } from "../../typedContracts/GnosisSafeFactory";
+import { GnosisSafeFactory } from "../../gnosisTypedContracts/GnosisSafeFactory";
 
 export class GnosisReplayProtection extends ReplayProtectionAuthority {
   private readonly lock: Lock;
