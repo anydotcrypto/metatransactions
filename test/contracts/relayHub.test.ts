@@ -343,7 +343,7 @@ describe("RelayHub Contract", () => {
     return await owner.signMessage(arrayify(keccak256(encodedMetaTx)));
   };
 
-  const encodeAndsignBatch = async (
+  const encodeAndSignBatch = async (
     callData: Required<RevertableRelayHubCallData>[],
     replayProtection: string,
     replayProtectionAuthority: string,
@@ -699,7 +699,7 @@ describe("RelayHub Contract", () => {
         { to: msgSenderCon.address, data: msgSenderCall, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const signature = await encodeAndsignBatch(
+      const signature = await encodeAndSignBatch(
         metaTxList,
         replayProtection,
         AddressZero,
@@ -750,7 +750,7 @@ describe("RelayHub Contract", () => {
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
 
-      const signature = await encodeAndsignBatch(
+      const signature = await encodeAndSignBatch(
         metaTxList,
         replayProtection,
         AddressZero,
@@ -805,7 +805,7 @@ describe("RelayHub Contract", () => {
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
 
-      const signature = await encodeAndsignBatch(
+      const signature = await encodeAndSignBatch(
         metaTxList,
         replayProtection,
         AddressZero,
@@ -859,7 +859,7 @@ describe("RelayHub Contract", () => {
         { to: echoCon.address, data: echoData, revertOnFail: false },
       ];
       const replayProtection = defaultAbiCoder.encode(["uint", "uint"], [0, 0]);
-      const signature = await encodeAndsignBatch(
+      const signature = await encodeAndSignBatch(
         metaTxList,
         replayProtection,
         AddressZero,

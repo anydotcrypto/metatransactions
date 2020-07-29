@@ -232,7 +232,6 @@ export class GnosisSafeForwarder extends Forwarder<
     return await this.signAndEncodeMetaTransaction(callData);
   }
 
-  // Overrides the encodeAndSignParams from the Forwarder class.
   public async hashAndSign(
     callData: Required<ProxyAccountCallData>,
     replayProtection: string
