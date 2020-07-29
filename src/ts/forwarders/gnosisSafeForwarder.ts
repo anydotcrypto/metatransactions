@@ -45,11 +45,11 @@ export class GnosisSafeForwarder extends Forwarder<
   RevertableProxyAccountCallData,
   RevertableProxyAccountDeployCallData
 > {
-  private proxyFactory: ProxyFactory;
-  private gnosisSafeMaster: GnosisSafe;
-  private TYPEHASH: string =
+  private readonly proxyFactory: ProxyFactory;
+  private readonly gnosisSafeMaster: GnosisSafe;
+  private readonly TYPEHASH: string =
     "0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8";
-  private salt: string;
+
   /**
    * All meta-transactions are sent via a Gnosis Safe walletr contract.
    * @param chainID Chain ID
@@ -68,18 +68,20 @@ export class GnosisSafeForwarder extends Forwarder<
     super(
       chainID,
       signer,
-      GnosisSafeForwarder.buildProxyAccountAddress(
-        signer,
-        signerAddress,
-        chainID
-      ),
+      GnosisSafeForwarder.getAddress(signerAddress, chainID, {
+        proxyFactoryAddress:
+          options?.proxyFactoryAddress || PROXY_FACTORY_ADDRESS,
+        gnosisSafeMasterAddress:
+          options?.gnosisSafeMaster || GNOSIS_SAFE_ADDRESS,
+      }),
       new GnosisReplayProtection(
         signer,
-        GnosisSafeForwarder.buildProxyAccountAddress(
-          signer,
-          signerAddress,
-          chainID
-        )
+        GnosisSafeForwarder.getAddress(signerAddress, chainID, {
+          proxyFactoryAddress:
+            options?.proxyFactoryAddress || PROXY_FACTORY_ADDRESS,
+          gnosisSafeMasterAddress:
+            options?.gnosisSafeMaster || GNOSIS_SAFE_ADDRESS,
+        })
       )
     );
     this.proxyFactory = new ProxyFactoryFactory(signer).attach(
@@ -88,7 +90,6 @@ export class GnosisSafeForwarder extends Forwarder<
     this.gnosisSafeMaster = new GnosisSafeFactory(signer).attach(
       options?.gnosisSafeMaster || GNOSIS_SAFE_ADDRESS
     );
-    this.salt = keccak256(defaultAbiCoder.encode(["uint"], [this.chainID]));
   }
 
   public decodeTx(
@@ -292,17 +293,6 @@ export class GnosisSafeForwarder extends Forwarder<
   }
 
   /**
-   * Checks if the ProxyContract is already deployed.
-   * @returns TRUE if deployed, FALSE if not deployed.
-   */
-  public async isContractDeployed(): Promise<boolean> {
-    const code = await this.signer.provider!.getCode(this.address);
-    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
-    const codeIsEmpty = !code || code === "0x" || code === "0x0";
-    return !codeIsEmpty;
-  }
-
-  /**
    * Returns the encoded calldata for creating a proxy contract
    * No need for ForwardParams as no signature is required in ProxyAccountDeployer
    * @returns The proxy deployer address and the calldata for creating proxy account
@@ -320,8 +310,10 @@ export class GnosisSafeForwarder extends Forwarder<
       AddressZero,
     ]);
 
+    const salt = keccak256(defaultAbiCoder.encode(["uint"], [this.chainID]));
+
     const callData = this.proxyFactory.interface.functions.createProxyWithNonce.encode(
-      [this.gnosisSafeMaster.address, setup, this.salt]
+      [this.gnosisSafeMaster.address, setup, salt]
     );
 
     return {
@@ -331,18 +323,17 @@ export class GnosisSafeForwarder extends Forwarder<
   }
 
   /**
-   * Builds the proxy contract address.
+   * Compute the address of a contract from the deployer and signer
    * @param creatorAddress Creator of the clone contract (ProxyAccountDeployer)
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
    */
-  public static buildProxyAccountAddress(
-    wallet: Signer,
+  public static getAddress(
     signersAddress: string,
     chainId: number,
     options?: {
-      gnosisSafeMasterAddress: string;
-      proxyFactoryAddress: string;
+      gnosisSafeMasterAddress?: string;
+      proxyFactoryAddress?: string;
     }
   ): string {
     const gnosisSafeInterface = new GnosisSafeFactory()
@@ -359,7 +350,7 @@ export class GnosisSafeForwarder extends Forwarder<
       AddressZero,
     ]);
 
-    const deployTx = new GnosisProxyFactory(wallet).getDeployTransaction(
+    const deployTx = new GnosisProxyFactory().getDeployTransaction(
       options?.gnosisSafeMasterAddress || GNOSIS_SAFE_ADDRESS
     );
 
@@ -370,15 +361,17 @@ export class GnosisSafeForwarder extends Forwarder<
       salt: solidityKeccak256(["bytes32", "uint"], [keccak256(setup), salt]),
       initCode: deployTx.data,
     };
+
     return getCreate2Address(create2Options);
   }
 
   /**
-   * Computes the deterministic address for a deployed contract
+   * Computes the deterministic address for a contract that was
+   * deployed by this forwarder
    * @param initData Initialisation code for the contract
    * @param extraData One-time use value.
    */
-  public buildDeployedContractAddress(
+  public computeAddressForDeployedContract(
     initData: string,
     extraData: string
   ): string {

@@ -155,6 +155,17 @@ export abstract class Forwarder<
   protected abstract async signAndEncodeBatchMetaTransaction(
     dataList: TBatchCallData[]
   ): Promise<MinimalTx>;
+
+  /**
+   * Checks if the ProxyContract is already deployed.
+   * @returns TRUE if deployed, FALSE if not deployed.
+   */
+  public async isContractDeployed(): Promise<boolean> {
+    const code = await this.signer.provider!.getCode(this.address);
+    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
+    const codeIsEmpty = !code || code === "0x" || code === "0x0";
+    return !codeIsEmpty;
+  }
 }
 
 /**

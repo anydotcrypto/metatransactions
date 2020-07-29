@@ -105,7 +105,7 @@ describe("End to End Library to Contract", () => {
         setup
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         owner.address
       );
 
@@ -223,7 +223,7 @@ describe("End to End Library to Contract", () => {
       const { proxyDeployer, relayHub, owner, sender } = await loadFixture(
         setup
       );
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         owner.address
       );
       let counter = 0;
@@ -292,7 +292,7 @@ describe("End to End Library to Contract", () => {
       );
       const queues = 4;
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         owner.address
       );
 

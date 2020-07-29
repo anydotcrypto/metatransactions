@@ -21,7 +21,7 @@ export class ProxyAccountForwarderFactory extends ForwarderFactory<
     replayProtectionType: ReplayProtectionType,
     signer: Signer
   ): Promise<ProxyAccountForwarder> {
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(
       await signer.getAddress()
     );
 

@@ -125,9 +125,7 @@ describe("ProxyAccountDeployer", () => {
       };
       const proxyAddress = getCreate2Address(options);
 
-      const builtAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        sender.address
-      );
+      const builtAddress = ProxyAccountForwarder.getAddress(sender.address);
 
       // Computed offchain
       expect(proxyAddress).to.eq(builtAddress);
@@ -167,9 +165,7 @@ describe("ProxyAccountDeployer", () => {
       };
       const proxyAddress = getCreate2Address(options);
 
-      const builtAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-        sender.address
-      );
+      const builtAddress = ProxyAccountForwarder.getAddress(sender.address);
 
       // Computed offchain
       expect(proxyAddress).to.eq(builtAddress);
@@ -292,9 +288,7 @@ describe("ProxyAccountDeployer", () => {
     user: ethers.Wallet,
     replayProtectionType: ReplayProtectionType
   ) => {
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(user.address);
     const replayProtection =
       replayProtectionType === ReplayProtectionType.MULTINONCE
         ? new MultiNonceReplayProtection(30, user, proxyAccountAddress)
@@ -919,7 +913,7 @@ describe("ProxyAccountDeployer", () => {
         createProxyAccountDeployer
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         admin.address
       );
       const forwarder = new ProxyAccountForwarder(
@@ -1004,7 +998,7 @@ describe("ProxyAccountDeployer", () => {
         createProxyAccountDeployer
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         admin.address
       );
       const forwarder = new ProxyAccountForwarder(
@@ -1095,7 +1089,7 @@ describe("ProxyAccountDeployer", () => {
         createProxyAccountDeployer
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         admin.address
       );
       const forwarder = new ProxyAccountForwarder(
@@ -1179,7 +1173,7 @@ describe("ProxyAccountDeployer", () => {
         createProxyAccountDeployer
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         admin.address
       );
       const forwarder = new ProxyAccountForwarder(
@@ -1275,7 +1269,7 @@ describe("ProxyAccountDeployer", () => {
         createProxyAccountDeployer
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         admin.address
       );
       const forwarder = new ProxyAccountForwarder(

@@ -2,8 +2,8 @@ import {
   defaultAbiCoder,
   solidityKeccak256,
   Interface,
-  keccak256,
   BigNumberish,
+  keccak256,
 } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { ChainID } from "./forwarderFactory";
@@ -242,7 +242,7 @@ export class ProxyAccountForwarder extends MiniForwarder<
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
    */
-  public static buildProxyAccountAddress(signersAddress: string): string {
+  public static getAddress(signersAddress: string): string {
     const saltHex = solidityKeccak256(["address"], [signersAddress]);
     const byteCodeHash = solidityKeccak256(
       ["bytes", "bytes20", "bytes"],
@@ -259,17 +259,6 @@ export class ProxyAccountForwarder extends MiniForwarder<
     };
 
     return getCreate2Address(options);
-  }
-
-  /**
-   * Checks if the ProxyContract is already deployed.
-   * @returns TRUE if deployed, FALSE if not deployed.
-   */
-  public async isContractDeployed(): Promise<boolean> {
-    const code = await this.signer.provider!.getCode(this.address);
-    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
-    const codeIsEmpty = !code || code === "0x" || code === "0x0";
-    return !codeIsEmpty;
   }
 
   /**
@@ -291,11 +280,12 @@ export class ProxyAccountForwarder extends MiniForwarder<
   }
 
   /**
-   * Computes the deterministic address for a deployed contract
+   * Computes the deterministic address for a contract that was
+   * deployed by this forwarder
    * @param initData Initialisation code for the contract
-   * @param salt One-time use value.
+   * @param extraData One-time use value.
    */
-  public buildDeployedContractAddress(
+  public computeAddressForDeployedContract(
     initData: string,
     extraData: string
   ): string {

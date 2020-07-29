@@ -22,6 +22,7 @@ import { ChainID } from "../../src/ts/forwarders/forwarderFactory";
 import { parseEther, BigNumber } from "ethers/utils";
 import { Echo } from "../../src/typedContracts/Echo";
 import { AddressZero } from "ethers/constants";
+import { fnIt } from "@pisa-research/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -42,8 +43,7 @@ async function setupProxy(
 
   const tx = await gnosisForwarder.createProxyContract();
 
-  await owner.sendTransaction({ to: tx.to, data: tx.data });
-
+  await (await owner.sendTransaction(tx)).wait();
   expect(await gnosisForwarder.isContractDeployed(), "deployed").to.be.true;
 
   return { gnosisForwarder };
@@ -75,7 +75,7 @@ async function createSafe(
   };
 }
 
-describe("GnosisSafe Forwarder", () => {
+describe(GnosisSafeForwarder.name, () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
     const { provider, owner } = await loadFixture(createSafe);
 
@@ -130,7 +130,7 @@ describe("GnosisSafe Forwarder", () => {
     });
     await deployTx.wait(1);
 
-    const echoAddress = gnosisForwarder.buildDeployedContractAddress(
+    const echoAddress = gnosisForwarder.computeAddressForDeployedContract(
       initCode,
       "0x123"
     );
@@ -422,4 +422,26 @@ describe("GnosisSafe Forwarder", () => {
     const decodedDataBatch = multiSender.decodeBatch(decodedTx.data);
     expect(decodedDataBatch, "Decoded data did not match").to.deep.eq(toBatch);
   }).timeout(50000);
+
+  fnIt<GnosisSafeForwarder>(
+    () => GnosisSafeForwarder.getAddress,
+    "create proxy account with deterministic address (and compute offchain deterministic address)",
+    async () => {
+      const { sender, proxyFactory, gnosisSafeMaster } = await loadFixture(
+        createSafe
+      );
+      const { gnosisForwarder } = await setupProxy(sender, {
+        gnosisSafeMaster: gnosisSafeMaster,
+        proxyFactory: proxyFactory,
+      });
+
+      expect(gnosisForwarder.address).to.eq(
+        GnosisSafeForwarder.getAddress(sender.address, ChainID.MAINNET, {
+          gnosisSafeMasterAddress: gnosisSafeMaster.address,
+          proxyFactoryAddress: proxyFactory.address,
+        })
+      );
+      expect(await gnosisForwarder.isContractDeployed()).to.be.true;
+    }
+  );
 });
