@@ -34,13 +34,13 @@ export interface ForwardParams {
   signature: string;
 }
 
-type DirectCallData = {
+export type DirectCallData = {
   to: string;
   data?: string;
   value?: BigNumberish;
 };
 
-type DeployCallData = {
+export type DeployCallData = {
   data: string;
   value?: BigNumberish;
   salt: string;
@@ -75,20 +75,6 @@ export abstract class Forwarder<
     protected readonly replayProtectionAuthority: ReplayProtectionAuthority
   ) {}
 
-  protected abstract encodeBatchCallData(data: TBatchCallData[]): string;
-  protected abstract async encodeBatchTx(
-    data: TBatchCallData[],
-    replayProtection: string,
-    replayProtectionAuthority: string,
-    signature: string
-  ): Promise<string>;
-  protected abstract encodeCallData(data: TCallData): string;
-  protected abstract async encodeTx(
-    data: TCallData,
-    replayProtection: string,
-    replayProtectionAuthority: string,
-    signature: string
-  ): Promise<string>;
   protected abstract deployDataToBatchCallData(
     initCode: string,
     extraData: string,
@@ -100,22 +86,6 @@ export abstract class Forwarder<
     extraData: string,
     value?: BigNumberish
   ): TCallData;
-  public abstract decodeTx(
-    data: string
-  ): {
-    _metaTx: Required<TCallData>;
-    _replayProtection: string;
-    _replayProtectionAuthority: string;
-    _signature: string;
-  };
-  public abstract decodeBatchTx(
-    data: string
-  ): {
-    _metaTxList: Required<TBatchCallData[]>;
-    _replayProtection: string;
-    _replayProtectionAuthority: string;
-    _signature: string;
-  };
 
   private isDeployTx(tx: CallData): tx is DeployCallData {
     return !!(tx as DeployCallData).salt;
@@ -124,7 +94,7 @@ export abstract class Forwarder<
   /**
    * Sign a meta transaction or a batch of meta transactions.
    * Deployments can als be made by specifiying a salt along with the data.
-   * @param tx 
+   * @param tx
    */
   public async signMetaTransaction(
     tx:
@@ -169,17 +139,97 @@ export abstract class Forwarder<
     };
   }
 
-  public async encodeAndSignParams(
-    callData: string,
+  /**
+   * Takes care of replay protection and signs a meta-transaction.
+   * @param data ProxyAccountCallData or RelayCallData
+   */
+  protected abstract async signAndEncodeMetaTransaction(
+    data: TCallData
+  ): Promise<MinimalTx>;
+
+  /**
+   * Batches a list of transactions into a single meta-transaction.
+   * It supports both meta-transactions & meta-deployment.
+   * @param dataList List of meta-transactions to batch
+   */
+  protected abstract async signAndEncodeBatchMetaTransaction(
+    dataList: TBatchCallData[]
+  ): Promise<MinimalTx>;
+
+  /**
+   * Checks if the ProxyContract is already deployed.
+   * @returns TRUE if deployed, FALSE if not deployed.
+   */
+  public async isWalletDeployed(): Promise<boolean> {
+    const code = await this.signer.provider!.getCode(this.address);
+    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
+    const codeIsEmpty = !code || code === "0x" || code === "0x0";
+    return !codeIsEmpty;
+  }
+}
+
+/**
+ * The mini forwarders are our home grown ones. They're mini because they try to minimise
+ * code complexity and gas costs. But are potentially not a feature-rich.
+ */
+export abstract class MiniForwarder<
+  TCallData extends DirectCallData,
+  TDeployCallData extends DeployCallData,
+  TBatchCallData extends CallData,
+  TBatchDeployCallData extends CallData
+> extends Forwarder<
+  TCallData,
+  TDeployCallData,
+  TBatchCallData,
+  TBatchDeployCallData
+> {
+  protected abstract encodeBatchCallData(data: TBatchCallData[]): string;
+  protected abstract async encodeForBatchForward(
+    data: TBatchCallData[],
     replayProtection: string,
-    replayProtectionAuthority: string
-  ) {
+    replayProtectionAuthority: string,
+    signature: string
+  ): Promise<string>;
+  protected abstract encodeCallData(data: TCallData): string;
+  protected abstract async encodeForForward(
+    data: TCallData,
+    replayProtection: string,
+    replayProtectionAuthority: string,
+    signature: string
+  ): Promise<string>;
+  public abstract decodeTx(
+    data: string
+  ): {
+    _metaTx: Required<TCallData>;
+    _replayProtection: string;
+    _replayProtectionAuthority: string;
+    _signature: string;
+  };
+  public abstract decodeBatchTx(
+    data: string
+  ): {
+    _metaTxList: Required<TBatchCallData[]>;
+    _replayProtection: string;
+    _replayProtectionAuthority: string;
+    _signature: string;
+  };
+
+  /**
+   * Takes care of replay protection and signs a meta-transaction.
+   * @param data ProxyAccountCallData or RelayCallData
+   */
+  protected async signAndEncodeMetaTransaction(
+    data: TCallData
+  ): Promise<MinimalTx> {
+    const callData = this.encodeCallData(data);
+    const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
+
     const encodedMetaTx = defaultAbiCoder.encode(
       ["bytes", "bytes", "address", "address", "uint"],
       [
         callData,
         replayProtection,
-        replayProtectionAuthority,
+        this.replayProtectionAuthority.address,
         this.address,
         this.chainID,
       ]
@@ -189,38 +239,16 @@ export abstract class Forwarder<
       arrayify(keccak256(encodedMetaTx))
     );
 
-    return {
-      encodedMetaTx,
-      signature,
-    };
-  }
-
-  /**
-   * Takes care of replay protection and signs a meta-transaction.
-   * @param data ProxyAccountCallData or RelayCallData
-   */
-  protected async signAndEncodeMetaTransaction(
-    data: TCallData
-  ): Promise<MinimalTx> {
-    const encodedCallData = this.encodeCallData(data);
-
-    const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-
-    const { signature } = await this.encodeAndSignParams(
-      encodedCallData,
-      replayProtection,
-      this.replayProtectionAuthority.address
-    );
-
-    const encodedTx = await this.encodeTx(
+    const encodedTx = await this.encodeForForward(
       data,
       replayProtection,
       this.replayProtectionAuthority.address,
       signature
     );
+
     return {
       to: this.address,
-      data: encodedTx
+      data: encodedTx,
     };
   }
 
@@ -232,16 +260,24 @@ export abstract class Forwarder<
   protected async signAndEncodeBatchMetaTransaction(
     dataList: TBatchCallData[]
   ): Promise<MinimalTx> {
-    const encodedCallData = this.encodeBatchCallData(dataList);
+    const callData = this.encodeBatchCallData(dataList);
     const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
-
-    const { signature } = await this.encodeAndSignParams(
-      encodedCallData,
-      replayProtection,
-      this.replayProtectionAuthority.address
+    const encodedMetaTx = defaultAbiCoder.encode(
+      ["bytes", "bytes", "address", "address", "uint"],
+      [
+        callData,
+        replayProtection,
+        this.replayProtectionAuthority.address,
+        this.address,
+        this.chainID,
+      ]
     );
 
-    const encodedBatch = await this.encodeBatchTx(
+    const signature = await this.signer.signMessage(
+      arrayify(keccak256(encodedMetaTx))
+    );
+
+    const encodedTx = await this.encodeForBatchForward(
       dataList,
       replayProtection,
       this.replayProtectionAuthority.address,
@@ -250,7 +286,7 @@ export abstract class Forwarder<
 
     return {
       to: this.address,
-      data: encodedBatch,
+      data: encodedTx,
     };
   }
 }

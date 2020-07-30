@@ -105,7 +105,7 @@ describe("End to End Library to Contract", () => {
         setup
       );
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         owner.address
       );
 
@@ -119,9 +119,9 @@ describe("End to End Library to Contract", () => {
           new BitFlipReplayProtection(owner, proxyAccountAddress)
         );
 
-        const deployed = await forwarder.isContractDeployed();
+        const deployed = await forwarder.isWalletDeployed();
         if (!deployed) {
-          const minimalTx = await forwarder.createProxyContract();
+          const minimalTx = await forwarder.getWalletDeployTransaction();
           await owner.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -223,7 +223,7 @@ describe("End to End Library to Contract", () => {
       const { proxyDeployer, relayHub, owner, sender } = await loadFixture(
         setup
       );
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         owner.address
       );
       let counter = 0;
@@ -238,10 +238,10 @@ describe("End to End Library to Contract", () => {
           new MultiNonceReplayProtection(1, owner, proxyAccountAddress)
         );
 
-        const deployed = await forwarder.isContractDeployed();
+        const deployed = await forwarder.isWalletDeployed();
 
         if (!deployed) {
-          const minimalTx = await forwarder.createProxyContract();
+          const minimalTx = await forwarder.getWalletDeployTransaction();
           await owner.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -292,7 +292,7 @@ describe("End to End Library to Contract", () => {
       );
       const queues = 4;
 
-      const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
+      const proxyAccountAddress = ProxyAccountForwarder.getAddress(
         owner.address
       );
 
@@ -306,10 +306,10 @@ describe("End to End Library to Contract", () => {
           new MultiNonceReplayProtection(queues, owner, proxyAccountAddress)
         );
 
-        const deployed = await forwarder.isContractDeployed();
+        const deployed = await forwarder.isWalletDeployed();
 
         if (!deployed) {
-          const minimalTx = await forwarder.createProxyContract();
+          const minimalTx = await forwarder.getWalletDeployTransaction();
           await owner.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,

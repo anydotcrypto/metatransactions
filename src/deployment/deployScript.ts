@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { deployMetaTxContracts } from "./deploy";
 
 export const ADMIN_MNEMONIC = "";
+
 /**
  * Set up the provider and wallet
  */
@@ -26,7 +27,7 @@ async function setup() {
 (async () => {
   // Set up wallets & provider
   const { admin } = await setup();
-
+  console.log(admin.address);
   await deployMetaTxContracts(admin, true);
 })().catch((e) => {
   console.log(e);

@@ -1,11 +1,6 @@
 import { ethers } from "ethers";
 import { formatEther } from "ethers/utils";
-import {
-  ProxyAccountForwarderFactory,
-  ChainID,
-  ReplayProtectionType,
-  EchoFactory,
-} from "../../src";
+import { GnosisSafeForwarder, ChainID, EchoFactory } from "../../src";
 
 // npm run generateSeed
 // Top up the address and put the 12-word seed here
@@ -45,25 +40,25 @@ async function setup() {
     "Balance: " + formatEther(await provider.getBalance(user.address))
   );
 
-  // First we need to fetch the proxy account contract library for this signer
-  const proxyAccount = await new ProxyAccountForwarderFactory().createNew(
+  // Fetch the gnosis safe forwarder
+  const gnosisForwarder = new GnosisSafeForwarder(
     ChainID.ROPSTEN,
-    ReplayProtectionType.BITFLIP,
-    user
+    user,
+    user.address
   );
 
-  const isProxyDeployed = await proxyAccount.isWalletDeployed();
-  console.log("Do we need to deploy a proxy account? " + !isProxyDeployed);
+  const isGnosisSafeDeployed = await gnosisForwarder.isWalletDeployed();
+  console.log("Do we need to deploy a gnosis safe? " + !isGnosisSafeDeployed);
 
-  if (!isProxyDeployed) {
-    const deployProxy = await proxyAccount.getWalletDeployTransaction();
+  if (!isGnosisSafeDeployed) {
+    const deployProxy = await gnosisForwarder.getWalletDeployTransaction();
     const proxyTx = await user.sendTransaction({
       to: deployProxy.to,
       data: deployProxy.data,
     });
 
     console.log(
-      "Deploy proxy contract: " +
+      "Deploy gnosis safe contract: " +
         "https://ropsten.etherscan.io/tx/" +
         proxyTx.hash
     );
@@ -73,12 +68,12 @@ async function setup() {
   // Lets META-DEPLOY the echo contract
   const initCode = new EchoFactory(user).getDeployTransaction().data! as string;
 
-  const metaDeploy = await proxyAccount.signMetaTransaction({
+  const metaDeploy = await gnosisForwarder.signMetaTransaction({
     data: initCode,
     salt: "0x123",
   });
 
-  const echoAddress = proxyAccount.computeAddressForDeployedContract(
+  const echoAddress = gnosisForwarder.computeAddressForDeployedContract(
     initCode,
     "0x123"
   );
@@ -102,7 +97,7 @@ async function setup() {
   const callData = echoContract.interface.functions.sendMessage.encode([
     "any.sender is nice",
   ]);
-  const metaTx = await proxyAccount.signMetaTransaction({
+  const metaTx = await gnosisForwarder.signMetaTransaction({
     to: echoAddress,
     data: callData,
   });

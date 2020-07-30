@@ -7,12 +7,12 @@ import {
   deployMetaTxContracts,
   MsgSenderExampleFactory,
   CounterFactory,
+  MultiSender,
+  MULTI_SEND_ADDRESS,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { MultiSend } from "../../src/typedContracts/MultiSend";
-import { MultiSender } from "../../src/ts/batch/MultiSend";
-import { MULTI_SEND_ADDRESS } from "../../src/deployment/addresses";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -44,9 +44,7 @@ describe("MultiSend", () => {
     "send a single transaction in the multisend batch",
     async () => {
       const { admin, msgSenderCon } = await loadFixture(deployContracts);
-
       const callData = msgSenderCon.interface.functions.test.encode([]);
-
       const multiSender = new MultiSender();
 
       const batched = multiSender.batch([
@@ -61,6 +59,31 @@ describe("MultiSend", () => {
       await expect(tx)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
         .withArgs(MULTI_SEND_ADDRESS);
+    }
+  );
+
+  fnIt<multiSend>(
+    (a) => a.batch,
+    "encode and decode a batch",
+    async () => {
+      const { msgSenderCon } = await loadFixture(deployContracts);
+
+      const callData = msgSenderCon.interface.functions.test.encode([]);
+
+      const multiSender = new MultiSender();
+
+      const toBatch = [
+        { to: msgSenderCon.address, data: callData, revertOnFail: false },
+        { to: msgSenderCon.address, data: callData, revertOnFail: false },
+      ];
+      const batched = multiSender.batch(toBatch);
+      const decoded = multiSender.decodeBatch(batched.data);
+
+      for (let i = 0; i < decoded.length; i++) {
+        expect(decoded[i].to).to.eq(toBatch[i].to);
+        expect(decoded[i].data).to.eq(toBatch[i].data);
+        expect(decoded[i].revertOnFail).to.eq(toBatch[i].revertOnFail);
+      }
     }
   );
 

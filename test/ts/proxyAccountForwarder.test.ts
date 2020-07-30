@@ -20,20 +20,18 @@ import {
   ProxyAccountForwarderFactory,
   EchoFactory,
   DelegateDeployerFactory,
-} from "../../src";
-
-import { Provider } from "ethers/providers";
-import { Wallet } from "ethers/wallet";
-import {
+  MultiSender,
   ChainID,
   ReplayProtectionType,
-} from "../../src/ts/forwarders/forwarderFactory";
+  ProxyAccountForwarder,
+  DELEGATE_DEPLOYER_ADDRESS,
+} from "../../src";
+import { Provider } from "ethers/providers";
+import { Wallet } from "ethers/wallet";
 import { AddressZero } from "ethers/constants";
-import { ProxyAccountForwarder } from "../../src/ts/forwarders/proxyAccountFowarder";
 import { Create2Options } from "ethers/utils/address";
 import { ethers } from "ethers";
-import { MultiSender } from "../../src/ts/batch/MultiSend";
-import { DELEGATE_DEPLOYER_ADDRESS } from "../../src/deployment/addresses";
+import { fnIt } from "@pisa-research/test-utils";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -64,9 +62,7 @@ describe("Proxy Account Forwarder", () => {
   it("Deploy proxy account and verify the correct address is computed.", async () => {
     const { proxyDeployer, user1 } = await loadFixture(createHubs);
 
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user1.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(user1.address);
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
@@ -75,7 +71,7 @@ describe("Proxy Account Forwarder", () => {
       new MultiNonceReplayProtection(10, user1, proxyAccountAddress)
     );
 
-    const encoded = await proxyForwarder.createProxyContract();
+    const encoded = await proxyForwarder.getWalletDeployTransaction();
 
     await user1.sendTransaction({
       to: encoded.to,
@@ -96,9 +92,7 @@ describe("Proxy Account Forwarder", () => {
       createHubs
     );
 
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      admin.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(admin.address);
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
@@ -144,9 +138,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     const noQueues = 10;
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user1.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(user1.address);
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
@@ -199,9 +191,7 @@ describe("Proxy Account Forwarder", () => {
       createHubs
     );
 
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      admin.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(admin.address);
 
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
@@ -247,10 +237,8 @@ describe("Proxy Account Forwarder", () => {
       createHubs
     );
 
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user1.address
-    );
-    const bitflip = new BitFlipReplayProtection(user1, proxyAccountAddress)
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(user1.address);
+    const bitflip = new BitFlipReplayProtection(user1, proxyAccountAddress);
     const proxyForwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
@@ -303,9 +291,7 @@ describe("Proxy Account Forwarder", () => {
     user: ethers.Wallet,
     replayProtectionType: ReplayProtectionType
   ) => {
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(user.address);
     const replayProtection =
       replayProtectionType === ReplayProtectionType.MULTINONCE
         ? new MultiNonceReplayProtection(30, user, proxyAccountAddress)
@@ -333,7 +319,7 @@ describe("Proxy Account Forwarder", () => {
       ReplayProtectionType.MULTINONCE
     );
 
-    const encoded = await forwarder.createProxyContract();
+    const encoded = await forwarder.getWalletDeployTransaction();
     await admin.sendTransaction({ to: encoded.to, data: encoded.data });
 
     const baseAccount = await proxyDeployer.baseAccount();
@@ -355,7 +341,7 @@ describe("Proxy Account Forwarder", () => {
 
     expect(forwarder.address).to.eq(proxyAddress);
 
-    expect(await forwarder.isContractDeployed()).to.be.true;
+    expect(await forwarder.isWalletDeployed()).to.be.true;
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
@@ -440,7 +426,7 @@ describe("Proxy Account Forwarder", () => {
     expect(receipt.status).to.eq(1);
 
     // Compute deterministic address
-    const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
+    const msgSenderExampleAddress = forwarder.computeAddressForDeployedContract(
       initCode,
       extraData
     );
@@ -505,7 +491,7 @@ describe("Proxy Account Forwarder", () => {
       deploymentParams._signature
     );
 
-    const msgSenderAddress = forwarder.buildDeployedContractAddress(
+    const msgSenderAddress = forwarder.computeAddressForDeployedContract(
       initCode,
       extraData
     );
@@ -542,7 +528,7 @@ describe("Proxy Account Forwarder", () => {
       forwarder.address
     );
 
-    const msgSenderExampleAddress = forwarder.buildDeployedContractAddress(
+    const msgSenderExampleAddress = forwarder.computeAddressForDeployedContract(
       initCode,
       extraData
     );
@@ -611,10 +597,10 @@ describe("Proxy Account Forwarder", () => {
     const multiSender = new MultiSender();
 
     // Double-check the proxy contract is not yet deployed
-    expect(await forwarder.isContractDeployed()).to.be.false;
+    expect(await forwarder.isWalletDeployed()).to.be.false;
 
     // Sign meta-deployment
-    let deployProxy = await forwarder.createProxyContract();
+    let deployProxy = await forwarder.getWalletDeployTransaction();
 
     // Sign the meta-tx
     const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
@@ -657,7 +643,7 @@ describe("Proxy Account Forwarder", () => {
     const multiSender = new MultiSender();
 
     // Deploy proxy contract
-    let deployProxy = await forwarder.createProxyContract();
+    let deployProxy = await forwarder.getWalletDeployTransaction();
 
     await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
 
@@ -699,7 +685,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     // deploy the proxy contract
-    const deployProxy = await forwarder.createProxyContract();
+    const deployProxy = await forwarder.getWalletDeployTransaction();
     await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
 
     // omit the value field
@@ -730,9 +716,7 @@ describe("Proxy Account Forwarder", () => {
       user1,
     } = await loadFixture(createHubs);
 
-    const proxyAccountAddress = ProxyAccountForwarder.buildProxyAccountAddress(
-      user1.address
-    );
+    const proxyAccountAddress = ProxyAccountForwarder.getAddress(user1.address);
     const forwarder = new ProxyAccountForwarder(
       ChainID.MAINNET,
       proxyDeployer.address,
@@ -742,7 +726,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     // Deploy proxy contract
-    let deployProxy = await forwarder.createProxyContract();
+    let deployProxy = await forwarder.getWalletDeployTransaction();
 
     await user1.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
 
@@ -770,4 +754,26 @@ describe("Proxy Account Forwarder", () => {
 
     expect(sentTest).to.be.true;
   }).timeout(500000);
+
+  fnIt<ProxyAccountForwarder>(
+    () => ProxyAccountForwarder.getAddress,
+    "create proxy account with deterministic address (and compute offchain deterministic address)",
+    async () => {
+      const { proxyDeployer, user1 } = await loadFixture(createHubs);
+
+      const forwarder = await createForwarder(
+        proxyDeployer,
+        user1,
+        ReplayProtectionType.MULTINONCE
+      );
+
+      expect(forwarder.address).to.eq(
+        ProxyAccountForwarder.getAddress(user1.address)
+      );
+
+      const tx = await forwarder.getWalletDeployTransaction();
+      await (await user1.sendTransaction(tx)).wait();
+      expect(await forwarder.isWalletDeployed()).to.be.true;
+    }
+  );
 });

@@ -21,6 +21,7 @@ import {
   ReplayProtectionType,
   ForwarderFactory,
 } from "../../src/ts/forwarders/forwarderFactory";
+import { AddressZero } from "ethers/constants";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -134,7 +135,7 @@ describe("Forwarder Factory", () => {
 
   it("Create the RelayForwarder with Bitflip ", async () => {
     const { relayHub, admin, msgSenderExample } = await loadFixture(createHubs);
-    const bitflip = new BitFlipReplayProtection(admin, relayHub.address)
+    const bitflip = new BitFlipReplayProtection(admin, relayHub.address);
     const relayForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       admin,

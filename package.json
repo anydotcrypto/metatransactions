@@ -1,6 +1,6 @@
 {
   "name": "@anydotcrypto/metatransactions",
-  "version": "0.0.14",
+  "version": "0.0.18",
   "description": "A minimal approach for meta-transaction support.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,10 +18,11 @@
     "build": "waffle waffle.json && npm run build-types",
     "build-types": "typechain --target ethers --outDir ./src/typedContracts ./build/**/*.json && cp ./build/* ./src/typedContracts",
     "build-ts": "tsc -p tsconfig.json",
-    "publish-contracts": "cp -r ./src/typedContracts/*.d.ts ./dist/typedContracts && cp ./build/* ./dist/typedContracts && cp -r ./src/contracts ./dist/contracts",
+    "publish-contracts": "cp -r ./src/gnosisTypedContracts/* ./dist/gnosisTypedContracts && cp -r ./src/typedContracts/*.d.ts ./dist/typedContracts && cp ./build/* ./dist/typedContracts && cp -r ./src/contracts ./dist/contracts",
     "deploy": "ts-node src/deployment/deployScript.ts",
     "generateSeed": "ts-node example/generateSeed.ts",
-    "echo-example": "ts-node example/proxyaccount/echo.ts",
+    "proxy-echo-example": "ts-node example/proxyaccount/echo.ts",
+    "gnosis-echo-example": "ts-node example/gnosis/echo.ts",
     "runtest": "NODE_ENV=test mocha --require ts-node/register --extension 'test.ts' './test/**/*.test.ts' --exit",
     "test": "npm run build && npm run runtest -- --timeout='30000'",
     "clean": "rm -rf ./dist && rm -rf ./build"

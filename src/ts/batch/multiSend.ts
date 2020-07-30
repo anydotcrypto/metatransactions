@@ -1,18 +1,14 @@
 import { abi } from "../../typedContracts/MultiSend.json";
 import { Interface, BigNumberish } from "ethers/utils";
-import {
-  MinimalTx,
-  CallType,
-} from "../forwarders/forwarder";
+import { MinimalTx, CallType } from "../forwarders/forwarder";
 import { MULTI_SEND_ADDRESS } from "../../deployment/addresses";
 import { MultiSend } from "../../typedContracts/MultiSend";
 
-
 export interface MultiSendTx extends MinimalTx {
-    callType?: CallType;
-    revertOnFail?: boolean;
-    value?: BigNumberish
-  }
+  callType?: CallType;
+  revertOnFail?: boolean;
+  value?: BigNumberish;
+}
 
 /**
  * Batch a list of meta-transactions before it hits the forwarder.
@@ -57,5 +53,26 @@ export class MultiSender {
       to: this.sender,
       data: encodedTransactions,
     };
+  }
+
+  public decodeBatch(data: string): Required<MultiSendTx>[] {
+    const multiSend = new Interface(abi) as MultiSend["interface"];
+
+    const parsedTransaction = multiSend.parseTransaction({
+      data,
+    });
+
+    const functionArgs: {
+      _metaTxList: Required<MultiSendTx>[];
+    } = {
+      _metaTxList: parsedTransaction.args[0].map((a: any) => ({
+        to: a[0],
+        value: a[1],
+        data: a[2],
+        revertOnFail: a[3],
+        callType: a[4],
+      })),
+    };
+    return functionArgs._metaTxList;
   }
 }

@@ -2,17 +2,17 @@ import {
   defaultAbiCoder,
   solidityKeccak256,
   Interface,
-  keccak256,
   BigNumberish,
+  keccak256,
 } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
+import { ChainID } from "./forwarderFactory";
 import {
-  ChainID,
   ProxyAccountDeployer,
   ProxyAccountFactory,
   ProxyAccount,
-} from "../..";
-import { Forwarder, MinimalTx, CallType } from "./forwarder";
+} from "../../typedContracts";
+import { MinimalTx, CallType, MiniForwarder } from "./forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { abi } from "../../typedContracts/ProxyAccount.json";
 import { ProxyAccountDeployerFactory } from "../../typedContracts/ProxyAccountDeployerFactory";
@@ -21,6 +21,7 @@ import {
   BASE_ACCOUNT_ADDRESS,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
+import { WalletForwarder } from "./walletForwarder";
 
 export interface ProxyAccountCallData {
   to: string;
@@ -48,12 +49,14 @@ export interface RevertableProxyAccountDeployCallData
  * A single library for approving meta-transactions and its associated
  * replay protection. All meta-transactions are sent via proxy contracts.
  */
-export class ProxyAccountForwarder extends Forwarder<
-  ProxyAccountCallData,
-  ProxyAccountDeployCallData,
-  RevertableProxyAccountCallData,
-  RevertableProxyAccountDeployCallData
-> {
+export class ProxyAccountForwarder
+  extends MiniForwarder<
+    ProxyAccountCallData,
+    ProxyAccountDeployCallData,
+    RevertableProxyAccountCallData,
+    RevertableProxyAccountDeployCallData
+  >
+  implements WalletForwarder {
   private proxyDeployer: ProxyAccountDeployer;
   /**
    * All meta-transactions are sent via an proxy contract.
@@ -162,15 +165,13 @@ export class ProxyAccountForwarder extends Forwarder<
       _replayProtectionAuthority: string;
       _signature: string;
     } = {
-      _metaTxList: parsedTransaction.args[0].map(
-        (a: any) => ({
-            to: a[0],
-            value: a[1],
-            data: a[2],
-            revertOnFail: a[3],
-            callType: a[4],
-        })
-      ),        
+      _metaTxList: parsedTransaction.args[0].map((a: any) => ({
+        to: a[0],
+        value: a[1],
+        data: a[2],
+        revertOnFail: a[3],
+        callType: a[4],
+      })),
       _replayProtection: parsedTransaction.args[1],
       _replayProtectionAuthority: parsedTransaction.args[2],
       _signature: parsedTransaction.args[3],
@@ -187,7 +188,7 @@ export class ProxyAccountForwarder extends Forwarder<
     );
   }
 
-  protected async encodeTx(
+  protected async encodeForForward(
     data: ProxyAccountCallData,
     replayProtection: string,
     replayProtectionAuthority: string,
@@ -208,7 +209,7 @@ export class ProxyAccountForwarder extends Forwarder<
   protected encodeBatchCallData(
     txBatch: RevertableProxyAccountCallData[]
   ): string {
-    const metaTxList = txBatch.map(b => this.defaultRevertableCallData(b));
+    const metaTxList = txBatch.map((b) => this.defaultRevertableCallData(b));
     return defaultAbiCoder.encode(
       [
         "uint",
@@ -218,13 +219,13 @@ export class ProxyAccountForwarder extends Forwarder<
     );
   }
 
-  protected async encodeBatchTx(
+  protected async encodeForBatchForward(
     txBatch: RevertableProxyAccountCallData[],
     replayProtection: string,
     replayProtectionAuthority: string,
     signature: string
   ): Promise<string> {
-    const metaTxList = txBatch.map(b => this.defaultRevertableCallData(b));
+    const metaTxList = txBatch.map((b) => this.defaultRevertableCallData(b));
 
     const proxyAccountInterface = new Interface(
       abi
@@ -244,7 +245,7 @@ export class ProxyAccountForwarder extends Forwarder<
    * @param signersAddress Signer's address
    * @param cloneAddress Contract to clone address
    */
-  public static buildProxyAccountAddress(signersAddress: string): string {
+  public static getAddress(signersAddress: string): string {
     const saltHex = solidityKeccak256(["address"], [signersAddress]);
     const byteCodeHash = solidityKeccak256(
       ["bytes", "bytes20", "bytes"],
@@ -264,23 +265,12 @@ export class ProxyAccountForwarder extends Forwarder<
   }
 
   /**
-   * Checks if the ProxyContract is already deployed.
-   * @returns TRUE if deployed, FALSE if not deployed.
-   */
-  public async isContractDeployed(): Promise<boolean> {
-    const code = await this.signer.provider!.getCode(this.address);
-    // Geth will return '0x', and ganache-core v2.2.1 will return '0x0'
-    const codeIsEmpty = !code || code === "0x" || code === "0x0";
-    return !codeIsEmpty;
-  }
-
-  /**
    * Returns the encoded calldata for creating a proxy contract
    * No need for ForwardParams as no signature is required in ProxyAccountDeployer
    * @returns The proxy deployer address and the calldata for creating proxy account
    * @throws If the proxy account already exists
    */
-  public async createProxyContract(): Promise<MinimalTx> {
+  public async getWalletDeployTransaction(): Promise<MinimalTx> {
     const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
       [await this.signer.getAddress()]
     );
@@ -293,11 +283,12 @@ export class ProxyAccountForwarder extends Forwarder<
   }
 
   /**
-   * Computes the deterministic address for a deployed contract
+   * Computes the deterministic address for a contract that was
+   * deployed by this forwarder
    * @param initData Initialisation code for the contract
-   * @param salt One-time use value.
+   * @param extraData One-time use value.
    */
-  public buildDeployedContractAddress(
+  public computeAddressForDeployedContract(
     initData: string,
     extraData: string
   ): string {
