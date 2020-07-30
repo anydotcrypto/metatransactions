@@ -20,8 +20,8 @@ Our meta-transaction library focuses on both approaches and we hope it benefits 
 We have put together a guide for the universial forwarder, proxy account and gnosis safe:
 
 - Universal Forwarder: Tutorial to be completed soon.
-- [GnosisSafe Forwarder](gnosisSafe.md): An audited wallet contract implementation by Gnosis and we follow the nonce signature path. Thus it is meta-transaction safe.
-- [ProxyAccount Forwarder](proxyAccounts.md): Our own wallet contract implementation (not audited) with flexible replay protection and minimal overhead.
+- [GnosisSafe Forwarder](./gnosisSafe.md#gnosis-safe-forwarder): An audited wallet contract implementation by Gnosis and we follow the nonce signature path. Thus it is meta-transaction safe.
+- [ProxyAccount Forwarder](./proxyAccounts.md#proxy-account-forwarder): Our own wallet contract implementation (not audited) with flexible replay protection and minimal overhead.
 
 Our unit tests evaluate the gas costs for the wallet contracts:
 
