@@ -17,8 +17,6 @@ Our meta-transaction library focuses on both approaches and we hope it benefits 
 
 # Getting started
 
-It is worth understanding the msg.sender problem before picking the universial forwarder or a wallet contract solution. Please check out [Wallet Contracts vs the Universal Forwarder](https://github.com/anydotcrypto/metatransactions#proxyaccount-vs-relayhub).
-
 We have put together a guide for the universial forwarder, proxy account and gnosis safe:
 
 - Universal Forwarder: Tutorial to be completed soon.
