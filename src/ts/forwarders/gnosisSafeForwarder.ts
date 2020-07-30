@@ -313,7 +313,9 @@ export class GnosisSafeForwarder
       AddressZero,
     ]);
 
-    const salt = keccak256(defaultAbiCoder.encode(["uint"], [this.chainID]));
+    const salt = keccak256(
+      defaultAbiCoder.encode(["uint", "string"], [this.chainID, "anydotcryto"])
+    );
 
     const callData = this.proxyFactory.interface.functions.createProxyWithNonce.encode(
       [this.gnosisSafeMaster.address, setup, salt]
@@ -357,7 +359,9 @@ export class GnosisSafeForwarder
       options?.gnosisSafeMasterAddress || GNOSIS_SAFE_ADDRESS
     );
 
-    const salt = keccak256(defaultAbiCoder.encode(["uint"], [chainId]));
+    const salt = keccak256(
+      defaultAbiCoder.encode(["uint", "string"], [chainId, "anydotcryto"])
+    );
 
     const create2Options: Create2Options = {
       from: options?.proxyFactoryAddress || PROXY_FACTORY_ADDRESS,
