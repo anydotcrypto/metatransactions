@@ -925,7 +925,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
+      let deployProxy = await forwarder.getWalletDeployTransaction();
 
       await admin.sendTransaction({
         to: deployProxy.to,
@@ -1010,7 +1010,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
+      let deployProxy = await forwarder.getWalletDeployTransaction();
 
       await admin.sendTransaction({
         to: deployProxy.to,
@@ -1101,7 +1101,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
+      let deployProxy = await forwarder.getWalletDeployTransaction();
 
       await admin.sendTransaction({
         to: deployProxy.to,
@@ -1185,7 +1185,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
+      let deployProxy = await forwarder.getWalletDeployTransaction();
 
       await admin.sendTransaction({
         to: deployProxy.to,
@@ -1281,7 +1281,7 @@ describe("ProxyAccountDeployer", () => {
       );
 
       // Deploy proxy contract
-      let deployProxy = await forwarder.createProxyContract();
+      let deployProxy = await forwarder.getWalletDeployTransaction();
 
       await admin.sendTransaction({
         to: deployProxy.to,

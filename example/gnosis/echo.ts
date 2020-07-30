@@ -47,11 +47,11 @@ async function setup() {
     user.address
   );
 
-  const isGnosisSafeDeployed = await gnosisForwarder.isContractDeployed();
+  const isGnosisSafeDeployed = await gnosisForwarder.isWalletDeployed();
   console.log("Do we need to deploy a gnosis safe? " + !isGnosisSafeDeployed);
 
   if (!isGnosisSafeDeployed) {
-    const deployProxy = await gnosisForwarder.createProxyContract();
+    const deployProxy = await gnosisForwarder.getWalletDeployTransaction();
     const proxyTx = await user.sendTransaction({
       to: deployProxy.to,
       data: deployProxy.data,

@@ -65,7 +65,7 @@ async function deployWalletContract(
   owner: Wallet,
   forwarder: any
 ): Promise<number> {
-  const deployProxy = await forwarder.createProxyContract(); // Does not exist on Forwarder, so using any for now
+  const deployProxy = await forwarder.getWalletDeployTransaction(); // Does not exist on Forwarder, so using any for now
 
   const tx = await owner.sendTransaction({
     to: deployProxy.to,
@@ -73,7 +73,7 @@ async function deployWalletContract(
   });
 
   const deployReceipt = await tx.wait(1);
-  expect(await forwarder.isContractDeployed()).to.be.true;
+  expect(await forwarder.isWalletDeployed()).to.be.true;
 
   return deployReceipt.gasUsed!.sub(txOverhead).toNumber();
 }

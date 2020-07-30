@@ -119,9 +119,9 @@ describe("End to End Library to Contract", () => {
           new BitFlipReplayProtection(owner, proxyAccountAddress)
         );
 
-        const deployed = await forwarder.isContractDeployed();
+        const deployed = await forwarder.isWalletDeployed();
         if (!deployed) {
-          const minimalTx = await forwarder.createProxyContract();
+          const minimalTx = await forwarder.getWalletDeployTransaction();
           await owner.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -238,10 +238,10 @@ describe("End to End Library to Contract", () => {
           new MultiNonceReplayProtection(1, owner, proxyAccountAddress)
         );
 
-        const deployed = await forwarder.isContractDeployed();
+        const deployed = await forwarder.isWalletDeployed();
 
         if (!deployed) {
-          const minimalTx = await forwarder.createProxyContract();
+          const minimalTx = await forwarder.getWalletDeployTransaction();
           await owner.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,
@@ -306,10 +306,10 @@ describe("End to End Library to Contract", () => {
           new MultiNonceReplayProtection(queues, owner, proxyAccountAddress)
         );
 
-        const deployed = await forwarder.isContractDeployed();
+        const deployed = await forwarder.isWalletDeployed();
 
         if (!deployed) {
-          const minimalTx = await forwarder.createProxyContract();
+          const minimalTx = await forwarder.getWalletDeployTransaction();
           await owner.sendTransaction({
             to: minimalTx.to,
             data: minimalTx.data,

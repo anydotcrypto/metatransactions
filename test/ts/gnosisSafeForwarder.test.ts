@@ -41,10 +41,10 @@ async function setupProxy(
     }
   );
 
-  const tx = await gnosisForwarder.createProxyContract();
+  const tx = await gnosisForwarder.getWalletDeployTransaction();
 
   await (await owner.sendTransaction(tx)).wait();
-  expect(await gnosisForwarder.isContractDeployed(), "deployed").to.be.true;
+  expect(await gnosisForwarder.isWalletDeployed(), "deployed").to.be.true;
 
   return { gnosisForwarder };
 }
@@ -441,7 +441,7 @@ describe(GnosisSafeForwarder.name, () => {
           proxyFactoryAddress: proxyFactory.address,
         })
       );
-      expect(await gnosisForwarder.isContractDeployed()).to.be.true;
+      expect(await gnosisForwarder.isWalletDeployed()).to.be.true;
     }
   );
 });

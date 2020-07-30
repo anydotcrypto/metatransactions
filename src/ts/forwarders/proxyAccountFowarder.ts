@@ -270,7 +270,7 @@ export class ProxyAccountForwarder
    * @returns The proxy deployer address and the calldata for creating proxy account
    * @throws If the proxy account already exists
    */
-  public async createProxyContract(): Promise<MinimalTx> {
+  public async getWalletDeployTransaction(): Promise<MinimalTx> {
     const callData = this.proxyDeployer.interface.functions.createProxyAccount.encode(
       [await this.signer.getAddress()]
     );

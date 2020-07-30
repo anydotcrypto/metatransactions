@@ -52,11 +52,11 @@ async function setup() {
     user
   );
 
-  const isProxyDeployed = await proxyAccount.isContractDeployed();
+  const isProxyDeployed = await proxyAccount.isWalletDeployed();
   console.log("Do we need to deploy a proxy account? " + !isProxyDeployed);
 
   if (!isProxyDeployed) {
-    const deployProxy = await proxyAccount.createProxyContract();
+    const deployProxy = await proxyAccount.getWalletDeployTransaction();
     const proxyTx = await user.sendTransaction({
       to: deployProxy.to,
       data: deployProxy.data,

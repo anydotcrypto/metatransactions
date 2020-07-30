@@ -71,7 +71,7 @@ describe("Proxy Account Forwarder", () => {
       new MultiNonceReplayProtection(10, user1, proxyAccountAddress)
     );
 
-    const encoded = await proxyForwarder.createProxyContract();
+    const encoded = await proxyForwarder.getWalletDeployTransaction();
 
     await user1.sendTransaction({
       to: encoded.to,
@@ -319,7 +319,7 @@ describe("Proxy Account Forwarder", () => {
       ReplayProtectionType.MULTINONCE
     );
 
-    const encoded = await forwarder.createProxyContract();
+    const encoded = await forwarder.getWalletDeployTransaction();
     await admin.sendTransaction({ to: encoded.to, data: encoded.data });
 
     const baseAccount = await proxyDeployer.baseAccount();
@@ -341,7 +341,7 @@ describe("Proxy Account Forwarder", () => {
 
     expect(forwarder.address).to.eq(proxyAddress);
 
-    expect(await forwarder.isContractDeployed()).to.be.true;
+    expect(await forwarder.isWalletDeployed()).to.be.true;
   }).timeout(50000);
 
   it("Deploy a new meta-contract with the ProxyAccountDeployer installed.", async () => {
@@ -597,10 +597,10 @@ describe("Proxy Account Forwarder", () => {
     const multiSender = new MultiSender();
 
     // Double-check the proxy contract is not yet deployed
-    expect(await forwarder.isContractDeployed()).to.be.false;
+    expect(await forwarder.isWalletDeployed()).to.be.false;
 
     // Sign meta-deployment
-    let deployProxy = await forwarder.createProxyContract();
+    let deployProxy = await forwarder.getWalletDeployTransaction();
 
     // Sign the meta-tx
     const msgSenderExampleData = msgSenderExample.interface.functions.test.encode(
@@ -643,7 +643,7 @@ describe("Proxy Account Forwarder", () => {
     const multiSender = new MultiSender();
 
     // Deploy proxy contract
-    let deployProxy = await forwarder.createProxyContract();
+    let deployProxy = await forwarder.getWalletDeployTransaction();
 
     await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
 
@@ -685,7 +685,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     // deploy the proxy contract
-    const deployProxy = await forwarder.createProxyContract();
+    const deployProxy = await forwarder.getWalletDeployTransaction();
     await admin.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
 
     // omit the value field
@@ -726,7 +726,7 @@ describe("Proxy Account Forwarder", () => {
     );
 
     // Deploy proxy contract
-    let deployProxy = await forwarder.createProxyContract();
+    let deployProxy = await forwarder.getWalletDeployTransaction();
 
     await user1.sendTransaction({ to: deployProxy.to, data: deployProxy.data });
 
@@ -771,9 +771,9 @@ describe("Proxy Account Forwarder", () => {
         ProxyAccountForwarder.getAddress(user1.address)
       );
 
-      const tx = await forwarder.createProxyContract();
+      const tx = await forwarder.getWalletDeployTransaction();
       await (await user1.sendTransaction(tx)).wait();
-      expect(await forwarder.isContractDeployed()).to.be.true;
+      expect(await forwarder.isWalletDeployed()).to.be.true;
     }
   );
 });

@@ -85,9 +85,9 @@ const gnosisForwarder = new GnosisSafeForwarder(
 We can deploy the Gnosis Safe contract.
 
 ```js
-const isGnosisSafeDeployed = await gnosisForwarder.isContractDeployed();
+const isGnosisSafeDeployed = await gnosisForwarder.isWalletDeployed();
 if (!isGnosisSafeDeployed) {
-  const minimalTx = await gnosisForwarder.createProxyContract();
+  const minimalTx = await gnosisForwarder.getWalletDeployTransaction();
 
   // For our example we mimic the relayer API with a relayer wallet.
   const gnosisSafeTx = await relayer.sendTransaction({
@@ -164,8 +164,8 @@ In Gnosis Safe, there is a one-to-one mapping for the setup data that includes t
 There are two helper functions:
 
 ```
-const isGnosisSafeDeployed = await gnosisSafeForwarder.isContractDeployed();
-const minimalTx = await gnosisSafeForwarder.createProxyContract();
+const isGnosisSafeDeployed = await gnosisSafeForwarder.isWalletDeployed();
+const minimalTx = await gnosisSafeForwarder.getWalletDeployTransaction();
 ```
 
 The former lets you check if the gnosis safe contract is already deployed. The latter prepares a meta-transaction that can be packed into an Ethereum Transaction to deploy the gnosis safe contract. Note the `MinimalTx` only contains the fields `to, data`.
@@ -186,7 +186,7 @@ const metaTx = await gnosisSafeForwarder.signMetaTransaction({
 });
 ```
 
-It returns a `MinimalTx` that only contains the fields `to, data` which can be packed into an Ethereum Transaction. This takes care of preparing the replay protection & wrapping the call so it can be processed by the proxy account contract.
+It returns a `MinimalTx` that only contains the fields `to, data` which can be packed into an Ethereum Transaction. This takes care of preparing the replay protection & wrapping the call so it can be processed by the gnosis safe contract.
 
 Note there is an additional `callType` field that can be used to decide if it is a `call` or a `delegatecall`. We only discuss call and advanced users can look at the contract on how to use delegatecall.
 

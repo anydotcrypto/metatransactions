@@ -301,7 +301,7 @@ export class GnosisSafeForwarder
    * @returns The proxy deployer address and the calldata for creating proxy account
    * @throws If the proxy account already exists
    */
-  public async createProxyContract(): Promise<MinimalTx> {
+  public async getWalletDeployTransaction(): Promise<MinimalTx> {
     const setup = this.gnosisSafeMaster.interface.functions.setup.encode([
       [await this.signer.getAddress()],
       1,

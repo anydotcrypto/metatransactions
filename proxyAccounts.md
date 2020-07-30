@@ -100,9 +100,9 @@ const forwarder = await new ProxyAccountForwarderFactory().createNew(
 We can deploy the proxy account contract.
 
 ```js
-const isProxyDeployed = await proxyAccountForwarder.isContractDeployed();
+const isProxyDeployed = await proxyAccountForwarder.isWalletDeployed();
 if (!isProxyDeployed) {
-  const minimalTx = await proxyAccountForwarder.createProxyContract();
+  const minimalTx = await proxyAccountForwarder.getWalletDeployTransaction();
 
   // For our example we mimic the relayer API with a relayer wallet.
   const proxyTx = await relayer.sendTransaction({
@@ -179,8 +179,8 @@ Thanks to the ProxyDeployer, there is a one-to-one mapping for a signer's key an
 There are two helper functions:
 
 ```js
-const isProxyDeployed = await proxyAccountForwarder.isContractDeployed();
-const minimalTx = await proxyAccountForwarder.createProxyContract();
+const isProxyDeployed = await proxyAccountForwarder.isWalletDeployed();
+const minimalTx = await proxyAccountForwarder.getWalletDeployTransaction();
 ```
 
 The former lets you check if the proxy contract is already deployed. The latter prepares a meta-transaction that can be packed into an Ethereum Transaction to deploy the proxy contract. Note the `MinimalTx` only contains the fields `to, data`.
