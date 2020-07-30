@@ -11,13 +11,13 @@ Our meta-transaction library focuses on both approaches and we hope it benefits 
 
 - **A Universal Forwarder**: Our RelayHub.sol can be used for the \_msgSender() standard.
 - **Minimal wallet contract**: Our proxy contract only requires 67k gas to deploy & 26k gas per transaction. It is minimal code and supports batching transactions. As well, its replay protection supports out of order-transactions (bitflip) and concurrent transactions (multinonce).
-- **GnosisSafe**: We have incorporated GnosisSafe and our library tracks the replay protection nonce such that it is meta-transaction friendly. It is an audited wallet contract that is increasingly widely used.
+- **GnosisSafe**: We have incorporated [GnosisSafe](https://github.com/gnosis/safe-contracts) and our library tracks the replay protection nonce such that it is meta-transaction friendly. It is an audited wallet contract that is increasingly widely used.
 
 **Our repository is a protocol and relay-independent approach** that any project can adopt. We hope it will make it easier for projects to tap into third party relayer APIs and to avoid re-implementing the wheel for reliable transaction infrastructure.
 
 # Getting started
 
-We have put together a guide for the universial forwarder, proxy account and gnosis safe:
+We have put together a guide for the universal forwarder, proxy account and gnosis safe:
 
 - Universal Forwarder: Tutorial to be completed soon.
 - [GnosisSafe Forwarder](./gnosisSafe.md#gnosis-safe-forwarder): An audited wallet contract implementation by Gnosis and we follow the nonce signature path. Thus it is meta-transaction safe.

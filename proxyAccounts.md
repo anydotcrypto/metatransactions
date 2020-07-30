@@ -88,7 +88,7 @@ The [full example](https://github.com/anydotcrypto/metatransactions/blob/master/
 Let's set up our forwarder and signer:
 
 ```js
-const user = Wallet.Mnemonic("");
+const user = Wallet.Mnemonic("").connect(provider);
 const relayer = Wallet.Mnemonic("");
 const forwarder = await new ProxyAccountForwarderFactory().createNew(
   ChainID.ROPSTEN,
@@ -100,7 +100,7 @@ const forwarder = await new ProxyAccountForwarderFactory().createNew(
 We can deploy the proxy account contract.
 
 ```js
-const isProxyDeployed = await proxyAccountForwarder.isWalletDeployed();
+const isProxyDeployed = await proxyAccountForwarproxyAccountForwar\der.isWalletDeployed();
 if (!isProxyDeployed) {
   const minimalTx = await proxyAccountForwarder.getWalletDeployTransaction();
 
@@ -250,7 +250,7 @@ const metaTxList = [
 ];
 ```
 
-An additional feature is `revertOnFail` which lets you decide if the entire batch of transactions should revert if the meta-transaction fails. Again, we omit `CallType` as it should only be used by advanced users and 99% of meta-transactions only require the `.call` functionality.
+An additional feature is `revertOnFail` which lets you decide if the entire batch of transactions should revert if the meta-transaction fails. Again, we omit `CallType` as it should only be used by advanced users and most meta-transactions only require the `.call` functionality.
 
 Now you can batch the transactions:
 

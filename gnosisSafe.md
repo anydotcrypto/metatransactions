@@ -31,7 +31,7 @@ The Gnosis Safe library only supports NONCE replay protection. Check out our [wa
 To instantiate the Gnosis Safe forwarder:
 
 ```js
-const signer = Wallet.Mnemonic("");
+const signer = Wallet.Mnemonic("").connect(provider);
 const gnosisForwarder = new GnosisSafeForwarder(
   ChainID.ROPSTEN,
   signer,
@@ -235,7 +235,7 @@ const metaTxList = [
 ];
 ```
 
-An additional feature is `revertOnFail` which lets you decide if the entire batch of transactions should revert if the meta-transaction fails. Again, we omit `CallType` as it should only be used by advanced users and 99% of meta-transactions only require the `.call` functionality.
+An additional feature is `revertOnFail` which lets you decide if the entire batch of transactions should revert if the meta-transaction fails. Again, we omit `CallType` as it should only be used by advanced users and most meta-transactions only require the `.call` functionality.
 
 Now you can batch the transactions:
 
