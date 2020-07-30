@@ -16,7 +16,7 @@ If you want to make sure everything is set up:
 npm run test
 ```
 
-## Generate seed & wallet address 
+## Generate seed & wallet address
 
 To run the example you will need a 12-word seed:
 
@@ -24,14 +24,14 @@ To run the example you will need a 12-word seed:
 npm run generateSeed
 ```
 
-This will print out a 12-word seed & an Ethereum Wallet: 
+This will print out a 12-word seed & an Ethereum Wallet:
 
 ```
 Wallet address: 0xBEBb4F959679EaDB2fa848a1b96662F8b3BB0Bcf
 12-word seed: matrix uncover caution action broken tone diary curtain manual similar call symbol
 ```
 
-Use the 12-word seed to fill in the USER_MNEMONIC in the example script.
+Use the 12-word seed to fill in the USER_MNEMONIC in `gnosis/echo.ts` and `proxyaccount/echo.ts`:
 
 ```
 export const USER_MNEMONIC = "matrix uncover caution action broken tone diary curtain manual similar call symbol":
@@ -39,12 +39,14 @@ export const USER_MNEMONIC = "matrix uncover caution action broken tone diary cu
 
 ## Run examples
 
-To run the proxy account example:
+To run the examples:
+
 ```
-npm run echo-example
+npm run proxy-echo-example
+npm run gnosis-echo-example
 ```
 
-If all goes well, you will see:
+If all goes well, you will see for each script:
 
 ```
 Wallet address: 0xAB8878261DC9d700aFC3f774a90eA75B1EC35d2F
@@ -58,4 +60,4 @@ Send echo broadcast: https://ropsten.etherscan.io/tx/0x360d48448ef5d5931cad4169c
 Message in Echo Contract: any.sender is nice
 ```
 
-Well done! And now appreciate how simple the example code is :) 
+Well done! And now appreciate how simple the example code is :)

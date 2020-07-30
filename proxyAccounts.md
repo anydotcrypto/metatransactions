@@ -222,7 +222,7 @@ const metaDeploy = await proxyAccountForwarder.signMetaTransaction({
 
 The `signMetaTransaction` function prepares a `MinimalTx` for the deployment. Again it only contains a `to,value,data` that can be packed in the Ethereum Transaction. In reality, it is using `delegatecall` from the proxy contract into a global deployer contract and then deploy the smart contract.
 
-The `buildDeployedContractAddress` computes the address for the contract. It just requires the `initCode` and the `salt` used for the deployment.
+The `computeAddressForDeployedContract` computes the address for the contract. It just requires the `initCode` and the `salt` used for the deployment.
 
 ## Send a batch of meta-transactions
 
