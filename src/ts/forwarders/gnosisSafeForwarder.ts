@@ -8,6 +8,7 @@ import {
   hexlify,
   concat,
   BigNumber,
+  solidityPack,
 } from "ethers/utils";
 import { GnosisReplayProtection } from "../replayProtection/gnosisNonce";
 import { MultiSender } from "../batch/multiSend";
@@ -24,6 +25,7 @@ import {
   GNOSIS_SAFE_ADDRESS,
   PROXY_FACTORY_ADDRESS,
   MULTI_SEND_ADDRESS,
+  PROXY_FACTORY_ADDRESS_MAINNET,
 } from "../../deployment/addresses";
 import { Signer } from "ethers";
 import {
@@ -337,8 +339,9 @@ export class GnosisSafeForwarder
     signersAddress: string,
     chainId: number,
     options?: {
-      gnosisSafeMasterAddress?: string;
-      proxyFactoryAddress?: string;
+      gnosisSafeMasterAddress: string;
+      proxyFactoryAddress: string;
+      creationCode?: string; // It can be fetched using await new ProxyFactoryFactory(user).attach(PROXY_FACTORY_ADDRESS_MAINNET).proxyCreationCode();
     }
   ): string {
     const gnosisSafeInterface = new GnosisSafeFactory()
@@ -355,9 +358,32 @@ export class GnosisSafeForwarder
       AddressZero,
     ]);
 
-    const deployTx = new GnosisProxyFactory().getDeployTransaction(
-      options?.gnosisSafeMasterAddress || GNOSIS_SAFE_ADDRESS
-    );
+    let deploymentCode = "";
+
+    /**
+     *  We need to use the creationCode for the Proxy that exists in the the ProxyFactory. We cannot just easily fetch it
+     *  within this function as it is not async. If people are using our own library or mainnet, then we can fill it in
+     *  automatically for them.
+     */
+    if (
+      options?.proxyFactoryAddress &&
+      options.proxyFactoryAddress == PROXY_FACTORY_ADDRESS_MAINNET
+    ) {
+      const creationCode =
+        "0x608060405234801561001057600080fd5b506040516101e73803806101e78339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260248152602001806101c36024913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060aa806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea265627a7a72315820d8a00dc4fe6bf675a9d7416fc2d00bb3433362aa8186b750f76c4027269667ff64736f6c634300050e0032496e76616c6964206d617374657220636f707920616464726573732070726f7669646564";
+      deploymentCode = solidityPack(
+        ["bytes", "uint"],
+        [
+          options?.creationCode || creationCode,
+          options?.gnosisSafeMasterAddress || GNOSIS_SAFE_ADDRESS,
+        ]
+      );
+    } else {
+      const deployTx = new GnosisProxyFactory().getDeployTransaction(
+        options?.gnosisSafeMasterAddress || GNOSIS_SAFE_ADDRESS
+      );
+      deploymentCode = deployTx.data! as string;
+    }
 
     const salt = keccak256(
       defaultAbiCoder.encode(["uint", "string"], [chainId, "anydotcryto"])
@@ -366,7 +392,7 @@ export class GnosisSafeForwarder
     const create2Options: Create2Options = {
       from: options?.proxyFactoryAddress || PROXY_FACTORY_ADDRESS,
       salt: solidityKeccak256(["bytes32", "uint"], [keccak256(setup), salt]),
-      initCode: deployTx.data,
+      initCode: deploymentCode,
     };
 
     return getCreate2Address(create2Options);
