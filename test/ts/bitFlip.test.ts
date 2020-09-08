@@ -1,7 +1,7 @@
 import "mocha";
 import * as chai from "chai";
 import { solidity, loadFixture } from "ethereum-waffle";
-import { BigNumber, defaultAbiCoder, bigNumberify } from "ethers/utils";
+import { BigNumber, defaultAbiCoder } from "ethers/utils";
 import { RelayHubFactory } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";

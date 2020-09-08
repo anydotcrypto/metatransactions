@@ -6,7 +6,7 @@ import {
   keccak256,
 } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { ChainID } from "./forwarderFactory";
+import { ChainID, ReplayProtectionType } from "./forwarderFactory";
 import {
   ProxyAccountDeployer,
   ProxyAccountFactory,
@@ -135,7 +135,7 @@ export class ProxyAccountForwarder
     const functionArgs: {
       _metaTx: Required<ProxyAccountCallData>;
       _replayProtection: string;
-      _replayProtectionAuthority: string;
+      _replayProtectionType: ReplayProtectionType;
       _signature: string;
     } = {
       _metaTx: {
@@ -145,7 +145,7 @@ export class ProxyAccountForwarder
         callType: parsedTransaction.args[0][3],
       },
       _replayProtection: parsedTransaction.args[1],
-      _replayProtectionAuthority: parsedTransaction.args[2],
+      _replayProtectionType: parsedTransaction.args[2],
       _signature: parsedTransaction.args[3],
     };
     return functionArgs;
@@ -162,7 +162,7 @@ export class ProxyAccountForwarder
     const functionArgs: {
       _metaTxList: Required<RevertableProxyAccountCallData>[];
       _replayProtection: string;
-      _replayProtectionAuthority: string;
+      _replayProtectionType: ReplayProtectionType;
       _signature: string;
     } = {
       _metaTxList: parsedTransaction.args[0].map((a: any) => ({
@@ -173,7 +173,7 @@ export class ProxyAccountForwarder
         callType: a[4],
       })),
       _replayProtection: parsedTransaction.args[1],
-      _replayProtectionAuthority: parsedTransaction.args[2],
+      _replayProtectionType: parsedTransaction.args[2],
       _signature: parsedTransaction.args[3],
     };
     return functionArgs;
@@ -191,7 +191,7 @@ export class ProxyAccountForwarder
   protected async encodeForForward(
     data: ProxyAccountCallData,
     replayProtection: string,
-    replayProtectionAuthority: string,
+    replayProtectionType: ReplayProtectionType,
     signature: string
   ): Promise<string> {
     const proxyAccount = new ProxyAccountFactory(this.signer).attach(
@@ -200,7 +200,7 @@ export class ProxyAccountForwarder
     const txData = proxyAccount.interface.functions.forward.encode([
       this.defaultCallData(data),
       replayProtection,
-      replayProtectionAuthority,
+      replayProtectionType,
       signature,
     ]);
     return txData;
@@ -222,7 +222,7 @@ export class ProxyAccountForwarder
   protected async encodeForBatchForward(
     txBatch: RevertableProxyAccountCallData[],
     replayProtection: string,
-    replayProtectionAuthority: string,
+    replayProtectionType: ReplayProtectionType,
     signature: string
   ): Promise<string> {
     const metaTxList = txBatch.map((b) => this.defaultRevertableCallData(b));
@@ -234,7 +234,7 @@ export class ProxyAccountForwarder
     return proxyAccountInterface.functions.batch.encode([
       metaTxList,
       replayProtection,
-      replayProtectionAuthority,
+      replayProtectionType,
       signature,
     ]);
   }

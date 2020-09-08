@@ -26,8 +26,6 @@ contract BatchInternal is CallTypes, RevertMessage {
         for(uint i=0; i<_metaTxList.length; i++) {
             bool success;
             bytes memory returnedData;
-
-            require(_metaTxList[i].callType == CallType.CALL || _metaTxList[i].callType == CallType.DELEGATE, "CallType not set.");
             
             if(_metaTxList[i].callType == CallType.CALL) {
                 (success, returnedData) = _metaTxList[i].to.call{value: _metaTxList[i].value}(abi.encodePacked(_metaTxList[i].data));

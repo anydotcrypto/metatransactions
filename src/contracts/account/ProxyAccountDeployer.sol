@@ -25,26 +25,48 @@ contract ProxyAccount is ReplayProtection, BatchInternal {
         require(owner == address(0), "Owner is already set");
         owner = _owner;
     }
+    
+    /**
+     * Authenticates the signer. Reverts on fail. 
+     * @param _callData An encoded list of meta-transactions (can be 1)
+     * @param _replayProtection Replay protection data
+     * @param _replayProtectionType Multinonce or Bitflip
+     * @param _signature Signature from signer
+     */
+    function authenticateSigner(bytes memory _callData,
+        bytes memory _replayProtection,
+        ReplayProtectionType _replayProtectionType,
+        bytes memory _signature) internal {
+
+        // Extract signer's address.
+        bytes memory signedData = abi.encode(_callData, _replayProtection, _replayProtectionType, address(this), getChainID());
+        bytes32 txid = keccak256(signedData);
+        address signer =  ECDSA.recover(ECDSA.toEthSignedMessageHash(txid), _signature);
+        require(owner == signer, "Owner did not sign this meta-transaction.");
+
+        // Reverts on fail
+        verify(_replayProtection, _replayProtectionType, owner, txid);
+
+    }
 
     /**
      * We check the signature has authorised the call before executing it.
      * @param _metaTx A single meta-transaction that includes to, value and data
      * @param _replayProtection Replay protection
-     * @param _replayProtectionAuthority Address of external replay protection
+     * @param _replayProtectionType Address of external replay protection
      * @param _signature Signature from signer
      */
     function forward(
         MetaTx memory _metaTx,
         bytes memory _replayProtection,
-        address _replayProtectionAuthority,
+        ReplayProtectionType _replayProtectionType,
         bytes memory _signature) public returns (bool, bytes memory) {
 
         // Assumes that ProxyAccountDeployer is ReplayProtection. 
-        bytes memory encodedData = abi.encode(_metaTx.callType, _metaTx.to, _metaTx.value, _metaTx.data);
+        bytes memory callData = abi.encode(_metaTx.callType, _metaTx.to, _metaTx.value, _metaTx.data);
 
-        // // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
-        require(_metaTx.callType == CallType.CALL || _metaTx.callType == CallType.DELEGATE, "Signer did not pick a valid calltype");
+        // Reverts on fail
+        authenticateSigner(callData, _replayProtection, _replayProtectionType, _signature);
 
         bool success;
         bytes memory returnData;
@@ -72,18 +94,18 @@ contract ProxyAccount is ReplayProtection, BatchInternal {
      * Potentially reverts on fail.
      * @param _metaTxList List of revertable meta-transactions
      * @param _replayProtection Replay protection
-     * @param _replayProtectionAuthority Address of external replay protection
+     * @param _replayProtectionType Address of external replay protection
      * @param _signature Signature from signer
      */
     function batch(RevertableMetaTx[] memory _metaTxList,
         bytes memory _replayProtection,
-        address _replayProtectionAuthority,
+        ReplayProtectionType _replayProtectionType,
         bytes memory _signature) public {
 
-        bytes memory encodedData = abi.encode(CallType.BATCH, _metaTxList);
+        bytes memory callData = abi.encode(CallType.BATCH, _metaTxList);
 
-        // Reverts if fails.
-        require(owner == verify(encodedData, _replayProtection, _replayProtectionAuthority, _signature), "Owner did not sign this meta-transaction.");
+        // Reverts on fail
+        authenticateSigner(callData, _replayProtection, _replayProtectionType, _signature);
 
         // Runs the batch function in MultiSend.
         // It supports CALL and DELEGATECALL.

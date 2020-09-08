@@ -14,6 +14,8 @@ import {
   GnosisSafe,
   ProxyFactory,
   MULTI_SEND_ADDRESS,
+  GNOSIS_SAFE_ADDRESS_MAINNET,
+  PROXY_FACTORY_ADDRESS_MAINNET,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -442,6 +444,24 @@ describe(GnosisSafeForwarder.name, () => {
         })
       );
       expect(await gnosisForwarder.isWalletDeployed()).to.be.true;
+    }
+  );
+
+  fnIt<GnosisSafeForwarder>(
+    () => GnosisSafeForwarder.getAddress,
+    "test some pre-computed addresses",
+    async () => {
+      // Ensure that pre-computed addresses will not change. This relies on Gnosis mainnet deployer. It should NOT change.
+      expect("0x9505538D02eA45b93d531FEB2D3EBaFDAbC74607").to.eq(
+        GnosisSafeForwarder.getAddress(
+          "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+          ChainID.MAINNET,
+          {
+            gnosisSafeMasterAddress: GNOSIS_SAFE_ADDRESS_MAINNET,
+            proxyFactoryAddress: PROXY_FACTORY_ADDRESS_MAINNET,
+          }
+        )
+      );
     }
   );
 });

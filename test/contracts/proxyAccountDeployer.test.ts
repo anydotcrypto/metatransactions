@@ -11,7 +11,6 @@ import {
   solidityKeccak256,
   Interface,
 } from "ethers/utils";
-import { AddressZero } from "ethers/constants";
 
 import Doppelganger from "ethereum-doppelganger";
 import { fnIt } from "@pisa-research/test-utils";
@@ -34,7 +33,7 @@ import {
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
-import { ForwardParams, CallType } from "../../src/ts/forwarders/forwarder";
+import { CallType } from "../../src/ts/forwarders/forwarder";
 import { Create2Options, getCreate2Address } from "ethers/utils/address";
 import { ethers } from "ethers";
 import { abi } from "../../src/typedContracts/ProxyAccount.json";
@@ -44,25 +43,6 @@ let accountClass: ProxyAccount;
 
 type proxyDeployerFunctions = typeof hubClass.functions;
 type accountFunctions = typeof accountClass.functions;
-
-export const constructDigest = (params: ForwardParams) => {
-  return arrayify(
-    keccak256(
-      defaultAbiCoder.encode(
-        ["address", "address", "uint", "bytes", "bytes", "address", "uint"],
-        [
-          params.to,
-          params.target,
-          params.value,
-          params.data,
-          params.replayProtection,
-          params.replayProtectionAuthority,
-          params.chainId,
-        ]
-      )
-    )
-  );
-};
 
 async function createProxyAccountDeployer(
   provider: Provider,
@@ -102,45 +82,6 @@ async function createProxyAccountDeployer(
 describe("ProxyAccountDeployer", () => {
   fnIt<proxyDeployerFunctions>(
     (a) => a.createProxyAccount,
-    "verify the multinonce and bitflip values are correct",
-    async () => {
-      const { proxyDeployer, sender } = await loadFixture(
-        createProxyAccountDeployer
-      );
-      await proxyDeployer.connect(sender).createProxyAccount(sender.address);
-      const baseAccount = await proxyDeployer.baseAccount();
-      const saltHex = solidityKeccak256(["address"], [sender.address]);
-      const byteCodeHash = solidityKeccak256(
-        ["bytes", "bytes20", "bytes"],
-        [
-          "0x3d602d80600a3d3981f3363d3d373d3d3d363d73",
-          baseAccount,
-          "0x5af43d82803e903d91602b57fd5bf3",
-        ]
-      );
-      const options: Create2Options = {
-        from: proxyDeployer.address,
-        salt: saltHex,
-        initCodeHash: byteCodeHash,
-      };
-      const proxyAddress = getCreate2Address(options);
-
-      const builtAddress = ProxyAccountForwarder.getAddress(sender.address);
-
-      // Computed offchain
-      expect(proxyAddress).to.eq(builtAddress);
-
-      const proxyAccount = new ProxyAccountFactory(sender).attach(builtAddress);
-      const multinonce = await proxyAccount.multiNonceAddress();
-      const bitflip = await proxyAccount.bitFlipAddress();
-
-      expect(multinonce).to.eq(AddressZero);
-      expect(bitflip).to.eq("0x0000000000000000000000000000000000000001");
-    }
-  );
-
-  fnIt<proxyDeployerFunctions>(
-    (a) => a.createProxyAccount,
     "create proxy account with deterministic address (and compute offchain deterministic address)",
     async () => {
       const { proxyDeployer, sender } = await loadFixture(
@@ -169,6 +110,15 @@ describe("ProxyAccountDeployer", () => {
 
       // Computed offchain
       expect(proxyAddress).to.eq(builtAddress);
+
+      const installedOwner = await new ProxyAccountFactory(sender)
+        .attach(builtAddress)
+        .owner();
+
+      expect(sender.address.toLowerCase()).to.eq(
+        installedOwner.toLowerCase(),
+        "Owner should be installed"
+      );
     }
   );
 
@@ -238,7 +188,7 @@ describe("ProxyAccountDeployer", () => {
           callType: params._metaTx.callType,
         },
         params._replayProtection,
-        params._replayProtectionAuthority,
+        params._replayProtectionType,
         params._signature
       );
 
@@ -594,7 +544,7 @@ describe("ProxyAccountDeployer", () => {
           callType: params._metaTx.callType,
         },
         params._replayProtection,
-        params._replayProtectionAuthority,
+        params._replayProtectionType,
         "0x0000000000000000000000000000000000000000"
       );
 
@@ -636,7 +586,7 @@ describe("ProxyAccountDeployer", () => {
           value: forwardParams._metaTx.value,
         },
         forwardParams._replayProtection,
-        forwardParams._replayProtectionAuthority,
+        forwardParams._replayProtectionType,
         forwardParams._signature
       );
 
@@ -690,7 +640,7 @@ describe("ProxyAccountDeployer", () => {
           callType: params._metaTx.callType,
         },
         params._replayProtection,
-        params._replayProtectionAuthority,
+        params._replayProtectionType,
         params._signature
       );
 
@@ -895,7 +845,7 @@ describe("ProxyAccountDeployer", () => {
           value: forwardParams._metaTx.value,
         },
         forwardParams._replayProtection,
-        forwardParams._replayProtectionAuthority,
+        forwardParams._replayProtectionType,
         forwardParams._signature
       );
 
@@ -954,11 +904,11 @@ describe("ProxyAccountDeployer", () => {
       );
 
       const encodedMetaTx = defaultAbiCoder.encode(
-        ["bytes", "bytes", "address", "address", "uint"],
+        ["bytes", "bytes", "uint", "address", "uint"],
         [
           encodedCallData,
           replayProtection,
-          AddressZero,
+          ReplayProtectionType.MULTINONCE,
           proxyAccountAddress,
           ChainID.MAINNET,
         ]
@@ -975,7 +925,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
         metaTxList,
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         signature,
       ]);
 
@@ -1040,11 +990,11 @@ describe("ProxyAccountDeployer", () => {
         [CallType.BATCH, metaTxList]
       );
       const encodedMetaTx = defaultAbiCoder.encode(
-        ["bytes", "bytes", "address", "address", "uint"],
+        ["bytes", "bytes", "uint", "address", "uint"],
         [
           encodedCallData,
           replayProtection,
-          AddressZero,
+          ReplayProtectionType.MULTINONCE,
           proxyAccountAddress,
           ChainID.MAINNET,
         ]
@@ -1061,7 +1011,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
         metaTxList,
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         signature,
       ]);
 
@@ -1131,11 +1081,11 @@ describe("ProxyAccountDeployer", () => {
         [CallType.BATCH, metaTxList]
       );
       const encodedMetaTx = defaultAbiCoder.encode(
-        ["bytes", "bytes", "address", "address", "uint"],
+        ["bytes", "bytes", "uint", "address", "uint"],
         [
           encodedCallData,
           replayProtection,
-          AddressZero,
+          ReplayProtectionType.MULTINONCE,
           proxyAccountAddress,
           ChainID.MAINNET,
         ]
@@ -1152,7 +1102,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
         metaTxList,
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         signature,
       ]);
 
@@ -1223,11 +1173,11 @@ describe("ProxyAccountDeployer", () => {
         [CallType.BATCH, metaTxList]
       );
       const encodedMetaTx = defaultAbiCoder.encode(
-        ["bytes", "bytes", "address", "address", "uint"],
+        ["bytes", "bytes", "uint", "address", "uint"],
         [
           encodedCallData,
           replayProtection,
-          AddressZero,
+          ReplayProtectionType.MULTINONCE,
           proxyAccountAddress,
           ChainID.MAINNET,
         ]
@@ -1243,7 +1193,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
         metaTxList,
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         signature,
       ]);
 
@@ -1319,11 +1269,11 @@ describe("ProxyAccountDeployer", () => {
         [CallType.BATCH, metaTxList]
       );
       const encodedMetaTx = defaultAbiCoder.encode(
-        ["bytes", "bytes", "address", "address", "uint"],
+        ["bytes", "bytes", "uint", "address", "uint"],
         [
           encodedCallData,
           replayProtection,
-          AddressZero,
+          ReplayProtectionType.MULTINONCE,
           proxyAccountAddress,
           ChainID.MAINNET,
         ]
@@ -1340,7 +1290,7 @@ describe("ProxyAccountDeployer", () => {
       const encodedBatch = proxyAccountInterface.functions.batch.encode([
         metaTxList,
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         signature,
       ]);
 

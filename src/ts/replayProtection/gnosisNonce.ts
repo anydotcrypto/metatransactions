@@ -3,6 +3,7 @@ import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 import { GnosisSafeFactory } from "../../gnosisTypedContracts/GnosisSafeFactory";
+import { ReplayProtectionType } from "../..";
 
 export class GnosisReplayProtection extends ReplayProtectionAuthority {
   private readonly lock: Lock;
@@ -17,11 +18,7 @@ export class GnosisReplayProtection extends ReplayProtectionAuthority {
    * @param forwarderAddress Proxy Account for Gnosis Safe
    */
   constructor(signer: Signer, readonly forwarderAddress: string) {
-    super(
-      signer,
-      forwarderAddress,
-      "0x0000000000000000000000000000000000000000"
-    );
+    super(signer, forwarderAddress, ReplayProtectionType.NONCE);
     this.lock = new Lock();
   }
 

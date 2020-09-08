@@ -2,6 +2,7 @@ import { defaultAbiCoder, BigNumber } from "ethers/utils";
 import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
+import { ReplayProtectionType } from "../..";
 
 export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
   private index: BigNumber;
@@ -23,11 +24,7 @@ export class MultiNonceReplayProtection extends ReplayProtectionAuthority {
     signer: Signer,
     forwarderAddress: string
   ) {
-    super(
-      signer,
-      forwarderAddress,
-      "0x0000000000000000000000000000000000000000"
-    );
+    super(signer, forwarderAddress, ReplayProtectionType.MULTINONCE);
     this.lock = new Lock();
     this.index = new BigNumber(0);
     this.nonceTracker = new Map<string, BigNumber>();

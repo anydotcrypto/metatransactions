@@ -3,6 +3,7 @@ import { Signer } from "ethers";
 import { ReplayProtectionAuthority } from "./replayProtectionAuthority";
 import { Lock } from "@pisa-research/utils";
 import BN from "bn.js";
+import { ReplayProtectionType } from "../..";
 
 /**
  * The signer can flip a bit for every new transaction. Each
@@ -28,11 +29,7 @@ export class BitFlipReplayProtection extends ReplayProtectionAuthority {
    * @param forwarderAddress RelayHub or ProxyAccount address
    */
   constructor(signer: Signer, forwarderAddress: string) {
-    super(
-      signer,
-      forwarderAddress,
-      "0x0000000000000000000000000000000000000001"
-    );
+    super(signer, forwarderAddress, ReplayProtectionType.BITFLIP);
     this.lock = new Lock();
   }
 

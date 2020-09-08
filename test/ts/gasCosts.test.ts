@@ -3,18 +3,9 @@ import * as chai from "chai";
 import { solidity, loadFixture, deployContract } from "ethereum-waffle";
 import {
   deployMetaTxContracts,
-  ProxyFactoryFactory,
-  GnosisSafeFactory,
   GnosisSafeForwarder,
   EchoFactory,
-  CounterFactory,
-  ProxyAccountForwarder,
   ProxyAccountForwarderFactory,
-  Forwarder,
-  ProxyAccountDeployCallData,
-  RevertableProxyAccountCallData,
-  RevertableProxyAccountDeployCallData,
-  ProxyAccountCallData,
 } from "../../src";
 
 import { Provider } from "ethers/providers";
@@ -23,14 +14,7 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
-import {
-  parseEther,
-  BigNumber,
-  getCreate2Address,
-  keccak256,
-} from "ethers/utils";
-import { Echo } from "../../src/typedContracts/Echo";
-import { providers } from "ethers";
+import { getCreate2Address, keccak256 } from "ethers/utils";
 
 const expect = chai.expect;
 chai.use(solidity);

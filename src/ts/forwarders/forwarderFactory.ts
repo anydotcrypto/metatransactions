@@ -3,8 +3,8 @@ import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionA
 import { MultiNonceReplayProtection, BitFlipReplayProtection } from "../..";
 
 export enum ReplayProtectionType {
-  BITFLIP,
   MULTINONCE,
+  BITFLIP,
   NONCE,
 }
 

@@ -7,10 +7,12 @@ import "./IReplayProtectionAuthority.sol";
 contract ReplayProtection {
     mapping(bytes32 => uint256) public nonceStore;
 
-    event ReplayProtectionInfo(address replayProtectionAuthority, bytes replayProtection, bytes32 indexed txid);
+    enum ReplayProtectionType {
+        MULTINONCE,
+        BITFLIP
+    }
 
-    address constant public multiNonceAddress = 0x0000000000000000000000000000000000000000;
-    address constant public bitFlipAddress = 0x0000000000000000000000000000000000000001;
+    event ReplayProtectionInfo(ReplayProtectionType replayProtectionType, bytes replayProtection, address _signer, bytes32 indexed txid);
 
     /**
      * Get Ethereum Chain ID
@@ -23,39 +25,26 @@ contract ReplayProtection {
     }
 
     /**
-     * Checks the signer's replay protection and returns the signer's address.
+     * Checks the signer's replay protection.
      * Reverts if fails.
-     *
-     * Why is there no signing authority? An attacker can supply an address that returns a fixed signer
-     * so we need to restrict it to a "pre-approved" list of authorities (DAO).
-     * @param _callData Function name and data to be called
-     * @param _replayProtectionAuthority What replay protection will we check?
+     * @param _replayProtectionType What replay protection will we check?
      * @param _replayProtection Encoded replay protection
-     * @param _signature Signer's signature
+     * @param _signer Signer's address
      */
-    function verify(bytes memory _callData,
+    function verify(
         bytes memory _replayProtection,
-        address _replayProtectionAuthority,
-        bytes memory _signature) internal returns(address){
-
-        // Extract signer's address.
-        bytes memory encodedData = abi.encode(_callData, _replayProtection, _replayProtectionAuthority, address(this), getChainID());
-        bytes32 txid = keccak256(encodedData);
-        address signer =  ECDSA.recover(ECDSA.toEthSignedMessageHash(txid), _signature);
-
+        ReplayProtectionType _replayProtectionType,
+        address _signer, bytes32 _txid) internal {
+        
         // Check the user's replay protection.
-        if(_replayProtectionAuthority == multiNonceAddress) {
+        if(_replayProtectionType == ReplayProtectionType.MULTINONCE) {
             // Assumes authority returns true or false. It may also revert.
-            require(nonce(signer, _replayProtection), "Multinonce replay protection failed");
-        } else if (_replayProtectionAuthority == bitFlipAddress) {
-            require(bitflip(signer, _replayProtection), "Bitflip replay protection failed");
+            require(nonce(_replayProtection, _signer), "Multinonce replay protection failed");
         } else {
-            require(IReplayProtectionAuthority(_replayProtectionAuthority).updateFor(signer, _replayProtection), "Replay protection from authority failed");
+            require(bitflip(_replayProtection, _signer), "Bitflip replay protection failed");
         }
 
-        emit ReplayProtectionInfo(_replayProtectionAuthority, _replayProtection, txid);
-
-        return signer;
+        emit ReplayProtectionInfo(_replayProtectionType, _replayProtection, _signer, _txid);
     }
 
     /**
@@ -63,18 +52,16 @@ contract ReplayProtection {
      * Explained: https://github.com/PISAresearch/metamask-comp#multinonce
      * Allows a user to send N queues of transactions, but transactions in each queue are accepted in order.
      * If queue==0, then it is a single queue (e.g. NONCE replay protection)
-     * @param _replayProtection Contains a single nonce
+     * @param _replayProtection Nonce queue and nonce to increment (uint,uint)
+     * @param _signer Signer's address
      */
-    function nonce(address _signer, bytes memory _replayProtection) internal returns(bool) {
-        uint256 queue;
-        uint256 queueNonce;
-
-        (queue, queueNonce) = abi.decode(_replayProtection, (uint256, uint256));
-        bytes32 index = queueIndex(_signer, queue, multiNonceAddress);
+    function nonce(bytes memory _replayProtection, address _signer) internal returns(bool) {
+        (uint queue, uint nonceInQueue) = abi.decode(_replayProtection, (uint256, uint256));
+        bytes32 index = queueIndex(_signer, queue, ReplayProtectionType.MULTINONCE);
         uint256 storedNonce = nonceStore[index];
 
         // Increment stored nonce by one...
-        if(queueNonce == storedNonce) {
+        if(nonceInQueue == storedNonce) {
             nonceStore[index] = storedNonce + 1;
             return true;
         }
@@ -85,8 +72,10 @@ contract ReplayProtection {
      * Bitflip Replay Protection
      * Explained: https://github.com/PISAresearch/metamask-comp#bitflip
      * Signer flips a bit for every new transaction. Each queue supports 256 bit flips.
+     * @param _replayProtection Nonce queue and the bit to flip (uint,uint)
+     * @param _signer Signer's address
      */
-    function bitflip(address _signer, bytes memory _replayProtection) internal returns(bool) {
+    function bitflip(bytes memory _replayProtection, address _signer) internal returns(bool) {
         (uint256 queue, uint256 bitsToFlip) = abi.decode(_replayProtection, (uint256, uint256));
 
         require(bitsToFlip > 0, "It must flip one bit!");
@@ -96,7 +85,7 @@ contract ReplayProtection {
         require(bitsToFlip & bitsToFlip-1 == 0, "Only a single bit can be flipped");
 
         // Combine with msg.sender to get unique indexes per caller
-        bytes32 index = queueIndex(_signer, queue, bitFlipAddress);
+        bytes32 index = queueIndex(_signer, queue, ReplayProtectionType.BITFLIP);
         uint256 currentBitmap = nonceStore[index];
 
         // This is an AND operation, so if the bitmap
@@ -112,9 +101,12 @@ contract ReplayProtection {
 
     /**
      * A helper function for computing the queue index identifier.
+     * @param _signer Signer's address
+     * @param _queue Queue index
+     * @param _replayProtectionType Multinonce or Bitflip
      */
-    function queueIndex(address _signer, uint _queue, address _authority) internal pure returns(bytes32) {
-        return keccak256(abi.encode(_signer, _queue, _authority));
+    function queueIndex(address _signer, uint _queue, ReplayProtectionType _replayProtectionType) public pure returns(bytes32) {
+        return keccak256(abi.encode(_signer, _queue, _replayProtectionType));
     }
 
 }

@@ -1,4 +1,4 @@
-import { ChainID } from "../..";
+import { ChainID, ReplayProtectionType } from "../..";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
 import { Signer } from "ethers";
 import {
@@ -29,7 +29,7 @@ export interface ForwardParams {
   data: string;
   callType: CallType;
   replayProtection: string;
-  replayProtectionAuthority: string;
+  replayProtectionType: ReplayProtectionType;
   chainId: number;
   signature: string;
 }
@@ -187,14 +187,14 @@ export abstract class MiniForwarder<
   protected abstract async encodeForBatchForward(
     data: TBatchCallData[],
     replayProtection: string,
-    replayProtectionAuthority: string,
+    replayProtectionType: ReplayProtectionType,
     signature: string
   ): Promise<string>;
   protected abstract encodeCallData(data: TCallData): string;
   protected abstract async encodeForForward(
     data: TCallData,
     replayProtection: string,
-    replayProtectionAuthority: string,
+    replayProtectionType: ReplayProtectionType,
     signature: string
   ): Promise<string>;
   public abstract decodeTx(
@@ -202,7 +202,7 @@ export abstract class MiniForwarder<
   ): {
     _metaTx: Required<TCallData>;
     _replayProtection: string;
-    _replayProtectionAuthority: string;
+    _replayProtectionType: ReplayProtectionType;
     _signature: string;
   };
   public abstract decodeBatchTx(
@@ -210,7 +210,7 @@ export abstract class MiniForwarder<
   ): {
     _metaTxList: Required<TBatchCallData[]>;
     _replayProtection: string;
-    _replayProtectionAuthority: string;
+    _replayProtectionType: ReplayProtectionType;
     _signature: string;
   };
 
@@ -225,11 +225,11 @@ export abstract class MiniForwarder<
     const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
 
     const encodedMetaTx = defaultAbiCoder.encode(
-      ["bytes", "bytes", "address", "address", "uint"],
+      ["bytes", "bytes", "uint", "address", "uint"],
       [
         callData,
         replayProtection,
-        this.replayProtectionAuthority.address,
+        this.replayProtectionAuthority.replayProtectionType,
         this.address,
         this.chainID,
       ]
@@ -242,7 +242,7 @@ export abstract class MiniForwarder<
     const encodedTx = await this.encodeForForward(
       data,
       replayProtection,
-      this.replayProtectionAuthority.address,
+      this.replayProtectionAuthority.replayProtectionType,
       signature
     );
 
@@ -263,11 +263,11 @@ export abstract class MiniForwarder<
     const callData = this.encodeBatchCallData(dataList);
     const replayProtection = await this.replayProtectionAuthority.getEncodedReplayProtection();
     const encodedMetaTx = defaultAbiCoder.encode(
-      ["bytes", "bytes", "address", "address", "uint"],
+      ["bytes", "bytes", "uint", "address", "uint"],
       [
         callData,
         replayProtection,
-        this.replayProtectionAuthority.address,
+        this.replayProtectionAuthority.replayProtectionType,
         this.address,
         this.chainID,
       ]
@@ -280,7 +280,7 @@ export abstract class MiniForwarder<
     const encodedTx = await this.encodeForBatchForward(
       dataList,
       replayProtection,
-      this.replayProtectionAuthority.address,
+      this.replayProtectionAuthority.replayProtectionType,
       signature
     );
 

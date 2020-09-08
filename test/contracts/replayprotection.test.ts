@@ -7,13 +7,11 @@ import {
   ReplayProtectionWrapperFactory,
   ReplayProtectionWrapper,
   ChainID,
-  RelayHubFactory,
-  ReplayProtection,
+  ReplayProtectionType,
 } from "../../src";
 import { Provider } from "ethers/providers";
 import { Wallet } from "ethers/wallet";
 import { defaultAbiCoder, keccak256, arrayify, BigNumber } from "ethers/utils";
-import { AddressZero } from "ethers/constants";
 import { Contract } from "ethers";
 import BN from "bn.js";
 import { flipBit } from "../utils/test-utils";
@@ -26,7 +24,7 @@ type replayProtection = typeof dummyAccount.functions;
 
 async function signCall(
   replayProtection: Contract,
-  replayProtectionAuthority: string,
+  replayProtectionType: ReplayProtectionType,
   signer: Wallet,
   nonce1: number,
   nonce2: number
@@ -38,11 +36,11 @@ async function signCall(
   );
 
   const encodedMessage = defaultAbiCoder.encode(
-    ["bytes", "bytes", "address", "address", "uint"],
+    ["bytes", "bytes", "uint", "address", "uint"],
     [
       callData,
       encodedReplayProtection,
-      replayProtectionAuthority,
+      replayProtectionType,
       replayProtection.address,
       ChainID.MAINNET,
     ]
@@ -79,22 +77,6 @@ async function createReplayProtection(
 describe("ReplayProtection", () => {
   fnIt<replayProtection>(
     (a) => a.noncePublic,
-    "check addresses of bitflip and multinonce",
-    async () => {
-      const { replayProtection, admin } = await loadFixture(
-        createReplayProtection
-      );
-
-      const multinonce = await replayProtection.multiNonceAddress();
-      const bitflip = await replayProtection.bitFlipAddress();
-
-      expect(multinonce).to.eq(AddressZero);
-      expect(bitflip).to.eq("0x0000000000000000000000000000000000000001");
-    }
-  );
-
-  fnIt<replayProtection>(
-    (a) => a.noncePublic,
     "increment a single queue once to test NONCE",
     async () => {
       const { replayProtection, admin } = await loadFixture(
@@ -106,12 +88,12 @@ describe("ReplayProtection", () => {
         [0, 0]
       );
 
-      await replayProtection.noncePublic(admin.address, nonceReplayProtection);
+      await replayProtection.noncePublic(nonceReplayProtection, admin.address);
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [admin.address, 0, AddressZero]
+          ["address", "uint", "uint"],
+          [admin.address, 0, ReplayProtectionType.MULTINONCE]
         )
       );
       const storedNonce = await replayProtection.nonceStore(index);
@@ -136,14 +118,14 @@ describe("ReplayProtection", () => {
         );
 
         await replayProtection.noncePublic(
-          admin.address,
-          nonceReplayProtection
+          nonceReplayProtection,
+          admin.address
         );
 
         const index = keccak256(
           defaultAbiCoder.encode(
-            ["address", "uint", "address"],
-            [admin.address, queue, AddressZero]
+            ["address", "uint", "uint"],
+            [admin.address, queue, ReplayProtectionType.MULTINONCE]
           )
         );
         const storedNonce = await replayProtection.nonceStore(index);
@@ -169,14 +151,14 @@ describe("ReplayProtection", () => {
         );
 
         await replayProtection.noncePublic(
-          admin.address,
-          nonceReplayProtection
+          nonceReplayProtection,
+          admin.address
         );
 
         const index = keccak256(
           defaultAbiCoder.encode(
-            ["address", "uint", "address"],
-            [admin.address, queue, AddressZero]
+            ["address", "uint", "uint"],
+            [admin.address, queue, ReplayProtectionType.MULTINONCE]
           )
         );
         const storedNonce = await replayProtection.nonceStore(index);
@@ -202,14 +184,14 @@ describe("ReplayProtection", () => {
           );
 
           await replayProtection.noncePublic(
-            admin.address,
-            nonceReplayProtection
+            nonceReplayProtection,
+            admin.address
           );
 
           const index = keccak256(
             defaultAbiCoder.encode(
-              ["address", "uint", "address"],
-              [admin.address, queue, AddressZero]
+              ["address", "uint", "uint"],
+              [admin.address, queue, ReplayProtectionType.MULTINONCE]
             )
           );
           const storedNonce = await replayProtection.nonceStore(index);
@@ -222,15 +204,15 @@ describe("ReplayProtection", () => {
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
-    "access nonce() via verify (e.g. the replay protection authority)",
+    "access nonce() via verify",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         admin,
         0,
         0
@@ -238,17 +220,15 @@ describe("ReplayProtection", () => {
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [admin.address, 0, AddressZero]
+          ["address", "uint", "uint"],
+          [admin.address, 0, ReplayProtectionType.MULTINONCE]
         )
       );
 
       await replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        AddressZero,
-        admin.address,
-        signedCall
+        ReplayProtectionType.MULTINONCE,
+        admin.address
       );
 
       const nonce = await replayProtection.nonceStore(index);
@@ -265,9 +245,9 @@ describe("ReplayProtection", () => {
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         admin,
         0,
         0
@@ -275,17 +255,15 @@ describe("ReplayProtection", () => {
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [admin.address, 0, "0x0000000000000000000000000000000000000000"]
+          ["address", "uint", "uint"],
+          [admin.address, 0, ReplayProtectionType.MULTINONCE]
         )
       );
 
       await replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        AddressZero,
-        admin.address,
-        signedCall
+        ReplayProtectionType.MULTINONCE,
+        admin.address
       );
 
       const nonce = await replayProtection.nonceStore(index);
@@ -293,11 +271,9 @@ describe("ReplayProtection", () => {
       expect(nonce).to.eq(1);
 
       const tx = replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        AddressZero,
-        admin.address,
-        signedCall
+        ReplayProtectionType.MULTINONCE,
+        admin.address
       );
 
       await expect(tx).to.be.revertedWith(
@@ -314,20 +290,18 @@ describe("ReplayProtection", () => {
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        AddressZero,
+        ReplayProtectionType.MULTINONCE,
         admin,
         0,
         1
       );
 
       const tx = replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        AddressZero,
-        admin.address,
-        signedCall
+        ReplayProtectionType.MULTINONCE,
+        admin.address
       );
 
       await expect(tx).to.be.revertedWith(
@@ -338,30 +312,51 @@ describe("ReplayProtection", () => {
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
-    "access nonce() via verify fails as the nonce queue (nonce1) is the wrong replay protection authority.",
+    "access nonce() via verify fails as the nonce queue (nonce1) is the wrong replay protection type.",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
       );
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000000",
+        ReplayProtectionType.MULTINONCE,
         admin,
         0,
         1
       );
 
       const tx = replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
-        admin.address,
-        signedCall
+        ReplayProtectionType.MULTINONCE,
+        admin.address
       );
 
-      // User signs AddressZero, but the contract computes signature for AddressOne
-      await expect(tx).to.be.revertedWith("Not expected signer");
+      await expect(tx).to.be.revertedWith(
+        "Multinonce replay protection failed"
+      );
+    }
+  );
+
+  fnIt<replayProtection>(
+    (a) => a.verifyPublic,
+    "access a non-existing replay protection type and it should fail",
+    async () => {
+      const { replayProtection, admin } = await loadFixture(
+        createReplayProtection
+      );
+
+      const { encodedReplayProtection } = await signCall(
+        replayProtection,
+        2,
+        admin,
+        0,
+        0
+      );
+
+      await expect(
+        replayProtection.verifyPublic(encodedReplayProtection, 2, admin.address)
+      ).to.be.reverted;
     }
   );
 
@@ -382,18 +377,14 @@ describe("ReplayProtection", () => {
       );
 
       await replayProtection.bitflipPublic(
-        admin.address,
-        nonceReplayProtection
+        nonceReplayProtection,
+        admin.address
       );
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
 
@@ -418,7 +409,7 @@ describe("ReplayProtection", () => {
       );
 
       await expect(
-        replayProtection.bitflipPublic(admin.address, nonceReplayProtection)
+        replayProtection.bitflipPublic(nonceReplayProtection, admin.address)
       ).to.be.revertedWith("It must flip one bit!");
     }
   );
@@ -440,18 +431,14 @@ describe("ReplayProtection", () => {
       );
 
       await replayProtection.bitflipPublic(
-        admin.address,
-        nonceReplayProtection
+        nonceReplayProtection,
+        admin.address
       );
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
 
@@ -459,8 +446,8 @@ describe("ReplayProtection", () => {
       expect(storedNonce.toNumber()).to.eq(flippedBit);
 
       await replayProtection.bitflipPublic(
-        admin.address,
-        nonceReplayProtection
+        nonceReplayProtection,
+        admin.address
       );
 
       storedNonce = await replayProtection.nonceStore(index);
@@ -481,18 +468,14 @@ describe("ReplayProtection", () => {
       // Flip the 1st bit
       const flipBit1 = flipBit(new BigNumber("0"), new BigNumber("0"));
       await replayProtection.bitflipPublic(
-        admin.address,
-        defaultAbiCoder.encode(["uint", "uint"], [bitmapIndex, flipBit1])
+        defaultAbiCoder.encode(["uint", "uint"], [bitmapIndex, flipBit1]),
+        admin.address
       );
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
 
@@ -502,8 +485,8 @@ describe("ReplayProtection", () => {
       // Flip the 10th bit
       const flipBit10 = flipBit(new BigNumber("0"), new BigNumber("10"));
       await replayProtection.bitflipPublic(
-        admin.address,
-        defaultAbiCoder.encode(["uint", "uint"], [bitmapIndex, flipBit10])
+        defaultAbiCoder.encode(["uint", "uint"], [bitmapIndex, flipBit10]),
+        admin.address
       );
 
       storedNonce = await replayProtection.nonceStore(index);
@@ -513,8 +496,8 @@ describe("ReplayProtection", () => {
       // Flip the 200th bit
       const flipBit200 = flipBit(new BigNumber("0"), new BigNumber("200"));
       await replayProtection.bitflipPublic(
-        admin.address,
-        defaultAbiCoder.encode(["uint", "uint"], [bitmapIndex, flipBit200])
+        defaultAbiCoder.encode(["uint", "uint"], [bitmapIndex, flipBit200]),
+        admin.address
       );
 
       storedNonce = await replayProtection.nonceStore(index);
@@ -525,7 +508,7 @@ describe("ReplayProtection", () => {
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
-    "access bitflip() via verify (e.g. the replay protection authority)",
+    "access bitflip() via verify (e.g. the replay protection type)",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
@@ -534,9 +517,9 @@ describe("ReplayProtection", () => {
       const bitmapIndex = 123;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000001",
+        ReplayProtectionType.BITFLIP,
         admin,
         bitmapIndex,
         bitToFlip.toNumber()
@@ -544,21 +527,15 @@ describe("ReplayProtection", () => {
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
 
       await replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
-        admin.address,
-        signedCall
+        ReplayProtectionType.BITFLIP,
+        admin.address
       );
 
       const nonce = await replayProtection.nonceStore(index);
@@ -569,7 +546,7 @@ describe("ReplayProtection", () => {
 
   fnIt<replayProtection>(
     (a) => a.verifyPublic,
-    "access bitflip() via verify with wrong replay protection authority and it should fail",
+    "access bitflip() via verify with wrong replay protection type and it should fail",
     async () => {
       const { replayProtection, admin } = await loadFixture(
         createReplayProtection
@@ -578,9 +555,9 @@ describe("ReplayProtection", () => {
       const bitmapIndex = 6175;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000000",
+        ReplayProtectionType.MULTINONCE,
         admin,
         bitmapIndex,
         bitToFlip.toNumber()
@@ -588,11 +565,9 @@ describe("ReplayProtection", () => {
 
       await expect(
         replayProtection.verifyPublic(
-          callData,
           encodedReplayProtection,
-          "0x0000000000000000000000000000000000000000",
-          admin.address,
-          signedCall
+          ReplayProtectionType.MULTINONCE,
+          admin.address
         )
       ).to.be.revertedWith("Multinonce replay protection failed");
     }
@@ -610,28 +585,22 @@ describe("ReplayProtection", () => {
 
       const { callData, encodedReplayProtection, signedCall } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000001",
+        ReplayProtectionType.BITFLIP,
         admin,
         bitmapIndex,
         bitToFlip.toNumber()
       );
 
       await replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
-        admin.address,
-        signedCall
+        ReplayProtectionType.BITFLIP,
+        admin.address
       );
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
       const nonce = await replayProtection.nonceStore(index);
@@ -640,11 +609,9 @@ describe("ReplayProtection", () => {
 
       await expect(
         replayProtection.verifyPublic(
-          callData,
           encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
-          admin.address,
-          signedCall
+          ReplayProtectionType.BITFLIP,
+          admin.address
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
     }
@@ -686,9 +653,9 @@ describe("ReplayProtection", () => {
       let bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
       bitToFlip = flipBit(bitToFlip, new BigNumber("1"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000001",
+        ReplayProtectionType.BITFLIP,
         admin,
         bitmapIndex,
         bitToFlip.toNumber()
@@ -696,11 +663,9 @@ describe("ReplayProtection", () => {
 
       await expect(
         replayProtection.verifyPublic(
-          callData,
           encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
-          admin.address,
-          signedCall
+          ReplayProtectionType.BITFLIP,
+          admin.address
         )
       ).to.be.revertedWith("Only a single bit can be flipped");
 
@@ -732,9 +697,9 @@ describe("ReplayProtection", () => {
       let bitToFlip = flipBit(new BigNumber("0"), new BigNumber("5"));
       bitToFlip = bitToFlip.add(1);
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000001",
+        ReplayProtectionType.BITFLIP,
         admin,
         bitmapIndex,
         bitToFlip.toNumber()
@@ -742,22 +707,16 @@ describe("ReplayProtection", () => {
 
       await expect(
         replayProtection.verifyPublic(
-          callData,
           encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
-          admin.address,
-          signedCall
+          ReplayProtectionType.BITFLIP,
+          admin.address
         )
       ).to.be.revertedWith("Only a single bit can be flipped");
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
       const nonce = await replayProtection.nonceStore(index);
@@ -777,30 +736,24 @@ describe("ReplayProtection", () => {
       const bitmapIndex = 321;
       const bitToFlip = flipBit(new BigNumber("0"), new BigNumber("0"));
 
-      const { callData, encodedReplayProtection, signedCall } = await signCall(
+      const { encodedReplayProtection } = await signCall(
         replayProtection,
-        "0x0000000000000000000000000000000000000001",
+        ReplayProtectionType.BITFLIP,
         admin,
         bitmapIndex,
         bitToFlip.toNumber()
       );
 
       await replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        "0x0000000000000000000000000000000000000001",
-        admin.address,
-        signedCall
+        ReplayProtectionType.BITFLIP,
+        admin.address
       );
 
       const index = keccak256(
         defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [
-            admin.address,
-            bitmapIndex,
-            "0x0000000000000000000000000000000000000001",
-          ]
+          ["address", "uint", "uint"],
+          [admin.address, bitmapIndex, ReplayProtectionType.BITFLIP]
         )
       );
       const nonce = await replayProtection.nonceStore(index);
@@ -809,11 +762,9 @@ describe("ReplayProtection", () => {
 
       await expect(
         replayProtection.verifyPublic(
-          callData,
           encodedReplayProtection,
-          "0x0000000000000000000000000000000000000001",
-          admin.address,
-          signedCall
+          ReplayProtectionType.BITFLIP,
+          admin.address
         )
       ).to.be.revertedWith("Bitflip replay protection failed");
     }
@@ -827,26 +778,18 @@ describe("ReplayProtection", () => {
         createReplayProtection
       );
 
-      const {
-        callData,
-        encodedReplayProtection,
-        signedCall,
-        txid,
-      } = await signCall(replayProtection, AddressZero, admin, 0, 0);
-
-      const index = keccak256(
-        defaultAbiCoder.encode(
-          ["address", "uint", "address"],
-          [admin.address, 0, AddressZero]
-        )
+      const { encodedReplayProtection } = await signCall(
+        replayProtection,
+        ReplayProtectionType.MULTINONCE,
+        admin,
+        0,
+        0
       );
 
       const tx = replayProtection.verifyPublic(
-        callData,
         encodedReplayProtection,
-        AddressZero,
-        admin.address,
-        signedCall
+        ReplayProtectionType.MULTINONCE,
+        admin.address
       );
 
       await expect(tx)
@@ -854,7 +797,12 @@ describe("ReplayProtection", () => {
           replayProtection,
           replayProtection.interface.events.ReplayProtectionInfo.name
         )
-        .withArgs(AddressZero, encodedReplayProtection, txid);
+        .withArgs(
+          ReplayProtectionType.MULTINONCE,
+          encodedReplayProtection,
+          admin.address,
+          keccak256(defaultAbiCoder.encode(["string"], ["any.sender"]))
+        );
     }
   );
 });

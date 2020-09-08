@@ -118,8 +118,8 @@ describe("Proxy Account Forwarder", () => {
     expect(metaTx.to).to.eq(proxyForwarder.address, "Proxy account address");
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(forwardParams._replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
+    expect(forwardParams._replayProtectionType).to.eq(
+      ReplayProtectionType.MULTINONCE,
       "Multinonce replay protection"
     );
     expect(forwardParams._metaTx.to).to.eq(
@@ -218,8 +218,8 @@ describe("Proxy Account Forwarder", () => {
     expect(metaTx.to).to.eq(proxyForwarder.address, "Proxy account address");
     expect(decodedReplayProtection[0].gt(new BigNumber("0"))).to.be.true;
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
-    expect(forwardParams._replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000001",
+    expect(forwardParams._replayProtectionType).to.eq(
+      ReplayProtectionType.BITFLIP,
       "Bitflip replay protection"
     );
     expect(forwardParams._metaTx.to).to.eq(
@@ -269,8 +269,8 @@ describe("Proxy Account Forwarder", () => {
         );
         expect(decodedReplayProtection[0]).to.eq(bitflip.index);
         expect(decodedReplayProtection[1]).to.eq(new BigNumber(2).pow(i));
-        expect(forwardParams._replayProtectionAuthority).to.eq(
-          "0x0000000000000000000000000000000000000001",
+        expect(forwardParams._replayProtectionType).to.eq(
+          ReplayProtectionType.BITFLIP,
           "Bitflip replay protection"
         );
 
@@ -401,8 +401,8 @@ describe("Proxy Account Forwarder", () => {
     expect(deploymentParams._metaTx.data).to.eq(data);
     expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"));
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-    expect(deploymentParams._replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000000",
+    expect(deploymentParams._replayProtectionType).to.eq(
+      ReplayProtectionType.MULTINONCE,
       "Nonce replay protection"
     );
 
@@ -416,7 +416,7 @@ describe("Proxy Account Forwarder", () => {
         callType: deploymentParams._metaTx.callType,
       },
       deploymentParams._replayProtection,
-      deploymentParams._replayProtectionAuthority,
+      deploymentParams._replayProtectionType,
       deploymentParams._signature
     );
 
@@ -487,7 +487,7 @@ describe("Proxy Account Forwarder", () => {
         callType: deploymentParams._metaTx.callType,
       },
       deploymentParams._replayProtection,
-      deploymentParams._replayProtectionAuthority,
+      deploymentParams._replayProtectionType,
       deploymentParams._signature
     );
 
@@ -540,7 +540,7 @@ describe("Proxy Account Forwarder", () => {
         callType: deploymentParams._metaTx.callType,
       },
       deploymentParams._replayProtection,
-      deploymentParams._replayProtectionAuthority,
+      deploymentParams._replayProtectionType,
       deploymentParams._signature
     );
 
@@ -574,7 +574,7 @@ describe("Proxy Account Forwarder", () => {
         callType: deploymentParams2._metaTx.callType,
       },
       deploymentParams2._replayProtection,
-      deploymentParams2._replayProtectionAuthority,
+      deploymentParams2._replayProtectionType,
       deploymentParams2._signature,
       { gasLimit: 3000000 }
     );

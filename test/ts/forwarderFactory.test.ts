@@ -21,7 +21,6 @@ import {
   ReplayProtectionType,
   ForwarderFactory,
 } from "../../src/ts/forwarders/forwarderFactory";
-import { AddressZero } from "ethers/constants";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -85,8 +84,8 @@ describe("Forwarder Factory", () => {
       expect(metaTx.to).to.eq(relayHub.address, "RelayHub address");
       expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
       expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
-      expect(forwardParams._replayProtectionAuthority).to.eq(
-        "0x0000000000000000000000000000000000000000",
+      expect(forwardParams._replayProtectionType).to.eq(
+        ReplayProtectionType.MULTINONCE,
         "Multinonce replay protection"
       );
       expect(forwardParams._metaTx.to).to.eq(
@@ -122,8 +121,8 @@ describe("Forwarder Factory", () => {
       expect(metaTx.to).to.eq(relayHub.address, "RelayHub address");
       expect(decodedReplayProtection[0], "Nonce1").to.eq(new BigNumber(i));
       expect(decodedReplayProtection[1], "Nonce2").to.eq(new BigNumber("0"));
-      expect(forwardParams._replayProtectionAuthority).to.eq(
-        "0x0000000000000000000000000000000000000000",
+      expect(forwardParams._replayProtectionType).to.eq(
+        ReplayProtectionType.MULTINONCE,
         "Multinonce replay protection"
       );
       expect(forwardParams._metaTx.to).to.eq(
@@ -158,9 +157,9 @@ describe("Forwarder Factory", () => {
     expect(metaTx.to).to.eq(relayHub.address, "RelayHub address");
     expect(decodedReplayProtection[0]).to.eq(bitflip.index, "Nonce1");
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
-    expect(forwardParams._replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000001",
-      "Multinonce replay protection"
+    expect(forwardParams._replayProtectionType).to.eq(
+      ReplayProtectionType.BITFLIP,
+      "Bitflip replay protection"
     );
     expect(forwardParams._metaTx.to).to.eq(
       msgSenderExample.address,
@@ -197,8 +196,8 @@ describe("Forwarder Factory", () => {
       expect(metaTx.to).to.eq(proxyForwarder.address, "RelayHub address");
       expect(decodedReplayProtection[0]).to.eq(new BigNumber("0"), "Nonce1");
       expect(decodedReplayProtection[1]).to.eq(new BigNumber(i), "Nonce2");
-      expect(forwardParams._replayProtectionAuthority).to.eq(
-        "0x0000000000000000000000000000000000000000",
+      expect(forwardParams._replayProtectionType).to.eq(
+        ReplayProtectionType.MULTINONCE,
         "Multinonce replay protection"
       );
       expect(forwardParams._metaTx.to).to.eq(
@@ -238,8 +237,8 @@ describe("Forwarder Factory", () => {
       expect(metaTx.to).to.eq(proxyForwarder.address, "RelayHub address");
       expect(decodedReplayProtection[0]).to.eq(new BigNumber(i), "Nonce1");
       expect(decodedReplayProtection[1]).to.eq(new BigNumber("0"), "Nonce2");
-      expect(forwardParams._replayProtectionAuthority).to.eq(
-        "0x0000000000000000000000000000000000000000",
+      expect(forwardParams._replayProtectionType).to.eq(
+        ReplayProtectionType.MULTINONCE,
         "Multinonce replay protection"
       );
       expect(forwardParams._metaTx.to).to.eq(
@@ -278,9 +277,9 @@ describe("Forwarder Factory", () => {
     expect(metaTx.to).to.eq(proxyForwarder.address, "RelayHub address");
     // we dont test the bitflip here - but we shouldnt need to for this unit test
     expect(decodedReplayProtection[1]).to.eq(new BigNumber("1"), "Nonce2");
-    expect(forwardParams._replayProtectionAuthority).to.eq(
-      "0x0000000000000000000000000000000000000001",
-      "Multinonce replay protection"
+    expect(forwardParams._replayProtectionType).to.eq(
+      ReplayProtectionType.BITFLIP,
+      "Bitflip replay protection"
     );
     expect(forwardParams._metaTx.to).to.eq(
       msgSenderExample.address,

@@ -20,10 +20,8 @@ import {
   ChainID,
   ReplayProtectionType,
 } from "../../src/ts/forwarders/forwarderFactory";
-import { Forwarder } from "../../src/ts/forwarders/forwarder";
 import { RelayHubForwarder } from "../../src/ts/forwarders/relayHubForwarder";
 import { flipBit } from "../utils/test-utils";
-import { ProxyAccountCallData } from "../../src/ts/forwarders/proxyAccountFowarder";
 
 const expect = chai.expect;
 chai.use(solidity);
@@ -64,7 +62,7 @@ const checkMetaTx = (
   nonce2: string,
   toAddress: string,
   callData: string,
-  replayProtectionAuthority: string
+  replayProtectionType: ReplayProtectionType
 ) => {
   const forwardParams = forwarder.decodeTx(metaTx.data);
 
@@ -77,10 +75,9 @@ const checkMetaTx = (
   expect(metaTx.to, "Relay hub address").to.eq(forwarder.address);
   expect(decodedReplayProtection[0], "Nonce1").to.eq(new BigNumber(nonce1));
   expect(decodedReplayProtection[1], "Nonce2").to.eq(new BigNumber(nonce2));
-  expect(
-    forwardParams._replayProtectionAuthority,
-    "Nonce replay protection"
-  ).to.eq(replayProtectionAuthority);
+  expect(forwardParams._replayProtectionType, "Nonce replay protection").to.eq(
+    replayProtectionType
+  );
   expect(forwardParams._metaTx.to, "Target contract").to.eq(toAddress);
   expect(metaTx.value, "Value").to.be.undefined;
 };
@@ -91,7 +88,7 @@ describe("RelayHub Forwarder", () => {
 
     const callData = msgSenderExample.interface.functions.willRevert.encode([]);
 
-    const replay = new MultiNonceReplayProtection(30, admin, relayHub.address)
+    const replay = new MultiNonceReplayProtection(30, admin, relayHub.address);
     const forwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       admin,
@@ -111,7 +108,7 @@ describe("RelayHub Forwarder", () => {
       "0",
       msgSenderExample.address,
       callData,
-      replay.address
+      replay.replayProtectionType
     );
   }).timeout(50000);
 
@@ -141,7 +138,7 @@ describe("RelayHub Forwarder", () => {
       bitFlipped.toString(),
       msgSenderExample.address,
       callData,
-      "0x0000000000000000000000000000000000000001"
+      ReplayProtectionType.BITFLIP
     );
   }).timeout(50000);
 
@@ -178,7 +175,7 @@ describe("RelayHub Forwarder", () => {
   it("Sign multiple meta-transactions with bitflip", async () => {
     const { msgSenderExample, relayHub, user2 } = await loadFixture(createHubs);
 
-    const bitflip = new BitFlipReplayProtection(user2, relayHub.address)
+    const bitflip = new BitFlipReplayProtection(user2, relayHub.address);
     const proxyForwarder = new RelayHubForwarder(
       ChainID.MAINNET,
       user2,
@@ -203,7 +200,7 @@ describe("RelayHub Forwarder", () => {
           bitFlipped.toString(),
           msgSenderExample.address,
           callData,
-          "0x0000000000000000000000000000000000000001"
+          ReplayProtectionType.BITFLIP
         );
       }
     }

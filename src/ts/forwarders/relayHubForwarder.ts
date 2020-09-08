@@ -1,6 +1,6 @@
 import { defaultAbiCoder } from "ethers/utils";
 import { ReplayProtectionAuthority } from "../replayProtection/replayProtectionAuthority";
-import { ChainID } from "./forwarderFactory";
+import { ChainID, ReplayProtectionType } from "./forwarderFactory";
 import { RelayHub, RelayHubFactory } from "../../typedContracts";
 import { CallType, MiniForwarder } from "./forwarder";
 import { Signer } from "ethers";
@@ -61,7 +61,7 @@ export class RelayHubForwarder extends MiniForwarder<
     const functionArgs: {
       _metaTx: Required<RelayHubCallData>;
       _replayProtection: string;
-      _replayProtectionAuthority: string;
+      _replayProtectionType: ReplayProtectionType;
       _signature: string;
     } = {
       _metaTx: {
@@ -69,7 +69,7 @@ export class RelayHubForwarder extends MiniForwarder<
         data: parsedTransaction.args[0][1],
       },
       _replayProtection: parsedTransaction.args[1],
-      _replayProtectionAuthority: parsedTransaction.args[2],
+      _replayProtectionType: parsedTransaction.args[2],
       _signature: parsedTransaction.args[3],
     };
     return functionArgs;
@@ -83,7 +83,7 @@ export class RelayHubForwarder extends MiniForwarder<
     const functionArgs: {
       _metaTxList: Required<RevertableRelayHubCallData>[];
       _replayProtection: string;
-      _replayProtectionAuthority: string;
+      _replayProtectionType: ReplayProtectionType;
       _signature: string;
     } = {
       _metaTxList: parsedTransaction.args[0].map((a: any) => ({
@@ -92,7 +92,7 @@ export class RelayHubForwarder extends MiniForwarder<
         revertOnFail: a[2],
       })),
       _replayProtection: parsedTransaction.args[1],
-      _replayProtectionAuthority: parsedTransaction.args[2],
+      _replayProtectionType: parsedTransaction.args[2],
       _signature: parsedTransaction.args[3],
     };
 
@@ -102,13 +102,13 @@ export class RelayHubForwarder extends MiniForwarder<
   protected async encodeForForward(
     data: RelayHubCallData,
     replayProtection: string,
-    replayProtectionAuthority: string,
+    replayProtectionType: ReplayProtectionType,
     signature: string
   ) {
     return this.relayHub.interface.functions.forward.encode([
       this.callDataWithDefaults(data),
       replayProtection,
-      replayProtectionAuthority,
+      replayProtectionType,
       signature,
     ]);
   }
@@ -153,7 +153,7 @@ export class RelayHubForwarder extends MiniForwarder<
   protected async encodeForBatchForward(
     batchTx: RevertableRelayHubCallData[],
     replayProtection: string,
-    replayProtectionAuthority: string,
+    replayProtectionType: ReplayProtectionType,
     signature: string
   ) {
     const metaTxList = batchTx.map((b) =>
@@ -163,7 +163,7 @@ export class RelayHubForwarder extends MiniForwarder<
     return this.relayHub.interface.functions.batch.encode([
       metaTxList,
       replayProtection,
-      replayProtectionAuthority,
+      replayProtectionType,
       signature,
     ]);
   }

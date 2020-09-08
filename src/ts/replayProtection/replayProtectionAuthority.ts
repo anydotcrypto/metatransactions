@@ -1,11 +1,13 @@
 import { BigNumber, keccak256, defaultAbiCoder } from "ethers/utils";
 import { Signer } from "ethers";
 import { ReplayProtectionFactory } from "../../typedContracts/ReplayProtectionFactory";
+import { ReplayProtectionType } from "../forwarders/forwarderFactory";
 
 export interface Nonces {
   index: BigNumber;
   latestNonce: BigNumber;
 }
+
 /**
  * Common functionality for the replay protection authorities.
  */
@@ -19,7 +21,7 @@ export abstract class ReplayProtectionAuthority {
   constructor(
     protected readonly signer: Signer,
     protected readonly forwarderAddress: string,
-    public readonly address: string
+    public readonly replayProtectionType: ReplayProtectionType
   ) {}
 
   /**
@@ -49,13 +51,19 @@ export abstract class ReplayProtectionAuthority {
       this.forwarderAddress
     );
 
+    // On-chain contract does not distinguish NONCE and MULTINONCE.
+    let type = this.replayProtectionType;
+    if (type == ReplayProtectionType.NONCE) {
+      type = ReplayProtectionType.MULTINONCE;
+    }
+
     // In the ReplayProtection.sol, we use latestNonce == storedNonce then continue.
-    // Onchain ID = H(signerAddress, index).
+    // Onchain ID = H(signerAddress, queueIndex, replayProtectionType).
     // Mostly benefits bitflip & multinonce.
     const onchainId = keccak256(
       defaultAbiCoder.encode(
-        ["address", "uint", "address"],
-        [await this.signer.getAddress(), index, this.address]
+        ["address", "uint", "uint"],
+        [await this.signer.getAddress(), index, type]
       )
     );
 
