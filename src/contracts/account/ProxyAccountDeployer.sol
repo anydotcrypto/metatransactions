@@ -45,7 +45,7 @@ contract ProxyAccount is ReplayProtection, BatchInternal {
         require(owner == signer, "Owner did not sign this meta-transaction.");
 
         // Reverts on fail
-        verify(_replayProtection, _replayProtectionType, owner, txid);
+        verifyReplayProtection(_replayProtection, _replayProtectionType, owner, txid);
 
     }
 

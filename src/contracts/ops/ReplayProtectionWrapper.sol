@@ -16,7 +16,7 @@ contract ReplayProtectionWrapper is ReplayProtection {
         ReplayProtectionType _replayProtectionType,
         address signer) public {
 
-        verify(_replayProtection, _replayProtectionType, signer, keccak256(abi.encode("any.sender")));
+        verifyReplayProtection(_replayProtection, _replayProtectionType, signer, keccak256(abi.encode("any.sender")));
     }
 
     function noncePublic(bytes memory _replayProtection, address _signer) public {

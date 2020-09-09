@@ -47,7 +47,7 @@ contract RelayHub is ReplayProtection, CallTypes, RevertMessage {
         // in the wallet contract as it has 1 owner. 
         
         // Reverts if fails.
-        verify(_replayProtection, _replayProtectionType, signer, txid);
+        verifyReplayProtection(_replayProtection, _replayProtectionType, signer, txid);
 
         return signer;
     }

@@ -12,7 +12,7 @@ contract ReplayProtection {
         BITFLIP
     }
 
-    event ReplayProtectionInfo(ReplayProtectionType replayProtectionType, bytes replayProtection, address _signer, bytes32 indexed txid);
+    event ReplayProtectionInfo(ReplayProtectionType replayProtectionType, bytes replayProtection, address signer, bytes32 indexed txid);
 
     /**
      * Get Ethereum Chain ID
@@ -31,7 +31,7 @@ contract ReplayProtection {
      * @param _replayProtection Encoded replay protection
      * @param _signer Signer's address
      */
-    function verify(
+    function verifyReplayProtection(
         bytes memory _replayProtection,
         ReplayProtectionType _replayProtectionType,
         address _signer, bytes32 _txid) internal {
