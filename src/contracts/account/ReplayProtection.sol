@@ -11,8 +11,6 @@ contract ReplayProtection {
         BITFLIP
     }
 
-    event ReplayProtectionInfo(ReplayProtectionType replayProtectionType, bytes replayProtection, address signer, bytes32 indexed txid);
-
     /**
      * Get Ethereum Chain ID
      * */
@@ -33,17 +31,14 @@ contract ReplayProtection {
     function verifyReplayProtection(
         bytes memory _replayProtection,
         ReplayProtectionType _replayProtectionType,
-        address _signer, bytes32 _txid) internal {
+        address _signer) internal {
         
-        // Check the user's replay protection.
+        // We support Nonce, MultiNonce and BitFlip. 
         if(_replayProtectionType == ReplayProtectionType.MULTINONCE) {
-            // Assumes authority returns true or false. It may also revert.
             require(nonce(_replayProtection, _signer), "Multinonce replay protection failed");
         } else {
             require(bitflip(_replayProtection, _signer), "Bitflip replay protection failed");
         }
-
-        emit ReplayProtectionInfo(_replayProtectionType, _replayProtection, _signer, _txid);
     }
 
     /**
@@ -83,7 +78,8 @@ contract ReplayProtection {
         // example: 4 = 100, 3 = 011. 4 & = 000.
         require(bitsToFlip & bitsToFlip-1 == 0, "Only a single bit can be flipped");
 
-        // Combine with msg.sender to get unique indexes per caller
+        // We have a single mapping that maintains the replay protection. 
+        // Queue index is based on the signer's address, queue number and the replay protection type. 
         bytes32 index = queueIndex(_signer, queue, ReplayProtectionType.BITFLIP);
         uint256 currentBitmap = nonceStore[index];
 

@@ -40,14 +40,13 @@ contract RelayHub is ReplayProtection, CallTypes, RevertMessage {
             
         // Extract signer's address.
         bytes memory signedData = abi.encode(_callData, _replayProtection, _replayProtectionType, address(this), getChainID());
-        bytes32 txid = keccak256(signedData);
-        address signer = ECDSA.recover(ECDSA.toEthSignedMessageHash(txid), _signature);
+        address signer = ECDSA.recover(ECDSA.toEthSignedMessageHash(keccak256(signedData)), _signature);
         
         // We do not check if signer == supplied signer. Only necessary
         // in the wallet contract as it has 1 owner. 
         
         // Reverts if fails.
-        verifyReplayProtection(_replayProtection, _replayProtectionType, signer, txid);
+        verifyReplayProtection(_replayProtection, _replayProtectionType, signer);
 
         return signer;
     }

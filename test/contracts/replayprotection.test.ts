@@ -769,40 +769,4 @@ describe("ReplayProtection", () => {
       ).to.be.revertedWith("Bitflip replay protection failed");
     }
   );
-
-  fnIt<replayProtection>(
-    (a) => a.verifyPublic,
-    "catch the ReplayProtectionInfo event",
-    async () => {
-      const { replayProtection, admin } = await loadFixture(
-        createReplayProtection
-      );
-
-      const { encodedReplayProtection } = await signCall(
-        replayProtection,
-        ReplayProtectionType.MULTINONCE,
-        admin,
-        0,
-        0
-      );
-
-      const tx = replayProtection.verifyPublic(
-        encodedReplayProtection,
-        ReplayProtectionType.MULTINONCE,
-        admin.address
-      );
-
-      await expect(tx)
-        .to.emit(
-          replayProtection,
-          replayProtection.interface.events.ReplayProtectionInfo.name
-        )
-        .withArgs(
-          ReplayProtectionType.MULTINONCE,
-          encodedReplayProtection,
-          admin.address,
-          keccak256(defaultAbiCoder.encode(["string"], ["any.sender"]))
-        );
-    }
-  );
 });
