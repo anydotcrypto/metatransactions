@@ -479,7 +479,7 @@ describe("RelayHub Contract", () => {
 
       await expect(tx)
         .to.emit(msgSenderCon, msgSenderCon.interface.events.WhoIsSender.name)
-        .withArgs("0x01c47A14288B3D0Db542Ce99017218b950F793Dd");
+        .withArgs("0x36F8D77279E0b7093b86CAE7530ea6bf2053A382");
     }
   );
 

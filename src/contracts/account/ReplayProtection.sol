@@ -2,7 +2,6 @@ pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-import "./IReplayProtectionAuthority.sol";
 
 contract ReplayProtection {
     mapping(bytes32 => uint256) public nonceStore;
