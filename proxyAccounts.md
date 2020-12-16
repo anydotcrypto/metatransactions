@@ -19,9 +19,11 @@ import { ChainID, ReplayProtectionType } from "@anydotcrypto/metatransactions";
 Our library currently supports MAINNET or ROPSTEN.
 
 ```
-// Blockchain ID (Mainnet = 3)
+// Blockchain ID (Mainnet = 1)
 ChainID.MAINNET;
 ChainID.ROPSTEN;
+ChainID.RINKEBY;
+ChainID.KOVAN;
 ```
 
 Our library has three types of replay protection (and more in-depth information can be [found here](https://github.com/PISAresearch/metamask-comp)):

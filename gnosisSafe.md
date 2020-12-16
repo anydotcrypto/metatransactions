@@ -19,9 +19,11 @@ import { ChainID } from "@anydotcrypto/metatransactions";
 Our library currently supports MAINNET or ROPSTEN.
 
 ```
-// Blockchain ID (Mainnet = 3)
+// Blockchain ID (Mainnet = 1)
 ChainID.MAINNET;
 ChainID.ROPSTEN;
+ChainID.RINKEBY;
+ChainID.KOVAN;
 ```
 
 The Gnosis Safe library only supports NONCE replay protection. Check out our [wallet contracts](proxyAccounts) for more exotic replay protection.
