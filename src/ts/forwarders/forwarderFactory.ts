@@ -11,6 +11,8 @@ export enum ReplayProtectionType {
 export enum ChainID {
   MAINNET = 1,
   ROPSTEN = 3,
+  RINKEBY = 4,
+  KOVAN = 42,
 }
 
 export enum ForwarderType {
